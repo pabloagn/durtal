@@ -1,5 +1,6 @@
 "use server";
 
+import { createOnce } from "@/lib/actions/utils/create-once";
 import { PERSON_CREDITS, bookPersonCondition } from "@/lib/catalogue/person-boundary";
 import { resultRows } from "@/lib/publishers/resolution";
 import type { WorkKind } from "@/lib/catalogue/kinds";
@@ -624,7 +625,8 @@ export async function getCountries() {
   });
 }
 
-export async function createAuthor(input: CreateAuthorInput) {
+/** Adds a person; `options.id` is Add person's own, so a resend or a second press after a lost answer adds them once (SLN-1276) */
+export async function createAuthor(input: CreateAuthorInput, options: { id?: string } = {}) {
   const parsed = createAuthorSchema.parse(input);
 
   // Auto-generate sortName if not provided (Last, First)
@@ -644,17 +646,24 @@ export async function createAuthor(input: CreateAuthorInput) {
       : null;
 
   // The slug is decided first: the author and its slug are one statement
-  const slug = await uniqueSlug(authors, generateAuthorSlug(parsed.name));
-  const [author] = await withReadableErrors(
-    () =>
-      db
-        .insert(authors)
-        .values({ ...parsed, bio: cleanBioForStorage(parsed.bio), sortName, zodiacSign, slug })
-        .returning(),
-    { unique: SLUG_RACE_MESSAGE },
+  const { row: author, created } = await createOnce(
+    options.id,
+    async (id) => (await db.select().from(authors).where(eq(authors.id, id)))[0],
+    async (id) => {
+      const slug = await uniqueSlug(authors, generateAuthorSlug(parsed.name));
+      const [row] = await withReadableErrors(
+        () =>
+          db
+            .insert(authors)
+            .values({ ...(id ? { id } : {}), ...parsed, bio: cleanBioForStorage(parsed.bio), sortName, zodiacSign, slug })
+            .returning(),
+        { unique: SLUG_RACE_MESSAGE },
+      );
+      return row;
+    },
   );
 
-  recordActivity("author", author.id, "author.created", { newValue: parsed.name });
+  if (created) recordActivity("author", author.id, "author.created", { newValue: parsed.name });
   return author;
 }
 

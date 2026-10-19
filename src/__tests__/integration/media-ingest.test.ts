@@ -150,11 +150,39 @@ describe.skipIf(!url)("one ingest path for every image owner", () => {
 
   it("activates a new poster in the same write that records it", async () => {
     const first = await ingestMedia({ owner: { type: "work", id: bookId }, mediaType: "poster", buffer: await picture(600, 900) });
-    const second = await ingestMedia({ owner: { type: "work", id: bookId }, mediaType: "poster", buffer: await picture(600, 900) });
+    const second = await ingestMedia({ owner: { type: "work", id: bookId }, mediaType: "poster", buffer: await picture(600, 901) });
     const rows = await c`select id,is_active from media where work_id=${bookId} order by created_at`;
     expect(rows.map((r) => [r.id, r.is_active])).toEqual([[first.id, false], [second.id, true]]);
     await ingestMedia({ owner: { type: "work", id: bookId }, mediaType: "gallery", buffer: await picture(600, 600) });
     expect(await c`select 1 from media where work_id=${bookId} and type='poster' and is_active`).toHaveLength(1);
+  });
+
+  it("keeps one image per picture per record: a retry, the same file again or two at once (SLN-1276)", async () => {
+    const owner = { type: "work" as const, id: bookId };
+    const shot = await picture(600, 900);
+    const first = await ingestMedia({ owner, mediaType: "gallery", buffer: shot });
+    const again = await ingestMedia({ owner, mediaType: "gallery", buffer: shot });
+    expect(again).toEqual(first);
+    const [x, y] = await Promise.all([
+      ingestMedia({ owner, mediaType: "gallery", buffer: await picture(700, 900) }),
+      ingestMedia({ owner, mediaType: "gallery", buffer: await picture(700, 900) }),
+    ]);
+    expect(x.id).toBe(y.id);
+    expect(await c`select 1 from media where work_id=${bookId} and type='gallery'`).toHaveLength(2);
+    // Only the kept rows' files remain
+    const kept = await c`select s3_key, thumbnail_s3_key from media where work_id=${bookId}`;
+    expect(keysUnder(`gold/media/work/${bookId}/`)).toEqual(kept.flatMap((r) => [r.s3_key, r.thumbnail_s3_key]).sort());
+    // The same picture on another record, or as another type, is its own image
+    const poster = await ingestMedia({ owner, mediaType: "poster", buffer: shot });
+    expect(poster.id).not.toBe(first.id);
+    const elsewhere = await ingestMedia({ owner: { type: "work", id: painting.id }, mediaType: "gallery", buffer: shot });
+    expect(elsewhere.id).not.toBe(first.id);
+    // A poster uploaded again becomes the active one, as a new upload does
+    const other = await ingestMedia({ owner, mediaType: "poster", buffer: await picture(600, 901) });
+    expect(other.isActive).toBe(true);
+    const back = await ingestMedia({ owner, mediaType: "poster", buffer: shot });
+    expect(back).toMatchObject({ id: poster.id, isActive: true });
+    expect((await c`select id from media where work_id=${bookId} and type='poster' and is_active`).map((r) => r.id)).toEqual([poster.id]);
   });
 
   it("refuses an unsupported type or a missing owner before storing anything", async () => {

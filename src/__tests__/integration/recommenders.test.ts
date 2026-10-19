@@ -111,16 +111,18 @@ describe.skipIf(!url)("recommenders with PostgreSQL", () => {
     ]);
   });
 
-  it("rejects names that differ only by case or accents, with a message", async () => {
-    await created({ name: "Café Crème" });
+  it("rejects names that differ only by case or accents, with a message and the one to open", async () => {
+    const cafe = await created({ name: "Café Crème" });
     expect(await createRecommender({ name: "cafe creme" })).toEqual({
       ok: false,
       error: '"Café Crème" already exists',
+      existingId: cafe.id,
     });
     const other = await created({ name: "Claude" });
     expect(await updateRecommender(other.id, { name: "CAFÉ CRÈME" })).toEqual({
       ok: false,
       error: '"Café Crème" already exists',
+      existingId: cafe.id,
     });
     // Renaming to the same name (only case) is allowed for itself.
     expect(
@@ -134,6 +136,29 @@ describe.skipIf(!url)("recommenders with PostgreSQL", () => {
       await createRecommender({ name: "X", url: "javascript:alert(1)" }),
     ).toMatchObject({ ok: false });
     expect(await getRecommenders()).toHaveLength(2);
+  });
+
+  it("adds a recommender once for a repeated id, a resend at the same time included (SLN-1276)", async () => {
+    const id = "4d0c2a3f-6e8b-4c9d-8f1a-2b3c4d5e6f01";
+    const first = await createRecommender({ name: "Life on Books" }, id);
+    expect(first).toMatchObject({ ok: true, recommender: { id, name: "Life on Books" } });
+    // The second press after a lost answer: added, not "already exists"
+    expect(await createRecommender({ name: "Life on Books" }, id)).toEqual(first);
+    const raced = "4d0c2a3f-6e8b-4c9d-8f1a-2b3c4d5e6f02";
+    const [x, y] = await Promise.all([createRecommender({ name: "Bookish" }, raced), createRecommender({ name: "Bookish" }, raced)]);
+    expect(x).toEqual(y);
+    expect(x.ok).toBe(true);
+    expect((await getRecommenders()).map((r) => r.name).sort()).toEqual(["Bookish", "Life on Books"]);
+  });
+
+  it("never reports its own save as \"already exists\" when resends race, over many tries (SLN-1276)", async () => {
+    // One pair rarely hits the window between the id check and the name check
+    for (let n = 0; n < 20; n++) {
+      const id = crypto.randomUUID();
+      const results = await Promise.all([1, 2, 3].map(() => createRecommender({ name: `Race ${n}` }, id)));
+      for (const result of results) expect(result).toMatchObject({ ok: true, recommender: { id, name: `Race ${n}` } });
+    }
+    expect((await getRecommenders()).filter((r) => r.name.startsWith("Race "))).toHaveLength(20);
   });
 
   it("deletes a recommender and its links, keeping the books", async () => {

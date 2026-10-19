@@ -20,6 +20,7 @@ import { DialogFooter } from "./fields";
 import { readNumber } from "./start-reading-dialog";
 import { countLabel } from "@/lib/utils/format";
 import { createReadingNote, updateReadingNote } from "@/lib/actions/catalogue-client";
+import { createId } from "@/lib/utils/create-id";
 
 // The editor loads only once the dialog shows a quote
 const loadEditor = () => import("@/components/shared/tiptap-editor").then((m) => m.TiptapEditor);
@@ -58,6 +59,8 @@ export function NoteDialog({ data, request, home, onClose, changed, open }: Read
   const pageHintId = useId();
   const openRow = data.rows.find((r) => r.reading.status === "reading" || r.reading.status === "paused") ?? null;
   const [kind, setKind] = useState<NoteKind>(editing?.kind ?? request.noteKind ?? "quote");
+  // Sent with every press, so a resend after a lost answer saves this note once (SLN-1276)
+  const [noteId] = useState(createId);
   // The footer sits outside the form, under the dialog's scrolling body
   const formId = useId();
   const [body, setBody] = useState(editing?.body ?? "");
@@ -169,6 +172,7 @@ export function NoteDialog({ data, request, home, onClose, changed, open }: Read
         toast.success("Saved");
       } else {
         await createReadingNote({
+          id: noteId,
           workId: data.workId,
           kind,
           body,

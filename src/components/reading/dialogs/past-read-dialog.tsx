@@ -16,6 +16,7 @@ import { readingDateError, readingDateLimit } from "@/lib/reading/dates";
 import type { ReadingDialogProps } from "../reading-provider";
 import { DialogFooter, ReadingDateField, type ReadingDate } from "./fields";
 import { finishDateError } from "./finish-reading-dialog";
+import { createId } from "@/lib/utils/create-id";
 
 const OUTCOMES = [
   { value: "finished", label: "Finished" },
@@ -40,6 +41,8 @@ export function beforeWritten(workYear: number | null | undefined, ...dates: Rea
 
 /** A read from the past, at any date precision: "2009", "Apr 2019" */
 export function PastReadDialog({ data, onClose, changed }: ReadingDialogProps) {
+  // Sent with every press, so a resend after a lost answer saves this read once (SLN-1276)
+  const [readId] = useState(createId);
   const [status, setStatus] = useState<"finished" | "abandoned">("finished");
   // The footer sits outside the form, under the dialog's scrolling body
   const formId = useId();
@@ -79,6 +82,7 @@ export function PastReadDialog({ data, onClose, changed }: ReadingDialogProps) {
     setSaving(true);
     try {
       const result = await addPastReading({
+        id: readId,
         workId: data.workId,
         editionId: editionId || null,
         instanceId: instanceId || null,

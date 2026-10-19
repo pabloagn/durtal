@@ -98,6 +98,30 @@ describe.skipIf(!url)("quotes and notes with PostgreSQL", () => {
     ]);
   const fp = async (id: string) => (await loadReading(id))!.fingerprint;
 
+  describe("a dialog's id (SLN-1276)", () => {
+    it("saves a quote once for a repeated id, a resend at the same time included, and returns the stored one", async () => {
+      const w = await book("Resent");
+      const id = "6f1f6c1e-2b7a-4c55-9d1e-0c6b2d4a9e01";
+      const sent = { id, workId: w, kind: "quote" as const, body: "Words once", page: 12 };
+      const first = await createReadingNote(sent);
+      expect(first).toMatchObject({ id, body: "Words once", page: 12 });
+      await activitySettled();
+      const again = await createReadingNote({ ...sent, body: "Words twice" });
+      expect(again).toEqual(first);
+      const [x, y] = await Promise.all([
+        createReadingNote({ ...sent, id: "6f1f6c1e-2b7a-4c55-9d1e-0c6b2d4a9e02", body: "Raced" }),
+        createReadingNote({ ...sent, id: "6f1f6c1e-2b7a-4c55-9d1e-0c6b2d4a9e02", body: "Raced" }),
+      ]);
+      expect(x.id).toBe(y.id);
+      expect(await value(`select count(*)::int from reading_notes where work_id = $1`, [w])).toBe(2);
+      // The day's "Added 2 quotes" counts each quote once
+      await activitySettled();
+      expect(await value(`select (metadata->'extra'->>'quotes')::int from activity_events where entity_id = $1 and event_key = 'work.notes_added'`, [w])).toBe(2);
+      // An id saved on another book is refused
+      await expect(createReadingNote({ ...sent, workId: await book("Elsewhere") })).rejects.toThrow("This note was saved on another book");
+    });
+  });
+
   describe("books only, and the guard", () => {
     it("refuses a film, a perfume and a painting, by the action and by the trigger", async () => {
       for (const kind of ["film", "perfume", "painting"]) {

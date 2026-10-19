@@ -14,6 +14,7 @@ import {
 } from "@/components/authors/author-form";
 import { getCountries } from "@/lib/actions/authors";
 import { createAuthor } from "@/lib/actions/catalogue-client";
+import { createId } from "@/lib/utils/create-id";
 import { refusalMessage } from "@/lib/actions/refusal";
 import { shortcutProps } from "@/lib/shortcuts/shortcuts";
 
@@ -41,6 +42,14 @@ export function AuthorCreateDialog({
     { value: string; label: string }[]
   >([]);
   const [values, setValues] = useState(EMPTY_AUTHOR_FORM);
+  // Each opening's own id, sent with every press: a resend or a second press
+  // after a lost answer adds the person once (SLN-1276)
+  const [saveId, setSaveId] = useState(createId);
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) setSaveId(createId());
+  }
 
   useEffect(() => {
     if (open && !countriesLoaded) {
@@ -72,7 +81,7 @@ export function AuthorCreateDialog({
 
     startTransition(async () => {
       try {
-        const author = await createAuthor(authorPayload(values));
+        const author = await createAuthor(authorPayload(values), { id: saveId });
         toast.success(`"${author.name}" added`, {
           action: author.slug
             ? {
