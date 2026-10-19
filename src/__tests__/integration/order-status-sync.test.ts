@@ -183,7 +183,7 @@ describe.skipIf(!url)("order status sync with PostgreSQL (SLN-280)", () => {
     await db.insert(schema.acquisitionTargets).values({ workId: id });
     await updateOrderStatus(o.id, "delivered");
     const refusal =
-      '"Against Nature" has an order marked Delivered (from Shakespeare and Company, 25 September 2026), which is its acquisition record. Mark the order Returned before deleting the book.';
+      `"Against Nature" has an order marked Delivered (from Shakespeare and Company, 25 September 2026), which is its acquisition record. Record the order's return under Orders on the book's page before deleting the book.`;
 
     expect(await getWorkDeleteSummary([id])).toMatchObject({ orders: 1, targets: 1, editions: 0, copies: 0, refusal });
     // The reason reaches the screen as data, not as the generic production error

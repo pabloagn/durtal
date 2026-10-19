@@ -137,5 +137,5 @@ export function keptOrderRefusal({
   date: string | null;
 }): string {
   const about = [venue ? `from ${venue}` : null, date].filter(Boolean).join(", ");
-  return `"${title}" has an order marked ${status}${about ? ` (${about})` : ""}, which is its acquisition record. Mark the order Returned before deleting the book.`;
+  return `"${title}" has an order marked ${status}${about ? ` (${about})` : ""}, which is its acquisition record. Record the order's return under Orders on the book's page before deleting the book.`;
 }

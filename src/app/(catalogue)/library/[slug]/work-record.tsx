@@ -7,7 +7,8 @@ import type { readingRecord } from "@/lib/reading/labels";
 import { WorkDetails } from "./work-metadata-grid";
 import { WorkTaxonomySection } from "./work-taxonomy-section";
 import { metadataSourceLabel } from "@/lib/utils/labels";
-import { acquisitionMethodLabel, orderStatusLabel } from "@/lib/constants/orders";
+import { acquisitionMethodLabel, BOOK_IN_HAND_STATUSES, orderStatusLabel, type OrderStatus } from "@/lib/constants/orders";
+import { OrderReturnButton } from "./order-return-button";
 
 type Order = Awaited<ReturnType<typeof getOrdersForWork>>[number];
 
@@ -93,25 +94,34 @@ export function WorkRecord({
           }
         >
           <ul className="space-y-3">
-            {orders.map((order) => (
-              <li key={order.id}>
-                <div className="flex items-baseline justify-between gap-3">
-                  <Badge variant={ORDER_STATUS_VARIANT[order.status] ?? "muted"}>
-                    {orderStatusLabel(order.status)}
-                  </Badge>
-                  <span className="shrink-0 font-mono text-micro text-fg-secondary">
-                    {new Date(order.orderDate).toLocaleDateString("en-US", {
-                      year: "numeric",
-                      month: "short",
-                      day: "numeric",
-                    })}
-                  </span>
-                </div>
-                <p className="mt-1 lines-1 text-xs text-fg-secondary">
-                  {order.venue?.name ?? acquisitionMethodLabel(order.acquisitionMethod)}
-                </p>
-              </li>
-            ))}
+            {orders.map((order) => {
+              const date = new Date(order.orderDate).toLocaleDateString("en-US", {
+                year: "numeric",
+                month: "short",
+                day: "numeric",
+              });
+              const source = order.venue?.name ?? acquisitionMethodLabel(order.acquisitionMethod);
+              return (
+                <li key={order.id}>
+                  <div className="flex items-baseline justify-between gap-3">
+                    <Badge variant={ORDER_STATUS_VARIANT[order.status] ?? "muted"}>
+                      {orderStatusLabel(order.status)}
+                    </Badge>
+                    <span className="shrink-0 font-mono text-micro text-fg-secondary">{date}</span>
+                  </div>
+                  <div className="mt-1 flex items-baseline justify-between gap-3">
+                    <p className="lines-1 min-w-0 text-xs text-fg-secondary">{source}</p>
+                    {/* In hand, the order has left the pipeline; Returned lets the book be deleted (SLN-1507) */}
+                    {BOOK_IN_HAND_STATUSES.includes(order.status as OrderStatus) && (
+                      <OrderReturnButton
+                        orderId={order.id}
+                        order={`${orderStatusLabel(order.status)} order, ${source}, ${date}`}
+                      />
+                    )}
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         </RecordGroup>
       )}
