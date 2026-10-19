@@ -11,7 +11,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { FadeImage } from "@/components/shared/fade-image";
 import { ArrowLeft } from "lucide-react";
-import { getAuthorBySlug, getPersonWorkCredits } from "@/lib/actions/authors";
+import { getAuthorBySlug, getPersonBookCards, getPersonBooks, getPersonWorkCredits } from "@/lib/actions/authors";
 import { getPersonNoteCounts } from "@/lib/actions/reading-notes";
 import { notesHref } from "@/lib/reading/notes-params";
 import { notesCountText } from "@/lib/reading/notes-text";
@@ -72,24 +72,29 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function AuthorDetailPage({ params, searchParams }: PageProps) {
   const { slug } = await params;
-  const author = await loadAuthor(slug);
+  // The person and their books at once (SLN-1078)
+  const [author, works, query] = await Promise.all([loadAuthor(slug), getPersonBooks(slug), searchParams]);
 
   if (!author) notFound();
 
-  const works = author.workAuthors.map((wa) => ({
-    ...wa.work,
-    role: wa.role,
-  }));
+  // Reading (SLN-449): "Read 7 of 12", the Reading record, and All / Unread / Reading / Read
+  const record = readingRecordOf(works);
+  const readingTab = authorReadingTabOf(query.reading);
+  const paging = paginateItems(
+    works.filter((w) => inReadingTab(readingTab, w.readingState)),
+    query,
+  );
 
   // Everything that needs only the person, at once: the gallery (rendered at
-  // the foot) and the books' e-book availability beside the credits
+  // the foot), and this page's book cards with which books have an e-book
   preloadGallery("author", author.id);
   // Every collection's credits: the summary in the record, and a section for
   // each collection other than books (books keep their cards below)
-  const [credits, noteCounts, ebookSuggestions, digital] = await Promise.all([
+  const [credits, noteCounts, ebookSuggestions, bookCards, digital] = await Promise.all([
     getPersonWorkCredits(author.id),
     getPersonNoteCounts(author.id),
     getAuthorEbookSuggestionCount(author.id),
+    getPersonBookCards(paging.items.map((work) => work.id)),
     catalogueAvailability(works.map((work) => work.id)),
   ]);
   const byKind = new Map<WorkKind, typeof credits>();
@@ -128,15 +133,6 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
     label: WORK_DOMAINS[kind].pluralLabel,
     cards: otherCards[kind]!,
   }));
-
-  // Reading (SLN-449): "Read 7 of 12", the Reading record, and All / Unread / Reading / Read
-  const query = await searchParams;
-  const record = readingRecordOf(works);
-  const readingTab = authorReadingTabOf(query.reading);
-  const paging = paginateItems(
-    works.filter((w) => inReadingTab(readingTab, w.readingState)),
-    query,
-  );
 
   const digitalCount = [...digital.values()].filter((value) => value.read).length;
   const readerReturnTo = pageHref(`/people/${slug}`, query, paging.page);
@@ -379,10 +375,9 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
                 <PaginatedSection {...paging} noun="books">
                 {/* Two cards a row on a phone, as every other cover grid */}
                 <PhonePairGrid>
-                  {paging.items.map((work) => {
-                    const workActivePoster = work.media?.find(
-                      (m) => m.type === "poster" && m.isActive,
-                    );
+                  {bookCards.map((work) => {
+                    // The active poster, else the first edition's cover, as in the library
+                    const workActivePoster = work.media[0];
                     const coverKey =
                       workActivePoster?.thumbnailS3Key ??
                       workActivePoster?.s3Key ??
@@ -391,8 +386,7 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
                       ? mediaUrl(coverKey)
                       : null;
 
-                    const instanceCount =
-                      work.editions[0]?.instances?.length ?? 0;
+                    const instanceCount = work.editions[0]?.instances.length ?? 0;
 
                     const authorName =
                       work.workAuthors[0]?.author?.name ?? author.name;
