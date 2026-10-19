@@ -32,7 +32,7 @@ import {
   collectionUpdateSchema,
 } from "@/lib/validations/collections";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
-import { collectionCounts } from "@/lib/collections/counts";
+import { collectionCountLine, collectionCounts, type MemberTally } from "@/lib/collections/counts";
 import { byAddRecency } from "@/lib/collections/recency";
 import { resultRows } from "@/lib/harmonization/store";
 import { icons } from "lucide-react";
@@ -51,18 +51,42 @@ const activeArtwork = {
   orderBy: [asc(media.type), asc(media.sortOrder)],
 };
 
-/** Enough of each member to count it as the page shows it (collectionCounts) */
-const memberSummary = {
-  collectionEditions: {
-    columns: { editionId: true },
-    with: { edition: { columns: { workId: true } } },
-  },
-  // Each whole work's kind, for the count line ("3 books · 1 perfume")
-  collectionWorks: { columns: { workId: true }, with: { work: { columns: { kind: true } } } },
-  media: activeArtwork,
-} as const;
+/**
+ * What a collection holds, counted in the database rather than by loading
+ * every member row (SLN-1058): one row of counts, as `memberTally` reads it.
+ * A book with an edition there counts through its editions, never twice.
+ * The outer row is named in full: drizzle writes a lone table's columns bare,
+ * and a bare "id" in the subqueries would be the members' own.
+ */
+function collectionTallySql() {
+  const id = sql.raw(`"collections"."id"`);
+  return sql<MemberTally | string>`(select json_build_object(
+      'editions', ed.editions, 'byEdition', ed.works, 'books', wh.books,
+      'films', wh.films, 'perfumes', wh.perfumes, 'paintings', wh.paintings)
+    from (select count(*)::int as editions, count(distinct e.work_id)::int as works
+          from collection_editions ce join editions e on e.id = ce.edition_id
+          where ce.collection_id = ${id}) ed,
+      (select count(*) filter (where w.kind = 'book')::int as books,
+              count(*) filter (where w.kind = 'film')::int as films,
+              count(*) filter (where w.kind = 'perfume')::int as perfumes,
+              count(*) filter (where w.kind = 'painting')::int as paintings
+          from collection_works cw join works w on w.id = cw.work_id
+          where cw.collection_id = ${id} and not exists (
+            select 1 from collection_editions ce2 join editions e2 on e2.id = ce2.edition_id
+            where ce2.collection_id = ${id} and e2.work_id = cw.work_id)) wh)`;
+}
+/** The tally as the driver hands it back: parsed, or as JSON text */
+function readTally(value: MemberTally | string): MemberTally {
+  return typeof value === "string" ? JSON.parse(value) : value;
+}
+/** A collection's counts and count line from its tally, as a card shows them */
+function counted<T extends { tally: MemberTally | string }>(row: T) {
+  const tally = readTally(row.tally);
+  return { ...row, tally, ...collectionCounts({ tally }), countLine: collectionCountLine({ tally }) };
+}
 
 function rows<T>(result: unknown): T[] {
+
   return Array.isArray(result) ? result : (result as { rows: T[] }).rows;
 }
 export async function getCollections(pagination?: {
@@ -81,8 +105,9 @@ export async function getCollections(pagination?: {
     ],
     limit: pagination?.limit,
     offset: pagination?.offset,
-    with: memberSummary,
-  });
+    with: { media: activeArtwork },
+    extras: { tally: collectionTallySql().as("tally") },
+  }).then((found) => found.map(counted));
 }
 export async function getCollectionCount(query = "", favourites = false) {
   const value = query.trim().slice(0, 160);
@@ -412,15 +437,38 @@ export async function getCollectionSelection(
 ) {
   const wids = collectionIdsSchema.parse(workIds),
     eids = collectionIdsSchema.parse(editionIds);
-  const [cols, lastAdded, selected, selectedWorks] = await Promise.all([
-    getCollections(),
+  const chosenEditions = or(
+    wids.length ? inArray(editions.workId, wids) : undefined,
+    eids.length ? inArray(editions.id, eids) : undefined,
+  );
+  // The chosen works, and the books of the chosen editions: a book held whole
+  // is in the collection whichever of its editions is chosen (SLN-1058)
+  const chosenWorks = or(
+    wids.length ? inArray(collectionWorks.workId, wids) : undefined,
+    eids.length
+      ? inArray(
+          collectionWorks.workId,
+          db.select({ id: editions.workId }).from(editions).where(inArray(editions.id, eids)),
+        )
+      : undefined,
+  );
+  const none = !wids.length && !eids.length;
+  // One wave: each collection's name and counts, never its member rows, and
+  // only the memberships of what was chosen
+  const [cols, lastAdded, selected, selectedWorks, heldEditions, heldWorks] = await Promise.all([
+    db
+      .select({
+        id: collections.id,
+        name: collections.name,
+        icon: collections.icon,
+        tally: collectionTallySql(),
+      })
+      .from(collections),
     collectionAddRecency(),
-    wids.length || eids.length
-      ? db.query.editions.findMany({
-          where: or(
-            wids.length ? inArray(editions.workId, wids) : undefined,
-            eids.length ? inArray(editions.id, eids) : undefined,
-          ),
+    none
+      ? []
+      : db.query.editions.findMany({
+          where: chosenEditions,
           orderBy: [
             asc(editions.title),
             asc(editions.publicationYear),
@@ -435,17 +483,40 @@ export async function getCollectionSelection(
             language: true,
             isbn13: true,
           },
-        })
-      : [],
+        }),
     wids.length
       ? db
           .select({ id: works.id, title: works.title, kind: works.kind })
           .from(works)
           .where(and(inArray(works.id, wids), inArray(works.kind, getEnabledWorkKinds())))
       : [],
+    none
+      ? []
+      : db
+          .select({ collectionId: collectionEditions.collectionId, editionId: collectionEditions.editionId })
+          .from(collectionEditions)
+          .where(
+            inArray(
+              collectionEditions.editionId,
+              db.select({ id: editions.id }).from(editions).where(chosenEditions),
+            ),
+          ),
+    none
+      ? []
+      : db
+          .select({ collectionId: collectionWorks.collectionId, workId: collectionWorks.workId })
+          .from(collectionWorks)
+          .where(chosenWorks),
   ]);
   return {
-    collections: byAddRecency(cols, lastAdded),
+    collections: byAddRecency(cols, lastAdded).map((c) => ({
+      ...c,
+      tally: readTally(c.tally),
+      /** Which of the chosen editions it holds */
+      editionIds: heldEditions.filter((m) => m.collectionId === c.id).map((m) => m.editionId),
+      /** Which of the chosen works, and the chosen editions' books, it holds whole */
+      workIds: heldWorks.filter((m) => m.collectionId === c.id).map((m) => m.workId),
+    })),
     editions: selected,
     /**
      * Works that join as whole works: films, perfumes, paintings, and books
@@ -455,6 +526,16 @@ export async function getCollectionSelection(
       (w) => !(w.kind === "book" && selected.some((e) => e.workId === w.id)),
     ),
   };
+}
+
+/** One collection's counts after the picker changed it (SLN-1058) */
+export async function getCollectionTally(id: string) {
+  z.string().uuid().parse(id);
+  const [row] = await db
+    .select({ tally: collectionTallySql() })
+    .from(collections)
+    .where(eq(collections.id, id));
+  return row ? readTally(row.tally) : null;
 }
 export async function getEditionCollections(editionId: string) {
   z.string().uuid().parse(editionId);
@@ -611,12 +692,12 @@ export async function getCollectionsForWork(workId: string) {
         asc(collections.name),
         asc(collections.id),
       ],
-      with: memberSummary,
+      with: { media: activeArtwork },
+      extras: { tally: collectionTallySql().as("tally") },
     }),
   ]);
   return found.map((collection) => ({
-    ...collection,
-    ...collectionCounts(collection),
+    ...counted(collection),
     /** The collection holds the work as a whole, not (only) an edition of it */
     holdsWork: asWork.some((m) => m.collectionId === collection.id),
     heldEditions: memberships
