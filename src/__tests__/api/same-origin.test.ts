@@ -1,7 +1,11 @@
+
 import { describe, expect, it } from "vitest";
 import { NextRequest } from "next/server";
 import { crossOriginRefusal } from "@/lib/api/same-origin";
 import { proxy } from "@/proxy";
+
+/** Goes on to Next.js: no refusal or redirect, at most the page policy on it (SLN-1240) */
+const passes = (res: Response | undefined | null | void) => !res || res.headers.get("x-middleware-next") === "1";
 
 const request = (path: string, headers: Record<string, string> = {}, method = "POST") =>
   new NextRequest(`http://localhost:3100${path}`, {
@@ -45,6 +49,6 @@ describe("proxy", () => {
   });
 
   it("leaves pages to the page-size redirect", () => {
-    expect(proxy(request("/library", { "sec-fetch-site": "cross-site" }, "GET"))).toBeUndefined();
+    expect(passes(proxy(request("/library", { "sec-fetch-site": "cross-site" }, "GET")))).toBe(true);
   });
 });
