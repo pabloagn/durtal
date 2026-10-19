@@ -114,9 +114,11 @@ export function GoalDialog({ onClose }: { onClose: () => void }) {
             ariaLabel="Year"
           />
           <div className="grid grid-cols-3 gap-3">
-            {GOAL_METRICS.map((m) => (
+            {GOAL_METRICS.map((m, i) => (
               <Input
                 key={m}
+                // The dialog starts in the first goal, under the year (SLN-1094)
+                {...(i === 0 ? { "data-autofocus": "" } : {})}
                 label={LABELS[m]}
                 inputMode="numeric"
                 value={form.targets[m]}

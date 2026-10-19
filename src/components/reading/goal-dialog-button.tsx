@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
 
@@ -9,7 +9,20 @@ import { Button } from "@/components/ui/button";
  * and later the stats page. The dialog loads only when opened.
  */
 
-const GoalDialog = dynamic(() => import("./goal-dialog").then((m) => m.GoalDialog));
+const LoadedGoalDialog = dynamic(() => import("./goal-dialog").then((m) => m.GoalDialog));
+
+/**
+ * Its own Suspense boundary while the dialog's code loads: otherwise the
+ * nearest one on the page hides the page, the button that opened it
+ * with it, and the focus falls to the body with no way back (SLN-1094)
+ */
+function GoalDialog({ onClose }: { onClose: () => void }) {
+  return (
+    <Suspense fallback={null}>
+      <LoadedGoalDialog onClose={onClose} />
+    </Suspense>
+  );
+}
 
 export function GoalDialogButton({
   label = "Set a reading goal",
