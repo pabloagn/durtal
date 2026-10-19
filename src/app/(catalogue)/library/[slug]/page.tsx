@@ -64,15 +64,12 @@ import { workTaxonomyAssignments } from "./work-taxonomy-section";
 import { EditionDetailCard } from "./edition-detail-card";
 import { EditionAddDialog } from "./edition-add-dialog";
 import { WorkActionsMenu } from "./work-actions-menu";
-import { HorizontalCarousel } from "@/components/shared/horizontal-carousel";
 import {
   getCollectionsForWork,
   getCollectionCoverPreviews,
 } from "@/lib/actions/collections";
-import {
-  CollectionCard,
-  collectionPoster,
-} from "@/components/collections/collection-card";
+import { collectionPoster } from "@/components/collections/collection-card";
+import { WorkCollectionsSection } from "@/components/collections/work-collections";
 import { WorkCarousel } from "@/components/books/work-carousel";
 import { SimilarWorksCarousel } from "@/components/books/similar-works-carousel";
 import { getBookRelatedGroups } from "@/lib/actions/book-related";
@@ -788,36 +785,17 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
       ))}
 
       {/* Collections holding this book */}
-      {workCollections.length > 0 && (
-        <section className="mb-8">
-          <HorizontalCarousel title="Collections" titleHref="/collections">
-            {workCollections.map((collection) => (
-              <div
-                key={collection.id}
-                className="carousel-card"
-              >
-                <CollectionCard
-                  collection={collection}
-                  covers={collectionCovers
-                    .filter((p) => p.collectionId === collection.id)
-                    .map((p) => p.s3Key)}
-                  footer={
-                    work.editions.length > 1
-                      ? collection.heldEditions
-                          .map((e) =>
-                            [e.editionTitle, e.publicationYear]
-                              .filter(Boolean)
-                              .join(", "),
-                          )
-                          .join(" · ")
-                      : undefined
-                  }
-                />
-              </div>
-            ))}
-          </HorizontalCarousel>
-        </section>
-      )}
+      <WorkCollectionsSection
+        collections={workCollections}
+        covers={collectionCovers}
+        footer={(collection) =>
+          work.editions.length > 1
+            ? collection.heldEditions
+                .map((e) => [e.editionTitle, e.publicationYear].filter(Boolean).join(", "))
+                .join(" · ")
+            : undefined
+        }
+      />
 
       {/* Other books with each of this book's marks: "Other Rarities" */}
       {markRows

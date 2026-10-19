@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useId } from "react";
 import { toast } from "@/lib/notifications/toast";
 import { Dialog } from "@/components/ui/dialog";
 import { Select } from "@/components/ui/select";
@@ -77,6 +77,8 @@ export function StartReadingDialog({ data, request, home: storedHome, setHome, o
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [home],
   );
+  // The footer sits outside the form, under the dialog's scrolling body
+  const formId = useId();
   const [touched, setTouched] = useState(false);
   const [editionId, setEditionId] = useState(initial.editionId ?? "");
   const [instanceId, setInstanceId] = useState(initial.instanceId ?? "");
@@ -184,7 +186,7 @@ export function StartReadingDialog({ data, request, home: storedHome, setHome, o
 
   return (
     <Dialog draft open onClose={onClose} title="Start reading" description={data.workTitle} className="max-w-lg">
-      <form onSubmit={save} className="space-y-4">
+      <form id={formId} onSubmit={save} className="space-y-4">
         <Select
           label="I'm at"
           value={home}
@@ -244,7 +246,7 @@ export function StartReadingDialog({ data, request, home: storedHome, setHome, o
           />
           {live && <p className={`text-xs ${position.error ? "text-accent-red-text" : "text-fg-secondary"}`}>{live}</p>}
         </div>
-        <DialogFooter onCancel={onClose} saving={saving} saveLabel="Start reading" disabled={!!position.error || !!dateError} />
+        <DialogFooter form={formId} onCancel={onClose} saving={saving} saveLabel="Start reading" disabled={!!position.error || !!dateError} />
       </form>
     </Dialog>
   );

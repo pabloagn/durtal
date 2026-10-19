@@ -107,3 +107,32 @@ it("keeps a fact's full text when focus nudges its cut line", async () => {
   await wait(20);
   expect(tooltip()?.hasAttribute("data-open")).toBe(false);
 });
+
+/** Resume on a journal row: a button whose label hides on a phone, leaving its icon */
+function resume(labelShown: boolean) {
+  const button = document.createElement("button");
+  button.dataset.probe = "";
+  button.dataset.tooltip = "Resume";
+  const label = document.createElement("span");
+  label.dataset.tooltipLabel = "";
+  label.textContent = "Resume";
+  label.getBoundingClientRect = () => ({ width: labelShown ? 48 : 1, height: labelShown ? 16 : 1 }) as DOMRect;
+  button.append(label);
+  document.body.append(button);
+  return button;
+}
+
+it("shows a button's tooltip only while its label is hidden (SLN-893)", async () => {
+  const shown = resume(true);
+  tab();
+  act(() => shown.focus());
+  await wait(20);
+  expect(tooltip()?.hasAttribute("data-open")).toBe(false);
+  act(() => shown.blur());
+  const hidden = resume(false);
+  tab();
+  act(() => hidden.focus());
+  await wait(20);
+  expect(tooltip()?.hasAttribute("data-open")).toBe(true);
+  expect(tooltip()?.textContent).toBe("Resume");
+});

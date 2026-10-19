@@ -2,6 +2,7 @@
 import { Undo2, Redo2 } from "lucide-react";
 import type { ReaderNavigation } from "@/lib/reader/navigation";
 import type { PositionIndex } from "@/lib/reader/position-index";
+import { shortcutProps } from "@/lib/shortcuts/shortcuts";
 export function ReturnChip({
   navigation,
   index,
@@ -31,7 +32,7 @@ export function ReturnChip({
         disabled={navigation.busy}
         aria-label={label}
         data-tooltip={direction > 0 ? "Forward" : "Back"}
-        data-tooltip-keys={direction > 0 ? "alt right" : "alt left"}
+        {...shortcutProps(direction > 0 ? "alt right" : "alt left")}
         onClick={() => onStep(direction)}
         className="flex min-h-8 min-w-8 items-center gap-2 rounded-sm px-2 hover:bg-bg-tertiary pointer-coarse:min-h-11 pointer-coarse:min-w-11"
       >
@@ -48,7 +49,7 @@ export function ReturnChip({
           disabled={navigation.busy}
           aria-label={"Back to " + index.locatorLabel(back.locator)}
           data-tooltip="Back"
-          data-tooltip-keys="alt left"
+          {...shortcutProps("alt left")}
           onClick={() => onStep(-1)}
           className="flex min-h-8 min-w-8 items-center justify-center rounded-sm px-2 hover:bg-bg-tertiary pointer-coarse:min-h-11 pointer-coarse:min-w-11"
         >

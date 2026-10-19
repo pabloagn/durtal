@@ -33,6 +33,7 @@ import {
   readingImportExists,
   reviewYearExists,
   seriesExists,
+  recommenderExists,
   workRecordExists,
 } from "@/lib/catalogue/record-exists";
 
@@ -152,5 +153,14 @@ describe.skipIf(!url)("detail layouts know a missing record before the page star
     expect(await readingImportExists(other as string)).toBe(false);
     expect(await readingImportExists("00000000-0000-4000-a000-000000000000")).toBe(false);
     expect(await readingImportExists("goodreads")).toBe(false);
+  });
+
+  it("finds a recommender by id, in either case (SLN-817)", async () => {
+    const [{ id: recommender }] = await c`insert into recommenders(name) values ('Harold Bloom') returning id`;
+    const [{ id: series }] = await c`insert into series(title, slug) values ('Durtal cycle', 'durtal-cycle') returning id`;
+    expect(await recommenderExists(recommender as string)).toBe(true);
+    expect(await recommenderExists((recommender as string).toUpperCase())).toBe(true);
+    expect(await recommenderExists(series as string)).toBe(false);
+    expect(await recommenderExists("harold-bloom")).toBe(false);
   });
 });

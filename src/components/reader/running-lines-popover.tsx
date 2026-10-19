@@ -9,6 +9,7 @@ import {
   type RunningPositions,
   type RunningPosition,
 } from "@/lib/reader/running-lines";
+import { shortcutProps } from "@/lib/shortcuts/shortcuts";
 const labels = {
   chapter: "Chapter",
   page: "Page",
@@ -92,7 +93,7 @@ export function RunningLinesPopover({
           onClick={onClose}
           aria-label="Close"
           data-tooltip="Close"
-          data-tooltip-keys="esc"
+          {...shortcutProps("esc")}
           className="action-icon-sm"
         >
           <X className="h-4 w-4" strokeWidth={1.5} />

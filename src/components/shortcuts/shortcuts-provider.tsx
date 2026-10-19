@@ -388,11 +388,15 @@ export function ShortcutsProvider({
       if (event.metaKey || event.ctrlKey || event.altKey) return;
       event.preventDefault();
       event.stopPropagation();
-      if (event.key === "ArrowDown")
+      // Tab moves through the items as ↓ does, Shift+Tab as ↑ (SLN-963)
+      const tab = event.key === "Tab";
+      if (event.key === "ArrowDown" || (tab && !event.shiftKey))
         setMenuIndex((i) => (i + 1) % items.length);
-      else if (event.key === "ArrowUp")
+      else if (event.key === "ArrowUp" || (tab && event.shiftKey))
         setMenuIndex((i) => (i - 1 + items.length) % items.length);
-      else if (event.key === "Enter") pickMenuItem(open, menuIndex);
+      else if (event.key === "Home") setMenuIndex(0);
+      else if (event.key === "End") setMenuIndex(items.length - 1);
+      else if (event.key === "Enter" || event.key === " ") pickMenuItem(open, menuIndex);
       else if (event.key === "Escape") setMenu(null);
       else {
         const index = items.findIndex((item) => item.key === event.key.toLowerCase());

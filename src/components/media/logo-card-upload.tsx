@@ -134,7 +134,7 @@ export function LogoCardUpload({
           setDragging(false);
           pick(e.dataTransfer.files);
         }}
-        className={`flex w-full flex-col items-center justify-center rounded-sm border-2 border-dashed px-4 py-6 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent-primary ${
+        className={`flex w-full flex-col items-center justify-center rounded-sm border-2 border-dashed px-4 py-6 transition-colors focus-visible:-outline-offset-2 ${
           dragging ? "border-accent-primary bg-accent-primary/5" : "border-glass-border hover:border-fg-muted/30"
         }`}
       >

@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { CapAlignedControls } from "@/components/shared/cap-aligned";
-import { editTooltipKeys } from "@/lib/shortcuts/shortcuts";
+import { editTooltipKeys, shortcutProps } from "@/lib/shortcuts/shortcuts";
 
 /**
  * The body of a detail page, under its header: the reading column (what the
@@ -208,7 +208,7 @@ export function DetailEditButton({
   href?: string;
   onClick?: () => void;
 }) {
-  const tooltip = { "data-tooltip": label, "data-tooltip-keys": editTooltipKeys(editKey) };
+  const tooltip = { "data-tooltip": label, ...shortcutProps(editTooltipKeys(editKey)) };
   return href ? (
     <Link href={href} {...tooltip} className={EDIT_BUTTON}>
       Edit

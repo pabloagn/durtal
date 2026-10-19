@@ -140,13 +140,32 @@ export function ReadingCardActions({ reading, href, title }: { reading: ReadingR
   );
 }
 
-/** A paused reading's Resume */
-export function ResumeButton({ reading }: { reading: ReadingRef }) {
+/**
+ * A paused reading's Resume. `compact`: in a container under 15rem (a journal
+ * row on a phone) it is an icon button with a tooltip, so it fits beside the
+ * row's other controls
+ */
+export function ResumeButton({ reading, compact = false }: { reading: ReadingRef; compact?: boolean }) {
   const { setPaused } = useReadingDialogs();
+  if (!compact)
+    return (
+      <Button variant="ghost" onClick={() => void setPaused(false, reading)} className="pointer-coarse:h-11" data-hub-resume={reading.readingId}>
+        <Play aria-hidden strokeWidth={1.5} />
+        Resume
+      </Button>
+    );
   return (
-    <Button variant="ghost" onClick={() => void setPaused(false, reading)} className="pointer-coarse:h-11" data-hub-resume={reading.readingId}>
+    <Button
+      variant="ghost"
+      onClick={() => void setPaused(false, reading)}
+      className="pointer-coarse:h-11 @max-[15rem]:w-8 @max-[15rem]:px-0"
+      data-tooltip="Resume"
+      data-hub-resume={reading.readingId}
+    >
       <Play aria-hidden strokeWidth={1.5} />
-      Resume
+      <span className="@max-[15rem]:sr-only" data-tooltip-label="">
+        Resume
+      </span>
     </Button>
   );
 }

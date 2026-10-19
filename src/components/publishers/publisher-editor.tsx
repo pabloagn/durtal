@@ -9,6 +9,7 @@ import { savePublisher } from "@/lib/actions/catalogue-client";
 import type { PublisherInput } from "@/lib/validations/publishers";
 import { PARENT_KIND, type HouseKind } from "@/lib/publishers/kinds";
 import { Button } from "@/components/ui/button";
+import { DialogFooter, PINNED_PAGE_FOOTER } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -199,9 +200,16 @@ export function PublisherEditor({
           names stay unresolved for review.
         </p>
       </fieldset>
-        <Button type="submit" data-shortcut="save" busy={pending}>
-          Save publisher
+      {/* Pinned to the bottom of the page, so Save is always in view
+          (SLN-943). Outside the fieldset, so a busy Save keeps the focus */}
+      <DialogFooter outside={PINNED_PAGE_FOOTER}>
+        <Button type="button" variant="ghost" data-dismiss="" onClick={() => router.push(cancelHref)} disabled={pending}>
+          Cancel
         </Button>
+        <Button type="submit" variant="primary" data-shortcut="save" busy={pending}>
+          {publisher ? "Save publisher" : "Add publisher"}
+        </Button>
+      </DialogFooter>
     </form>
     </>
   );

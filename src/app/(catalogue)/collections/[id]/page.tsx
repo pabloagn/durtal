@@ -13,7 +13,7 @@ import { FadeImage } from "@/components/shared/fade-image";
 import { notFound, redirect } from "next/navigation";
 import { z } from "zod";
 import { ArrowLeft, BookOpen, FolderOpen } from "lucide-react";
-import { getCollection } from "@/lib/actions/collections";
+import { getCollection, getCollectionCoverPreviews } from "@/lib/actions/collections";
 import { loadFilmCards } from "@/lib/catalogue/film-store";
 import { loadPerfumeCards } from "@/lib/catalogue/perfume-store";
 import { loadPaintingCards } from "@/lib/catalogue/painting-store";
@@ -58,6 +58,7 @@ import { CopyShortcuts } from "@/components/shortcuts/copy-shortcuts";
 import { Prose } from "@/components/shared/prose";
 import { mediaUrl } from "@/lib/s3/media-url";
 import { COVER_BLANK, CoverLetter } from "@/components/books/cover-letter";
+import { CoverCells } from "@/components/shared/cover-cells";
 import { languageName } from "@/lib/utils/language";
 import { bindingLabel } from "@/lib/utils/binding";
 
@@ -160,7 +161,10 @@ async function collectionMembers(
           ...base,
           card: {
             href: `/library/${w.slug ?? w.id}`,
-            image: cover(w.media[0]?.thumbnailS3Key ?? w.media[0]?.s3Key, w.title),
+            image: cover(
+              w.media[0]?.thumbnailS3Key ?? w.media[0]?.s3Key ?? w.editions[0]?.thumbnailS3Key ?? w.editions[0]?.coverS3Key,
+              w.title,
+            ),
             title: w.title,
             mark: digital.get(w.id)?.read && <div className={COVER_CORNER.bottomLeft}><EbookMark ebook={digital.get(w.id)!.read} /></div>,
             byline: names.join(" & "),
@@ -291,9 +295,10 @@ export default async function CollectionPage({
   if (!collection) notFound();
   const query = await searchParams;
   const { page, perPage, offset } = parsePagination(query);
-  const [reading, digital] = await Promise.all([
+  const [reading, digital, previews] = await Promise.all([
     readingStatesFor(collectionBookIds(collection)),
     catalogueAvailability(collectionBookIds(collection)),
+    getCollectionCoverPreviews([collection.id]),
   ]);
   const members = await collectionMembers(collection, reading, digital, pageHref(`/collections/${id}`, query, page));
   const total = members.length;
@@ -302,7 +307,9 @@ export default async function CollectionPage({
   const counts = memberCounts(collection, reading);
   const poster = collectionPoster(collection.media);
   const background = collectionBackground(collection.media);
-  // No artwork, or artwork that fails: the name's letter, as every blank cover
+  // No artwork: its members' covers, as on its card; none, or none that
+  // loads: the name's letter, as every blank cover
+  const covers = previews.map((preview) => mediaUrl(preview.s3Key));
   const nameLetter = (
     <div className={`h-full ${COVER_BLANK}`}>
       <CoverLetter title={collection.name} />
@@ -350,6 +357,15 @@ export default async function CollectionPage({
                   style={mediaImageStyle(mediaCrop(poster))}
                   fallback={nameLetter}
                 />
+              ) : covers.length ? (
+                <CoverCells
+                  srcs={covers}
+                  className={`grid h-full ${covers.length > 1 ? "grid-cols-2" : "grid-cols-1"}`}
+                  cellClassNames={covers.map(
+                    (_, index) => `protected-image h-full min-h-0 w-full object-cover ${covers.length === 3 && index === 2 ? "col-span-2" : ""}`,
+                  )}
+                  fallback={nameLetter}
+                />
               ) : (
                 nameLetter
               )}
@@ -365,6 +381,7 @@ export default async function CollectionPage({
                 <CapAligned height={44} className="max-md:float-left max-md:mr-1.5">
                   <CollectionIconPicker
                     collectionId={collection.id}
+                    name={collection.name}
                     value={collection.icon}
                   >
                     <CollectionIcon

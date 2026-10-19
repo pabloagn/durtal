@@ -98,8 +98,10 @@ read from the source and covered by unit tests at most.
 
 ### Leader menus
 
-N, G, Y, E and R open a menu (`LeaderMenu`); a letter, or ↑ ↓ then Enter,
-picks; Esc closes; a click outside or a new page closes. A opens no menu: it
+N, G, Y, E and R open a menu (`LeaderMenu`); a letter, or ↑ ↓ (or Tab and
+Shift+Tab, Home and End) then Enter or Space, picks; Esc closes; a click
+outside or a new page closes. The focus is on the active item, so a screen
+reader reads each one, and goes back to where it was when the menu closes. A opens no menu: it
 waits for the key that says what to add (section 2). E and R open only where the page
 registered actions (`useEditActions`, `useReadingActions`).
 
@@ -125,8 +127,20 @@ Current keys (`src/lib/shortcuts/shortcuts.ts`, `src/lib/catalogue/domains.ts`):
 | G … | Go to: D, B, F, E, I, A, P, S, C, O, M, T, H, R, K, "," | keep | none |
 | Y … | Copy: N, T, I, D, L | keep | none |
 | R … | book page reading: S, P, U, F, A, L, T, N, Q, H | keep | none |
-| S, /, ?, ⌘K | palette, search this list, help, palette | keep | none |
+| S, /, ?, ⌘K | palette, search this list, help, palette; ⌘K (Ctrl+K on Windows and Linux) also closes it | keep | none |
 | Alt+F | fix a field's title case or name order | keep | none |
+
+Keys the browser also uses:
+- `/` outside a field takes the place of Firefox's Quick Find, as on most
+  sites with a search.
+- Ctrl+K takes the place of the browser's search-bar key on Windows and
+  Linux.
+- Alt+F opens the browser's File or app menu on Windows and Linux, except in
+  a field with a fix button, where it fixes the field. The menu is still one
+  Alt or F10 away there.
+- Inside the palette, Ctrl+J, Ctrl+N and Ctrl+P are the browser's: the
+  palette has no vim-style list keys, so the arrows move through it
+  (SLN-962).
 
 Other notes for SLN-632:
 - A client navigation closes an open leader menu and drops a pending A
@@ -148,7 +162,7 @@ Visible actions on each detail page, and the keys that reach them today.
 | Painting `/paintings/[slug]` | Edit | Images | Collections (A C) | A F (curation star) | W, M | yes |
 | Person `/people/[slug]` | Edit | Manage Media | - | A F | P, M | yes |
 | Publisher `/publishers/[slug]` | Edit (editor page) | Manage media | - | A F | P (opens the editor page), M | yes |
-| Organization `/organizations/[slug]` | Edit | none | - | none | O | yes |
+| Organization `/organizations/[slug]` | Edit | none | - | A F | O | yes |
 | Collection `/collections/[id]` | Edit | Artwork | - | A F | C, M | yes |
 | Series `/series/[id]` | Edit | none | - | A F | S | yes |
 | Place `/places/[slug]` | Edit, Archive | none | - | A F | P | yes |
@@ -161,8 +175,7 @@ button, and the actions menu and the collection's buttons show the keys.
 Not bound, with the reason: Delete (never a key, as Enter never presses
 it), a place's Archive and Restore and a person's Merge (not edits of the
 item's fields), and a series' or collection's Add books (an add, not an
-edit; its own button is one Tab away). An organization has no media and no
-favourite star, so A then F adds a film there.
+edit; its own button is one Tab away). An organization has no media.
 
 ## 4. Dialogs
 

@@ -173,7 +173,7 @@ export async function getSeriesList(options: z.input<typeof listSchema> = {}) {
         await db.execute(sql`select series_id as "seriesId", cover as "s3Key" from (
           select w.series_id, coalesce(
             (select coalesce(m.thumbnail_s3_key, m.s3_key) from media m where m.work_id = w.id and m.type = 'poster' and m.is_active order by m.sort_order limit 1),
-            (select coalesce(e.thumbnail_s3_key, e.cover_s3_key) from editions e where e.work_id = w.id and coalesce(e.thumbnail_s3_key, e.cover_s3_key) is not null limit 1)
+            (select coalesce(e.thumbnail_s3_key, e.cover_s3_key) from editions e where e.work_id = w.id and coalesce(e.thumbnail_s3_key, e.cover_s3_key) is not null order by e.created_at, e.id limit 1)
           ) as cover,
           row_number() over (partition by w.series_id order by case when w.series_position ~ '^[0-9]+(\\.[0-9]+)?$' then w.series_position::numeric end nulls last, lower(w.title)) as n
           from works w where w.kind = 'book' and w.series_id = any(${uuidArray(ids)})
@@ -219,13 +219,17 @@ function seriesWithWorks(id: string) {
             with: { author: true },
             orderBy: asc(workAuthors.sortOrder),
           },
+          // The cover of the first edition that has one, as on the list card
           editions: {
             columns: {
               id: true,
               thumbnailS3Key: true,
+              coverS3Key: true,
               publicationYear: true,
               language: true,
             },
+            where: (e, { or, isNotNull }) => or(isNotNull(e.thumbnailS3Key), isNotNull(e.coverS3Key)),
+            orderBy: (e, { asc }) => [asc(e.createdAt), asc(e.id)],
             limit: 1,
           },
           media: {
@@ -447,9 +451,12 @@ export async function getSeriesSuggestions(seriesId?: string) {
   if (seriesId) z.uuid().parse(seriesId);
   const only = seriesId ? sql`s.id = ${seriesId}::uuid` : sql`true`;
   const result = await db.execute(sql`
-    -- unnest of an array, not regexp_split_to_table: the planner guesses 10
-    -- parts a title, not 1,000, so the cost stays under jit_above_cost and
-    -- Postgres does not JIT-compile an 8-row answer (SLN-487)
+    -- The planned cost must stay under jit_above_cost (100,000, as on Neon),
+    -- or Postgres spends 500 ms JIT-compiling an 8-row answer. The planner
+    -- has no statistics for the title join and guesses 30,000 matches at
+    -- 5,000 books, so nothing may run once a match: unnest of an array, not
+    -- regexp_split_to_table, guesses 10 parts a title, not 1,000 (SLN-487),
+    -- and the authors come from one grouped join, not a subquery a row (SLN-940)
     with parts as (
       select s.id as sid, s.title as stitle, trim(p.part) as part, p.n::int as n
       from series s, unnest(regexp_split_to_array(s.title, '\\s*,\\s*(and\\s+)?|\\s+and\\s+')) with ordinality as p(part, n)
@@ -462,13 +469,16 @@ export async function getSeriesSuggestions(seriesId?: string) {
       select sid, stitle, trim(substring(part from position(': ' in part) + 2)), n from parts where position(': ' in part) > 0
     )
     select x.sid as "seriesId", x.stitle as "seriesTitle", w.id as "workId", w.title as "workTitle",
-      (select string_agg(a.name, ' & ' order by wa.sort_order) from work_authors wa join authors a on a.id = wa.author_id where wa.work_id = w.id) as "authors",
-      w.series_id as "currentSeriesId", cs.title as "currentSeriesTitle"
+      wa.names as "authors", w.series_id as "currentSeriesId", cs.title as "currentSeriesTitle"
     from expanded x
     join works w on w.kind = 'book' and search_normalize(w.title) = search_normalize(x.part)
     left join series cs on cs.id = w.series_id
+    left join (
+      select wa.work_id, string_agg(a.name, ' & ' order by wa.sort_order) as names
+      from work_authors wa join authors a on a.id = wa.author_id group by wa.work_id
+    ) wa on wa.work_id = w.id
     where length(search_normalize(x.part)) > 0 and w.series_id is distinct from x.sid
-    group by x.sid, x.stitle, w.id, w.title, w.series_id, cs.title
+    group by x.sid, x.stitle, w.id, w.title, w.series_id, cs.title, wa.names
     -- Books in the order the series title names them, so "Link all" numbers them right
     order by "seriesTitle", min(x.n), "workTitle"`);
   return rows<SeriesSuggestion>(result);
@@ -498,9 +508,13 @@ export async function searchWorksForSeries(query: string) {
       authors: sql<
         string | null
       >`(select string_agg(a.name, ' & ' order by wa.sort_order) from work_authors wa join authors a on a.id = wa.author_id where wa.work_id = "works"."id")`,
+      // The poster, else the first edition cover, as on the series pages
       cover: sql<
         string | null
-      >`(select coalesce(m.thumbnail_s3_key, m.s3_key) from media m where m.work_id = "works"."id" and m.type = 'poster' and m.is_active limit 1)`,
+      >`coalesce(
+        (select coalesce(m.thumbnail_s3_key, m.s3_key) from media m where m.work_id = "works"."id" and m.type = 'poster' and m.is_active order by m.sort_order limit 1),
+        (select coalesce(e.thumbnail_s3_key, e.cover_s3_key) from editions e where e.work_id = "works"."id" and coalesce(e.thumbnail_s3_key, e.cover_s3_key) is not null order by e.created_at, e.id limit 1)
+      )`,
     })
     .from(works)
     .where(and(bookCondition, textSearchCondition(titleHaystack, q)))

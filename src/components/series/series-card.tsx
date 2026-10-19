@@ -4,11 +4,11 @@ import { Badge } from "@/components/ui/badge";
 import { FadeImage } from "@/components/shared/fade-image";
 import { CoverCells } from "@/components/shared/cover-cells";
 import { COVER_BLANK, CoverLetter } from "@/components/books/cover-letter";
-import { ShelfSpines } from "@/components/shared/no-photo";
 import { CapAligned } from "@/components/shared/cap-aligned";
 import { CardHeading } from "@/components/shared/card-heading";
 import { mediaUrl } from "@/lib/s3/media-url";
 import { CountParts } from "@/components/collections/count-parts";
+import { seriesBooksLabel } from "@/lib/series/counts";
 
 export interface SeriesItem {
   id: string;
@@ -28,15 +28,18 @@ export interface SeriesItem {
 }
 
 function countsLabel(s: SeriesItem) {
-  const books = `${s.bookCount} ${s.bookCount === 1 ? "book" : "books"}`;
-  const of = s.totalVolumes ? ` of ${s.totalVolumes}` : "";
-  return [`${books}${of}`, s.ownedCount ? `${s.ownedCount} owned` : null, s.readCount ? `${s.readCount} read` : null]
+  return [seriesBooksLabel(s.bookCount, s.totalVolumes), s.ownedCount ? `${s.ownedCount} owned` : null, s.readCount ? `${s.readCount} read` : null]
     .filter(Boolean)
     .join(" · ");
 }
 
 /** Grid card: the first books' covers side by side, like a shelf. */
 export function SeriesCard({ series: s }: { series: SeriesItem }) {
+  const blank = (
+    <div className={`absolute inset-0 ${COVER_BLANK}`}>
+      <CoverLetter title={s.title} />
+    </div>
+  );
   return (
     <div className="catalogue-card group relative rounded-sm border border-glass-border bg-bg-secondary card-interactive">
       <Link
@@ -45,16 +48,16 @@ export function SeriesCard({ series: s }: { series: SeriesItem }) {
         className="absolute inset-0 z-10 rounded-sm"
       />
       <div className="relative aspect-[3/2] overflow-hidden rounded-t-sm bg-bg-tertiary">
-        {/* No book in the catalogue yet, or no cover that loads: one spine per known volume */}
+        {/* No book with a cover yet, or none that loads: the series' letter, as every blank cover */}
         {s.covers.length ? (
           <CoverCells
             srcs={s.covers.map((key) => mediaUrl(key))}
             className="flex h-full"
             cellClassNames={s.covers.map(() => "protected-image h-full min-w-0 flex-1 object-cover group-hover:scale-[1.02]")}
-            fallback={<ShelfSpines seed={s.id} volumes={s.totalVolumes ?? null} />}
+            fallback={blank}
           />
         ) : (
-          <ShelfSpines seed={s.id} volumes={s.totalVolumes ?? null} />
+          blank
         )}
       </div>
       <div className="card-body">
