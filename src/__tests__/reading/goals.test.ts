@@ -13,6 +13,7 @@ import {
   reachedText,
   rhythmRange,
   rhythmView,
+  rhythmWeekText,
   weekDays,
   weekStartOf,
   type GoalState,
@@ -119,5 +120,18 @@ describe("the week", () => {
       }
     }
     expect(missing).toEqual([]);
+  });
+});
+
+describe("this week's rhythm line (SLN-923)", () => {
+  it("counts up to the target, then gives the days alone with the aim", () => {
+    // A target of 3: below, at and past it
+    expect(rhythmWeekText(1, 3)).toEqual({ days: "1 of 3 days this week", aim: null });
+    expect(rhythmWeekText(3, 3)).toEqual({ days: "3 of 3 days this week", aim: null });
+    expect(rhythmWeekText(5, 3)).toEqual({ days: "5 days this week", aim: "3 is the aim" });
+    // A target of 1
+    expect(rhythmWeekText(0, 1)).toEqual({ days: "0 of 1 day this week", aim: null });
+    expect(rhythmWeekText(1, 1)).toEqual({ days: "1 of 1 day this week", aim: null });
+    expect(rhythmWeekText(5, 1)).toEqual({ days: "5 days this week", aim: "1 is the aim" });
   });
 });

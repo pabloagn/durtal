@@ -59,17 +59,16 @@ export async function catalogueCounts(): Promise<CatalogueCount[]> {
   return labels.map((label, i) => ({ label, value: counts[i] }));
 }
 
-/** The cheap queue counts: editions that hold a placeholder, and series suggestions. */
-export async function reviewQueueCounts() {
-  const [[placeholders], suggestions] = await Promise.all([
-    db.select({ n: count() }).from(editions).where(eq(editions.metadataSource, PLACEHOLDER_SOURCE)),
-    getSeriesSuggestions(),
-  ]);
-  return {
-    identify: placeholders?.n ?? 0,
-    suggestedBooks: suggestions.length,
-    suggestedSeries: new Set(suggestions.map((s) => s.seriesId)).size,
-  };
+/** Editions that hold a placeholder from the old import */
+export async function identifyQueueCount() {
+  const [placeholders] = await db.select({ n: count() }).from(editions).where(eq(editions.metadataSource, PLACEHOLDER_SOURCE));
+  return placeholders?.n ?? 0;
+}
+
+/** The series suggestions waiting: the page streams this row, so its first byte never waits on the match (SLN-940) */
+export async function seriesSuggestionCounts() {
+  const suggestions = await getSeriesSuggestions();
+  return { books: suggestions.length, series: new Set(suggestions.map((s) => s.seriesId)).size };
 }
 
 // ── Book enrichment (SLN-468) ──────────────────────────────────────────────

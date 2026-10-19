@@ -43,11 +43,16 @@ export function resumeNoticeText(place: ReaderPlace, fileId: string, here: Durta
   return [resumePlaceLabel(place, fileId, index), distance, place.deviceLabel, formatRelativeTime(place.clientUpdatedAt)]
     .filter(Boolean).join(" · ");
 }
+/** `quiet`: the bars are hidden. A notice holding only a plug-in's line (the
+ * time left) fades with them, so nothing floats over the text; it stays a
+ * live region. An offer, an error or a paused sync stays up (SLN-1143). */
 export function ReaderNotice({
   bridge,
+  quiet = false,
   children,
 }: {
   bridge: ReaderBridgeController;
+  quiet?: boolean;
   children?: ReactNode;
 }) {
   const slots = useSyncExternalStore(
@@ -65,7 +70,7 @@ export function ReaderNotice({
       aria-live="polite"
       data-reader-chrome
       hidden={!children && !slots["top-bar"]}
-      className="glass fixed left-1/2 top-[calc(48px_+_env(safe-area-inset-top)_+_8px)] pointer-coarse:top-[calc(56px_+_env(safe-area-inset-top)_+_8px)] z-40 w-[calc(100%_-_32px)] max-w-[560px] -translate-x-1/2 overflow-hidden px-3 py-2 text-sm text-fg-secondary"
+      className={`${quiet && !children ? "pointer-events-none opacity-0 " : ""}transition-opacity duration-150 motion-reduce:transition-none glass fixed left-1/2 top-[calc(48px_+_env(safe-area-inset-top)_+_8px)] pointer-coarse:top-[calc(56px_+_env(safe-area-inset-top)_+_8px)] z-40 w-[calc(100%_-_32px)] max-w-[560px] -translate-x-1/2 overflow-hidden px-3 py-2 text-sm text-fg-secondary`}
     >
       {children}
       <div

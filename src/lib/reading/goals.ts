@@ -193,6 +193,16 @@ export function rhythmView(readDays: Iterable<string>, today: string, weekStart:
 }
 
 /**
+ * This week's line: "2 of 3 days this week" up to the target, then the days
+ * alone with the aim beside them, "5 days this week" and "3 is the aim",
+ * never "5 of 3" (SLN-923)
+ */
+export function rhythmWeekText(thisWeek: number, target: number): { days: string; aim: string | null } {
+  if (thisWeek > target) return { days: `${thisWeek} ${thisWeek === 1 ? "day" : "days"} this week`, aim: `${target} is the aim` };
+  return { days: `${thisWeek} of ${target} ${target === 1 ? "day" : "days"} this week`, aim: null };
+}
+
+/**
  * The first and last day the rhythm needs, on the server's day: the 12 weeks
  * before yesterday's week, and tomorrow, each with a day to spare. A browser
  * a day behind (21:30 on Sunday in Mexico City is Monday in Amsterdam) draws
