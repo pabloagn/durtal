@@ -29,12 +29,19 @@ afterEach(() => { act(() => root.unmount()); host.remove(); });
 const render = () => act(() => root.render(createElement(LibraryFilters)));
 const click = (label: string) => act(() => [...host.querySelectorAll("button")].find((b) => b.textContent === label)!.click());
 const preference = () => parseLibrarySortPreference(readCookie(LIBRARY_SORT_COOKIE));
+// Books has eight sorts: a menu and a direction arrow at every width (SLN-1025)
+const pick = (value: string) => act(() => {
+  const menu = host.querySelector<HTMLSelectElement>('select[aria-label="Sort by"]')!;
+  menu.value = value;
+  menu.dispatchEvent(new Event("change", { bubbles: true }));
+});
+const reverse = () => act(() => host.querySelector<HTMLButtonElement>('button[aria-label$="reverse the order"]')!.click());
 
 describe("books sort controls", () => {
   it("saves a newly selected field and its default direction, resetting the page", () => {
     navigation.query = "holding=owned&page=3";
     render();
-    click("Recent");
+    pick("recent");
     expect(preference()).toEqual({ sort: "recent", order: "desc" });
     expect(navigation.push).toHaveBeenCalledWith("/library?holding=owned&sort=recent&order=desc");
   });
@@ -42,18 +49,18 @@ describe("books sort controls", () => {
   it("saves toggled directions, including returning to the default direction", () => {
     navigation.query = "sort=recent&order=desc";
     render();
-    click("Recent");
+    reverse();
     expect(preference()).toEqual({ sort: "recent", order: "asc" });
     navigation.query = "sort=recent&order=asc";
     render();
-    click("Recent");
+    reverse();
     expect(preference()).toEqual({ sort: "recent", order: "desc" });
   });
 
   it("keeps an explicit Title selection when replacing a saved sort", () => {
     navigation.query = "sort=year&order=desc";
     render();
-    click("Title");
+    pick("title");
     expect(preference()).toEqual({ sort: "title", order: "asc" });
     expect(navigation.push).toHaveBeenCalledWith("/library?sort=title&order=asc");
   });
@@ -81,6 +88,17 @@ describe("books sort controls", () => {
     });
     expect(preference()).toEqual({ sort: "recent", order: "desc" });
     expect(navigation.push).toHaveBeenLastCalledWith("/library?sort=recent&order=desc");
+  });
+
+  it("offers Books' eight sorts as a menu, and a short list's as chips", () => {
+    render();
+    expect(host.querySelectorAll("button[aria-pressed]")).toHaveLength(0);
+    act(() => root.render(createElement(EntityFilters, {
+      basePath: "/films", defaultSort: "title",
+      sortOptions: ["title", "release", "runtime", "recent", "rating"].map((value) => ({ value, label: value })),
+    })));
+    expect(host.querySelectorAll("button[aria-pressed]")).toHaveLength(5);
+    expect(host.querySelector('select[aria-label="Sort by"]')!.className).toContain("sm:hidden");
   });
 
   it("preserves the existing URL behaviour for other lists", () => {

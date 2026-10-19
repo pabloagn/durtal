@@ -14,7 +14,7 @@ import {
   getAuthorDeathYearRange,
   getPeopleFilterOptions,
   getPersonRoles,
-  getPersonWorkCounts,
+  getPersonWorkCountsByKind,
 } from "@/lib/actions/authors";
 import type { PersonRole } from "@/lib/catalogue/person-roles";
 import { WORK_KINDS, type WorkKind } from "@/lib/catalogue/kinds";
@@ -183,6 +183,7 @@ async function AuthorsContent({
       bio: a.bio ? stripHtmlToText(a.bio) || null : null,
       worksCount: a.workAuthors.length,
       roles: [] as PersonRole[],
+      workCounts: {} as Partial<Record<WorkKind, number>>,
       booksCount: a.workAuthors.length,
       isFavourite: a.isFavourite,
       createdAt: new Date(a.createdAt).toLocaleDateString(),
@@ -198,13 +199,15 @@ async function AuthorsContent({
       authors.filter((a) => !a.photoUrl && a.booksCount > 0).map((a) => a.id),
     ),
     getPersonRoles(authors.map((a) => a.id)),
-    // The Works column counts every collection's works, not only books
-    getPersonWorkCounts(authors.map((a) => a.id)),
+    // The Works column and the cards count every collection's works, not
+    // only books: per collection, each work once
+    getPersonWorkCountsByKind(authors.map((a) => a.id)),
   ]);
   for (const a of authors) {
     a.coverPreviews = previews[a.id] ?? [];
     a.roles = rolesById[a.id] ?? [];
-    a.worksCount = workCounts[a.id] ?? 0;
+    a.workCounts = workCounts[a.id] ?? {};
+    a.worksCount = Object.values(a.workCounts).reduce((sum, n) => sum + (n ?? 0), 0);
   }
   // Filtered to one collection: its roles come first on the cards
   const preferKind =

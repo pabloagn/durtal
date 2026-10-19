@@ -58,7 +58,12 @@ describe("the books list's wait", () => {
 
   it("shows for a sort, and clears once the navigation is done", () => {
     render();
-    act(() => [...host.querySelectorAll("button")].find((b) => b.textContent === "Recent")!.click());
+    // Books' eight sorts are a menu (SLN-1025)
+    act(() => {
+      const menu = host.querySelector<HTMLSelectElement>('select[aria-label="Sort by"]')!;
+      menu.value = "recent";
+      menu.dispatchEvent(new Event("change", { bubbles: true }));
+    });
     expect(navigation.push).toHaveBeenCalledWith("/library?sort=recent&order=desc");
     // The mocked navigation finishes at once, so the books show again
     expect(spinner()).toBeNull();
