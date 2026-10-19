@@ -1,9 +1,10 @@
-import type { SQL } from "drizzle-orm";
+import { sql, type SQL } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { resultRows } from "@/lib/harmonization/store";
 
 interface Waiting {
   query: SQL;
+  noJit: boolean;
   resolve: (rows: unknown[]) => void;
   reject: (error: unknown) => void;
 }
@@ -28,13 +29,18 @@ const PER_REQUEST = 8;
  * One request of 31 waited for all of them in series and was slower than
  * 31 parallel requests until a round trip took about 100 ms.
  *
+ * `jit: false` sends the request with `set local jit = off` at its head
+ * (SLN-1309), for reads whose planned cost passes `jit_above_cost` but which
+ * run in milliseconds: the compile would take seconds. It holds for that one
+ * transaction, and for any read sharing it.
+ *
  * One failing query fails its batch. A driver without `batch` (a local
- * Postgres in a script) runs each query on its own.
+ * Postgres in a script) runs each query on its own, with JIT as it is.
  */
-export function batchedRows<T>(query: SQL): Promise<T[]> {
+export function batchedRows<T>(query: SQL, options: { jit?: boolean } = {}): Promise<T[]> {
   return new Promise<T[]>((resolve, reject) => {
     if (waiting.length === 0) queueMicrotask(flush);
-    waiting.push({ query, resolve: resolve as (rows: unknown[]) => void, reject });
+    waiting.push({ query, noJit: options.jit === false, resolve: resolve as (rows: unknown[]) => void, reject });
   });
 }
 
@@ -42,7 +48,7 @@ function flush() {
   const wave = waiting;
   waiting = [];
   const conn = db as unknown as { batch?: (queries: unknown[]) => Promise<unknown[]> };
-  if (wave.length === 1 || typeof conn.batch !== "function") {
+  if (typeof conn.batch !== "function" || (wave.length === 1 && !wave[0].noJit)) {
     for (const item of wave) db.execute(item.query).then((result) => item.resolve(resultRows(result)), item.reject);
     return;
   }
@@ -52,8 +58,10 @@ function flush() {
 
 async function send(batch: (queries: unknown[]) => Promise<unknown[]>, items: Waiting[]) {
   try {
-    const results = await batch(items.map((item) => db.execute(item.query)));
-    results.forEach((result, i) => items[i].resolve(resultRows(result)));
+    const noJit = items.some((item) => item.noJit);
+    const queries = items.map((item) => db.execute(item.query));
+    const results = await batch(noJit ? [db.execute(sql`set local jit = off`), ...queries] : queries);
+    results.slice(noJit ? 1 : 0).forEach((result, i) => items[i].resolve(resultRows(result)));
   } catch (error) {
     for (const item of items) item.reject(error);
   }
