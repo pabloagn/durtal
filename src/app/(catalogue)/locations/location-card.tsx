@@ -289,13 +289,14 @@ export function LocationCard({
             >
               Cancel
             </Button>
+            {/* Danger, as every delete: plain Enter never deletes (SLN-1053) */}
             <Button
-              variant="primary"
+              variant="danger"
               size="sm"
+              data-shortcut="save"
               onClick={handleDelete}
               busy={isPending}
               disabled={!!blocking}
-              className="bg-accent-red/80 hover:bg-accent-red"
             >
               Delete
             </Button>
