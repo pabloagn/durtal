@@ -81,6 +81,12 @@ class PureTests(unittest.TestCase):
         self.volatile.start()
         self.receipts = self.root / 'receipts'
         self.receipts.mkdir(mode=0o700)
+        # A stand-in docker the transport never runs: the interpreter itself
+        # can sit in a group-writable tool cache (as on CI's runners), which
+        # the executable check rightly refuses
+        self.docker = self.root / 'docker'
+        self.docker.write_text('#!/bin/sh\nexit 1\n')
+        self.docker.chmod(0o755)
         self.source = write_source(self.root / 'source', [
             ('0000_one', 100, 'CREATE TABLE one (id int);'),
             ('0001_two', 200, 'CREATE TABLE two (id int);\n--> statement-breakpoint\nCREATE INDEX two_id ON two (id);'),
@@ -160,7 +166,7 @@ class PureTests(unittest.TestCase):
         """A backup and a rehearsal receipt for `rows`, as backup and rehearse write them."""
         transport = transport or FakeTransport(rows)
         connect = lambda *_: {'binding': BINDING, 'transport': transport, 'release': {'commit': COMMIT, 'migrations': release.migrations(self.source)}}
-        done = live.backup('config', 'hash', self.receipts, docker=sys.executable, connect=connect)
+        done = live.backup('config', 'hash', self.receipts, docker=str(self.docker), connect=connect)
         backup_path = Path(done['receipt'])
         if captured is not None:
             data = json.loads(backup_path.read_text()); data['capturedEpochSeconds'] = captured
@@ -173,7 +179,7 @@ class PureTests(unittest.TestCase):
         return rehearsal, connect
 
     def migrate(self, rehearsal, connect):
-        return live.migrate('config', 'hash', 'preparation', rehearsal, self.receipts, docker=sys.executable,
+        return live.migrate('config', 'hash', 'preparation', rehearsal, self.receipts, docker=str(self.docker),
                             connect=connect, source=lambda _: (COMMIT, self.source))
 
     def test_migrate_applies_exactly_the_rehearsed_pending_and_leaves_evidence(self):
