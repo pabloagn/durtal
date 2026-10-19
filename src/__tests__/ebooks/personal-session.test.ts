@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { homedir } from "node:os";
 import path from "node:path";
-import { assertPersonalReadCommand, initializePersonalSession, personalAwsEnvironment } from "../../../scripts/ebooks/personal-session";
+import { assertPersonalReadCommand, AwsSignInNeeded, initializePersonalSession, personalAwsEnvironment, signInExpired } from "../../../scripts/ebooks/personal-session";
 const initialized = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/ebooks/storage", () => ({
   ebookStorage: () => ({ bucket: "durtal", region: "eu-north-1" }),
@@ -87,6 +87,29 @@ describe("explicit personal AWS session", () => {
     });
     await expect(initializePersonalSession("durtal-personal", run, "111122223333")).rejects.toThrow("Credential output is withheld");
     expect(initialized).not.toHaveBeenCalled();
+  });
+  it("tells an expired sign-in from other failures, so the upload service can say so (SLN-1326)", async () => {
+    for (const stderr of [
+      "Error when retrieving token from sso: Token has expired and refresh failed",
+      "The SSO session associated with this profile has expired or is otherwise invalid. To refresh this SSO session run aws sso login with the corresponding profile.",
+      "An error occurred (ExpiredToken) when calling the GetCallerIdentity operation: The security token included in the request is expired",
+    ]) expect(signInExpired(stderr)).toBe(true);
+    for (const stderr of ["Could not connect to the endpoint URL", "aws: command not found", ""]) expect(signInExpired(stderr)).toBe(false);
+    // An expired sign-in while refreshing stays that, not a generic refresh failure
+    const fake = runner();
+    const client = await initializePersonalSession("durtal-personal", fake.run, "111122223333");
+    vi.setSystemTime(Date.now() + 3600_000);
+    fake.run.mockImplementation(async (args: string[]) => {
+      if (args[0] === "sts") return JSON.stringify({ Account: "111122223333", Arn: principal });
+      throw new AwsSignInNeeded();
+    });
+    await expect(client.config.credentials()).rejects.toBeInstanceOf(AwsSignInNeeded);
+    client.destroy();
+    // So is an exported session that has already run out
+    const stale = vi.fn(async (args: string[]) => args[0] === "sts"
+      ? JSON.stringify({ Account: "111122223333", Arn: principal })
+      : JSON.stringify({ AccessKeyId: "k", SecretAccessKey: "s", SessionToken: "t", Expiration: new Date(Date.now() - 1000).toISOString() }));
+    await expect(initializePersonalSession("durtal-personal", stale, "111122223333")).rejects.toBeInstanceOf(AwsSignInNeeded);
   });
   it("discards ambient credentials, profiles and endpoint overrides", () => {
     for (const name of ["AWS_PROFILE", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_SESSION_TOKEN", "AWS_ENDPOINT_URL", "AWS_CONFIG_FILE"]) vi.stubEnv(name, "forbidden");

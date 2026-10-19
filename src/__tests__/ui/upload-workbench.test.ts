@@ -18,7 +18,7 @@ beforeEach(() => {
 });
 afterEach(async () => { await act(async () => root.unmount()); host.remove(); vi.unstubAllGlobals(); });
 async function flush() { for (let i = 0; i < 12; i++) await new Promise<void>((resolve) => setTimeout(resolve, 0)); }
-async function mount(target: UploadTarget = { kind: 'new' }, available = true) { await act(async () => { root.render(createElement(UploadWorkbench, { target, initialBatchId: null, available })); await flush(); }); }
+async function mount(target: UploadTarget = { kind: 'new' }, available = true, notice: string | null = null) { await act(async () => { root.render(createElement(UploadWorkbench, { target, initialBatchId: null, available, notice })); await flush(); }); }
 function button(label: string): HTMLButtonElement { const found = [...host.querySelectorAll('button')].find((b) => b.textContent === label); if (!found) throw new Error(`Missing ${label}`); return found; }
 async function click(label: string) { await act(async () => { button(label).click(); await flush(); }); }
 async function choose(input: HTMLInputElement) {
@@ -106,6 +106,11 @@ describe('the upload page says what happened (SLN-672)', () => {
     await mount({ kind: 'new' }, false);
     expect(host.textContent).toContain('Uploads are off on this server');
     expect(button('Choose files').disabled).toBe(true);
+  });
+  it('says up front when the upload service needs the Mac to sign in again', async () => {
+    await mount({ kind: 'new' }, true, 'Uploads need the Mac to sign in to AWS again.');
+    expect(host.querySelector('[role="note"]')?.textContent).toBe('Uploads need the Mac to sign in to AWS again.');
+    expect(host.textContent).not.toContain('Uploads are off on this server');
   });
   it('leads from a finished file to its eBook, the reader and linking', async () => {
     writeUploadSession({ version: 1, batchId: oldBatch, pending: null });

@@ -4,7 +4,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { buttonClass } from "@/components/ui/button";
 import { UploadWorkbench } from "@/components/ebooks/upload-workbench";
 import { uploadTargetSchema } from "@/lib/ebooks/upload/protocol";
-import { uploadsAvailable } from "@/lib/ebooks/upload/availability";
+import { uploadsAvailable, uploadsNotice } from "@/lib/ebooks/upload/availability";
 import { readUploadTargetSummary, type UploadTargetSummary } from "@/lib/ebooks/upload/target-summary";
 import { formatBytes } from "@/lib/ebooks/run-text";
 import { formatLabel } from "@/lib/ebooks/formats";
@@ -43,7 +43,7 @@ export default async function UploadEbooksPage({ searchParams }: { searchParams:
   return <div>
     <PageHeader title={target.data.kind === "new" ? "Upload eBooks" : target.data.kind === "add_format" ? "Add a format" : "Replace a file"}
       description={description} />
-    <UploadWorkbench target={target.data} initialBatchId={batch} available={uploadsAvailable()}
+    <UploadWorkbench target={target.data} initialBatchId={batch} available={uploadsAvailable()} notice={await uploadsNotice()}
       accept={target.data.kind === "replace" && summary?.file ? pickerExtensions(summary.file.format) : undefined} />
   </div>;
 }

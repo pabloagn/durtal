@@ -15,8 +15,10 @@
  *   service to the new image; the volume, port and bridge stay.
  * - `pnpm ebooks:upload-service start (--aws-profile P | --preview PORT)`:
  *   runs the service until SIGINT/SIGTERM. Exits non-zero when it fails, so
- *   a supervisor loop can restart it. The app needs
- *   EBOOK_UPLOAD_BRIDGE=<state folder>/bridge.json (docs/11_DEPLOYMENT.md).
+ *   its launchd agent restarts it (scripts/deploy/upload_agent.py); 78 when
+ *   the AWS sign-in expired, after leaving that reason beside its socket for
+ *   the app to show. The app needs EBOOK_UPLOAD_BRIDGE=<state
+ *   folder>/bridge.json (docs/11_DEPLOYMENT.md).
  *
  *   pnpm ebooks:upload-service build-inspector
  *   pnpm ebooks:upload-service init [--image NAME@sha256:...] [--port N] [--docker PATH]
@@ -32,6 +34,7 @@ import { chmod, mkdir, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { delimiter, join, resolve } from "node:path";
 import { loadEnvironment } from "./environment";
+import { clearUploadServiceStatus, writeUploadServiceStatus } from "@/lib/ebooks/upload/service-status";
 import {
   createUploadServiceConfig,
   readPrivateConfig,
@@ -48,6 +51,8 @@ const INSPECTOR_REPOSITORY = "durtal-ebook-inspector";
 const SOURCE_LABEL = "io.durtal.ebook-inspector.source";
 /** The supervisor's host mutex: a fixed loopback port, part of the volume binding */
 const DEFAULT_PORT = 47615;
+/** Its exit status when the AWS sign-in expired (EX_CONFIG): restarts fail until a person signs in again */
+const SIGN_IN_EXIT = 78;
 
 const { values, positionals } = parseArgs({
   allowPositionals: true,
@@ -65,6 +70,20 @@ const { values, positionals } = parseArgs({
 const command = positionals[0] ?? "start";
 const paths = uploadServicePaths(resolve(values["state-dir"]!));
 const log = (message: string) => console.log(`[upload-service ${new Date().toISOString()}] ${message}`);
+
+/** Whether a failure, or what caused it, is the AWS sign-in having expired */
+function signInNeeded(error: unknown): boolean {
+  for (let at = error, depth = 0; at instanceof Error && depth < 5; at = at.cause, depth++)
+    if (at.name === "AwsSignInNeeded") return true;
+  return false;
+}
+
+/** Leave the reason where the app reads it, then exit so launchd tries again later */
+async function exitForSignIn(): Promise<never> {
+  await writeUploadServiceStatus(paths.socket, "aws_sign_in").catch(() => {});
+  log("The AWS sign-in has expired: run aws sso login --profile durtal-personal, then the agent starts the service again");
+  process.exit(SIGN_IN_EXIT);
+}
 
 function revision(): string {
   return execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
@@ -163,15 +182,16 @@ async function start() {
   if (uploadTargetFingerprint(url) !== config.bridge.targetFingerprint)
     throw new Error(`${paths.service} belongs to another database than this environment's`);
   const { composeActualUploadService } = await import("@/lib/ebooks/upload-core/owned-service");
-  let failed = false;
+  let failed = false, expired = false;
   const service = await composeActualUploadService(config, (error) => {
     failed = true;
+    expired ||= signInNeeded(error);
     log(`Failure: ${error instanceof Error ? error.message : String(error)}`);
   });
   let stopping: Promise<void> | null = null;
   const stop = (reason: string, code: number) => {
     stopping ??= service.stop(reason).then(
-      () => { log(`Stopped (${reason})`); process.exit(code); },
+      async () => { log(`Stopped (${reason})`); if (expired) await exitForSignIn(); process.exit(code); },
       (error: unknown) => { log(`Stop did not settle; ownership stays held until the process exits: ${error instanceof Error ? error.message : String(error)}`); process.exit(1); },
     );
   };
@@ -179,6 +199,7 @@ async function start() {
   process.once("SIGTERM", () => stop("shutdown", 0));
   log(`Starting: volume ${config.volumeId}, inspector ${config.runtime.image}`);
   await service.start();
+  await clearUploadServiceStatus(paths.socket);
   log(`Ready on ${config.bridge.socketPath}`);
   // A failure inside the running service stops it; exit so the supervisor loop restarts it
   const watch = setInterval(() => { if (failed) { clearInterval(watch); stop("upload_service_failure", 1); } }, 1000);
@@ -191,5 +212,6 @@ try {
   else throw new Error(`Unknown command ${command}: use build-inspector, init or start`);
 } catch (error) {
   console.error(`[upload-service ${new Date().toISOString()}] Error: ${error instanceof Error ? error.message : String(error)}`);
+  if (command === "start" && signInNeeded(error)) await exitForSignIn();
   process.exit(1);
 }
