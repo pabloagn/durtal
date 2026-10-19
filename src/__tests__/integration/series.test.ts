@@ -506,6 +506,12 @@ describe.skipIf(!url)("series with PostgreSQL", () => {
     // At the end, the volumes before it
     expect(await positions(20)).toEqual([8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]);
     expect(await getOtherWorksInSeries(long.id, books[9].id, 2)).toHaveLength(2);
+    // A position that is no number ("1-2", as imports and the seed may write) sorts last and breaks nothing
+    const odd = await book("Long Volume 1-2", { seriesId: long.id, seriesPosition: "1-2" });
+    expect(await positions(3)).toEqual([1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]);
+    expect((await getOtherWorksInSeries(long.id, odd.id)).map((w) => w.seriesPosition)).toEqual(
+      ["9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20"],
+    );
   });
   it("rejects invalid positions before creating any series", async () => {
     const w = await book("Bad input");

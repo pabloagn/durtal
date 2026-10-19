@@ -538,7 +538,7 @@ export async function getOtherWorksInSeries(seriesId: string, workId: string, li
   const nearest = sql`(
     with ordered as (
       select w.id, row_number() over (
-        order by case when w.series_position ~ '^[0-9]+(\.[0-9]+)?$' then w.series_position::numeric end nulls last, w.title, w.id
+        order by case when w.series_position ~ '^[0-9]+(\\.[0-9]+)?$' then w.series_position::numeric end nulls last, w.title, w.id
       ) as place
       from works w where w.kind = 'book' and w.series_id = ${seriesId}::uuid
     ), here as (select place from ordered where id = ${workId}::uuid)
