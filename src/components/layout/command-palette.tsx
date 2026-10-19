@@ -26,10 +26,10 @@ import {
   Timer,
   type LucideIcon,
 } from "lucide-react";
-import { KeyCombo, Kbd } from "@/components/shortcuts/kbd";
+import { KeyCombo, Kbd, useIsMac } from "@/components/shortcuts/kbd";
 import { CapAligned } from "@/components/shared/cap-aligned";
 import { useShortcutActions } from "@/components/shortcuts/shortcuts-provider";
-import { quickSearch, getPaletteContinueReading, type QuickSearchResult } from "@/lib/actions/quick-search";
+import { quickSearch, getPaletteContinueReading, type QuickSearchRecord, type QuickSearchResult } from "@/lib/actions/quick-search";
 import { ADD, COPY_KEYS, GO_TO, SHORTCUTS, type Keys } from "@/lib/shortcuts/shortcuts";
 import { SECTION_ICONS } from "@/components/shortcuts/section-icons";
 import { filterBySearch } from "@/lib/utils/search-text";
@@ -161,6 +161,14 @@ const ITEM_CLASS =
 // or a house's roles, a command (pass 5, SLN-849)
 const LABEL_CLASS = "min-w-0 flex-1 break-words";
 /** An icon on the first line of a row that wraps */
+/** The record groups after places, in the sidebar's words and icons (SLN-966) */
+const RECORD_GROUPS = [
+  { key: "series", heading: "Series", icon: SECTION_ICONS["/series"] },
+  { key: "collections", heading: "Collections", icon: SECTION_ICONS["/collections"] },
+  { key: "recommenders", heading: "Recommenders", icon: SECTION_ICONS["/recommenders"] },
+  { key: "taxonomy", heading: "Taxonomy", icon: SECTION_ICONS["/taxonomy"] },
+] as const satisfies readonly { key: keyof QuickSearchResult; heading: string; icon: LucideIcon }[];
+
 function RowIcon({ icon: Icon }: { icon: LucideIcon }) {
   return (
     <CapAligned height={16} className="self-start">
@@ -181,6 +189,8 @@ export function CommandPalette({ open, onOpenChange, recentEbook, readerReturnTo
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+  const mac = useIsMac();
   // A shorter placeholder on a phone, where the long one was cut
   const [narrow, setNarrow] = useState(false);
   useEffect(() => {
@@ -358,6 +368,7 @@ export function CommandPalette({ open, onOpenChange, recentEbook, readerReturnTo
     (results.people[0] && `person:${results.people[0].id}`) ||
     (results.organizations[0] && `org:${results.organizations[0].id}`) ||
     (results.venues[0] && `venue:${results.venues[0].id}`) ||
+    RECORD_GROUPS.map(({ key }) => results[key]?.[0] && `${key}:${results[key]![0].id}`).find(Boolean) ||
     (pageActions[0] && pageActions[0].value) ||
     (copyItems[0] && `copy:${copyItems[0].key}`) ||
     (readingItems[0] && readingItems[0].value) ||
@@ -370,6 +381,25 @@ export function CommandPalette({ open, onOpenChange, recentEbook, readerReturnTo
   useEffect(() => {
     setSelected(firstValue);
   }, [firstValue]);
+
+  // cmdk names the selected option to a screen reader (aria-activedescendant)
+  // only once an arrow key has moved it: the best match selected above, and
+  // a selection kept while the options change, never reach it. The input
+  // names whichever option is selected (SLN-965).
+  useEffect(() => {
+    const list = listRef.current;
+    const input = inputRef.current;
+    if (!open || !list || !input) return;
+    const name = () => {
+      const id = list.querySelector('[cmdk-item][aria-selected="true"]')?.id;
+      if (!id) input.removeAttribute("aria-activedescendant");
+      else if (input.getAttribute("aria-activedescendant") !== id) input.setAttribute("aria-activedescendant", id);
+    };
+    name();
+    const observer = new MutationObserver(name);
+    observer.observe(list, { subtree: true, childList: true, attributes: true, attributeFilter: ["aria-selected"] });
+    return () => observer.disconnect();
+  }, [open]);
 
   if (!open) return null;
 
@@ -443,7 +473,7 @@ export function CommandPalette({ open, onOpenChange, recentEbook, readerReturnTo
             )}
           </div>
 
-          <Command.List className="max-h-96 overflow-y-auto p-2">
+          <Command.List ref={listRef} className="max-h-96 overflow-y-auto p-2">
             {smartFirst && smartGroup}
 
             {RESULT_KINDS.map((kind) => {
@@ -456,6 +486,8 @@ export function CommandPalette({ open, onOpenChange, recentEbook, readerReturnTo
                       key={work.id}
                       value={`work:${work.id}`}
                       onSelect={() => navigate(work.href)}
+                      // The Read link is for the pointer: the keys are told here
+                      aria-describedby={ebookGroup.bookReaderPaths.has(work.id) ? `palette-read-${work.id}` : undefined}
                       className={ITEM_CLASS}
                     >
                       <ResultThumb src={work.cover} name={work.title} kind="book" />
@@ -476,6 +508,11 @@ export function CommandPalette({ open, onOpenChange, recentEbook, readerReturnTo
                       )}
                       {work.kind === "book" && (
                         <PaletteEbookReadAction ebook={work.ebook ?? null} returnTo={returnDestination} onRead={() => onOpenChange(false)} />
+                      )}
+                      {ebookGroup.bookReaderPaths.has(work.id) && (
+                        <span id={`palette-read-${work.id}`} hidden>
+                          {mac ? "Command" : "Control"} Enter to read
+                        </span>
                       )}
                     </Command.Item>
                   ))}
@@ -571,6 +608,34 @@ export function CommandPalette({ open, onOpenChange, recentEbook, readerReturnTo
                 ))}
               </Command.Group>
             )}
+
+            {RECORD_GROUPS.map(({ key, heading, icon }) => {
+              const records: QuickSearchRecord[] = results[key] ?? [];
+              if (!records.length) return null;
+              return (
+                <Command.Group key={key} heading={heading} className={GROUP_CLASS}>
+                  {records.map((record) => (
+                    <Command.Item
+                      key={record.id}
+                      value={`${key}:${record.id}`}
+                      onSelect={() => navigate(record.href)}
+                      className={ITEM_CLASS}
+                    >
+                      <RowIcon icon={icon} />
+                      <span className={LABEL_CLASS}>
+                        {record.name}
+                        {record.detail && (
+                          <span className="text-fg-secondary max-sm:block">
+                            <span className="max-sm:hidden">{"\u00a0· "}</span>
+                            {record.detail}
+                          </span>
+                        )}
+                      </span>
+                    </Command.Item>
+                  ))}
+                </Command.Group>
+              );
+            })}
 
             {trimmed && !searching && failed && (
               <Command.Group heading="Search failed" className={GROUP_CLASS} data-palette-failed="">

@@ -1,6 +1,8 @@
 import { asc, inArray, sql, type AnyColumn, type SQL } from "drizzle-orm";
 import { editions, media, workAuthors } from "@/lib/db/schema";
 import {
+  lastFinishedOnSql,
+  lastFinishedPrecisionSql,
   lastReadAtSql,
   openReadingPercentSql,
   readCountSql,
@@ -74,6 +76,14 @@ export const workCardExtras = (work: { id: AnyColumn }) => ({
   readingPercent: sql<number | null>`${openReadingPercentSql(work.id)}`
     .mapWith(Number)
     .as("reading_percent"),
+});
+
+/** The library cards' and the API's reading data, one correlated subquery each over the root work (SLN-449) */
+export const readingExtras = (work: { id: AnyColumn }) => ({
+  ...workCardExtras(work),
+  timesRead: readCountSql(work.id).as("times_read"),
+  lastFinishedOn: lastFinishedOnSql(work.id).as("last_finished_on"),
+  lastFinishedPrecision: lastFinishedPrecisionSql(work.id).as("last_finished_precision"),
 });
 
 /**

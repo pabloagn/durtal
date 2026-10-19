@@ -1,6 +1,6 @@
 interface PageHeaderProps {
   title: string;
-  description?: string;
+  description?: React.ReactNode;
   actions?: React.ReactNode;
   /** Navigation below the title, such as the collection switch; it sets its own spacing */
   tabs?: React.ReactNode;

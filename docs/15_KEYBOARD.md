@@ -66,7 +66,8 @@ read from the source and covered by unit tests at most.
   danger button is marked `data-shortcut="save"`: the shared delete
   confirmation (`ConfirmDeleteDialog`: films, paintings, perfumes, their
   copies, versions, bottles and formulations, organizations, venues,
-  retailers, work links, readings, lookup history) and Undo import. The
+  retailers, work links, readings, lookup history), Delete location and
+  Undo import. The
   book's own Delete (`delete-confirm-dialog.tsx`) has no mark, so ⌘Enter
   does nothing there.
 - **Disabled means nothing happens.** When the main button is disabled (the
@@ -215,7 +216,7 @@ the identify queue and the harmonize workspace (16 files).
 | 11 | Edit taxonomy | `app/(catalogue)/library/[slug]/work-taxonomy-edit-dialog.tsx:98` | Edit form | Save / Create (submit) | draft |
 | 12 | New location | `app/(catalogue)/locations/actions.tsx:69` | Edit form | Save / Create (submit) | draft |
 | 13 | Edit location | `app/(catalogue)/locations/location-card.tsx:208` | Edit form | Save / Create (submit) | draft |
-| 14 | Delete $name | `app/(catalogue)/locations/location-card.tsx:266` | Confirm | Delete (danger) | none |
+| 14 | Delete $name | `app/(catalogue)/locations/location-card.tsx:261` | Confirm | Delete (danger): Enter does nothing; ⌘Enter deletes (`data-shortcut="save"`); Esc closes | none |
 | 15 | Edit person | `app/(catalogue)/people/[slug]/author-edit-dialog.tsx:98` | Edit form | Save / Create (submit) | draft |
 | 16 | Merge people | `app/(catalogue)/people/[slug]/author-merge-dialog.tsx:82` | Confirm | none: Merge is not pressed by Enter or ⌘Enter, as a danger button | draft |
 | 17 | Add person | `app/(catalogue)/people/author-create-dialog.tsx:108` | Edit form | Save / Create (submit) | draft |

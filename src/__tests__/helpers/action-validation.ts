@@ -143,7 +143,7 @@ export function createDelegationProof(sources: Record<string, string>) {
       && ts.isPrefixUnaryExpression(refusal.expression) && refusal.expression.operator === ts.SyntaxKind.ExclamationToken
       && property(refusal.expression.operand, "ok") && ts.isThrowStatement(refusal.thenStatement)
       && ts.isNewExpression(refusal.thenStatement.expression) && ts.isIdentifier(refusal.thenStatement.expression.expression)
-      && refusal.thenStatement.expression.expression.text === "Error"
+      && ["Error", "ActionRefusal"].includes(refusal.thenStatement.expression.expression.text)
       && refusal.thenStatement.expression.arguments?.length === 1
       && property(refusal.thenStatement.expression.arguments[0], "error")
       && ts.isReturnStatement(returned) && property(returned.expression, "value");

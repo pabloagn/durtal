@@ -6,7 +6,7 @@ import {
   COVER_UNREADABLE,
   type CoverInput,
 } from "@/lib/catalogue/edition-cover";
-import { isAllowedImageType, MAX_MEDIA_SIZE_BYTES } from "@/lib/validations/media-security";
+import { imageFileRefusal } from "@/lib/validations/media-security";
 import { isUuid } from "@/lib/utils/uuid";
 
 const urlBody = z.object({ imageUrl: z.string().url().max(2048) }).strict();
@@ -20,8 +20,8 @@ async function coverInput(req: NextRequest): Promise<CoverInput | string> {
   const form = await req.formData().catch(() => null);
   const file = form?.get("file");
   if (!(file instanceof File)) return "The image did not arrive intact. Please choose it again.";
-  if (file.size > MAX_MEDIA_SIZE_BYTES) return "File too large. Maximum size: 50 MB.";
-  if (!isAllowedImageType(file.type)) return "File type not allowed. Accepted: JPEG, PNG, WebP, GIF.";
+  const refused = imageFileRefusal(file);
+  if (refused) return refused;
   const bytes = Buffer.from(await file.arrayBuffer());
   return bytes.length ? { kind: "file", bytes } : "File is empty";
 }

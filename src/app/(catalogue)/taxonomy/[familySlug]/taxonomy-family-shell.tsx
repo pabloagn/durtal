@@ -382,21 +382,27 @@ export function TaxonomyFamilyShell({
               <h1 className="type-page-title inline [overflow-wrap:anywhere]">
                 {family.name}
               </h1>
-              {family.isSystem && " "}
-              {family.isSystem && (
-                <span className="inline-block h-5 -my-2.5 align-[0.5cap]">
-                  <span className="float-left flex h-5 items-center">
-                    <Badge variant="muted">System</Badge>
-                  </span>
-                </span>
-              )}
-              {family.color && " "}
-              {family.color && (
-                <span className="inline-block h-3 -my-1.5 align-[0.5cap]">
-                  <span
-                    className="float-left block h-3 w-3 rounded-full"
-                    style={{ backgroundColor: family.color }}
-                  />
+              {(family.isSystem || family.color) && " "}
+              {/* The two marks move to the next line together, so the dot
+                  never sits alone under the title */}
+              {(family.isSystem || family.color) && (
+                <span className="whitespace-nowrap">
+                  {family.isSystem && (
+                    <span className="inline-block h-5 -my-2.5 align-[0.5cap]">
+                      <span className="float-left flex h-5 items-center">
+                        <Badge variant="muted">System</Badge>
+                      </span>
+                    </span>
+                  )}
+                  {family.isSystem && family.color && " "}
+                  {family.color && (
+                    <span className="inline-block h-3 -my-1.5 align-[0.5cap]">
+                      <span
+                        className="float-left block h-3 w-3 rounded-full"
+                        style={{ backgroundColor: family.color }}
+                      />
+                    </span>
+                  )}
                 </span>
               )}
             </div>

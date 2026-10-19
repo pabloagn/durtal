@@ -8,6 +8,7 @@ import * as perfume_retailers from "./perfume-retailers";
 import * as acquisitions from "./acquisitions";
 import * as publishers from "./publishers";
 import * as reading from "./reading";
+import * as works from "./works";
 
 /** UI-only adapters; service and API contracts remain unchanged. */
 
@@ -265,4 +266,10 @@ export async function deleteSession(
   ...args: Parameters<typeof reading.deleteSession>
 ) {
   return actionResult(() => reading.deleteSession(...args));
+}
+
+export async function deleteWork(
+  ...args: Parameters<typeof works.deleteWork>
+) {
+  return actionResult(() => works.deleteWork(...args));
 }

@@ -15,15 +15,15 @@ export default function RecommenderLoading() {
     <div role="status" aria-label="Loading the recommender">
       <BackLink href="/recommenders">Back to recommenders</BackLink>
       <header className="mb-8 min-w-0">
-        {/* The name with the star and menu (72px, 96px on touch) at the row's end,
-            as the page draws them */}
+        {/* The name with the star, Edit and menu (133px, 157px on touch) at the
+            row's end, as the page draws them */}
         <div className="@container">
-          {/* A person's name fits beside the star and menu on a 390px phone, not on a 320px one */}
+          {/* A person's name fits beside them from about 480px, so on a phone they sit under it */}
           <div data-title-length="short" className={`type-page-title flex flex-wrap items-start ${DETAIL_TITLE_ROW.free}`}>
-            <SkeletonLine titleLength="short" className="type-page-title w-full min-w-0 @min-[22rem]:w-1/2" />
-            <div className="shrink-0 @min-[22rem]:ml-auto">
+            <SkeletonLine titleLength="short" className="type-page-title w-full min-w-0 @min-[30rem]:w-1/2" />
+            <div className="shrink-0 @min-[30rem]:ml-auto">
               <DetailControls>
-                <SkeletonBlock className="h-8 w-[72px] pointer-coarse:h-11 pointer-coarse:w-24" />
+                <SkeletonBlock className="h-8 w-[133px] pointer-coarse:h-11 pointer-coarse:w-[157px]" />
               </DetailControls>
             </div>
           </div>

@@ -3,7 +3,7 @@ import { catalogueAvailability } from "@/lib/ebooks/catalogue-availability";
 import { collectionCounts } from "@/lib/collections/counts";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
-import { getLibraryStats } from "@/lib/actions/works";
+import { libraryStatsReads } from "@/lib/actions/utils/library-stats";
 import {
   getCollectionCoverPreviews,
   getCollections,
@@ -36,7 +36,9 @@ import { cardReadingOf } from "@/lib/reading/card";
 import { mediaUrl } from "@/lib/s3/media-url";
 import { appTimeZone } from "@/lib/utils/date";
 import { PhonePairGrid } from "@/components/shared/phone-pair-grid";
-import { DashboardStatistics } from "@/components/statistics/dashboard-statistics";
+import { DashboardStatistics, statisticsReads } from "@/components/statistics/dashboard-statistics";
+import { Dateline } from "@/components/shared/dateline";
+import { formatDateline } from "@/lib/utils/dateline";
 
 // The root layout's title template skips a page in its own segment
 export const metadata = { title: { absolute: "Dashboard | Durtal" } };
@@ -241,8 +243,10 @@ async function otherDomains() {
 }
 
 async function DashboardContent() {
-  // Each read starts once what it needs is in, not when every read above is
-  const statsRead = getLibraryStats({ shelf: SHELF });
+  // Each read starts once what it needs is in, not when every read above is:
+  // two round trips in all, Statistics' own reads among them (SLN-795)
+  const statistics = statisticsReads();
+  const { library: statsRead, wantedIds, wanted } = libraryStatsReads({ shelf: SHELF });
   const collectionsRead = getCollections({ limit: 4, offset: 0 });
   // Books being read before paused ones; three at most
   const currentRead = getOpenReadings().then((open) =>
@@ -250,14 +254,16 @@ async function DashboardContent() {
       .sort((a, b) => Number(a.reading.status === "paused") - Number(b.reading.status === "paused"))
       .slice(0, 3),
   );
-  const [stats, others, collections, currentReads, finishedReads, digital, covers, authorCovers, personRoles, estimates, goal] =
+  const [library, wantedWorks, others, collections, currentReads, finishedReads, digital, covers, authorCovers, personRoles, estimates, goal] =
     await Promise.all([
       statsRead,
+      wanted,
       otherDomains(),
       collectionsRead,
       currentRead,
       getRecentlyFinished(4),
-      statsRead.then((s) => catalogueAvailability([...s.recentWorks, ...s.topRatedWorks, ...s.wantedWorks].map((work) => work.id))),
+      // The wanted shelf's from its ids, so this need not wait for its cards
+      Promise.all([statsRead, wantedIds]).then(([s, ids]) => catalogueAvailability([...s.recentWorks.map((work) => work.id), ...s.topRatedWorks.map((work) => work.id), ...ids])),
       collectionsRead.then((shelf) => getCollectionCoverPreviews(shelf.map((collection) => collection.id))),
       // Recent authors with no portrait show some of their book covers
       statsRead.then((s) => getAuthorCoverPreviews(s.recentAuthors.filter((a) => !a.photoS3Key).map((a) => a.id))),
@@ -271,6 +277,7 @@ async function DashboardContent() {
         return progress ? { progress, serverToday: today, dayStartHour } : null;
       }),
     ]);
+  const stats = { ...library, wantedWorks };
   // Newest first across the open collections
   const recent = [
     ...stats.recentWorks.map((work) => ({
@@ -313,7 +320,7 @@ async function DashboardContent() {
     });
   }
   // The numbers, between what is new and what is curated (SLN-742); the body loads on its own
-  sections.push({ id: "statistics", title: "Statistics", href: "/statistics", content: <DashboardStatistics /> });
+  sections.push({ id: "statistics", title: "Statistics", href: "/statistics", content: <DashboardStatistics reads={statistics} /> });
   if (collections.length > 0) {
     sections.push({
       id: "collections",
@@ -381,19 +388,12 @@ async function DashboardContent() {
   );
 }
 
-/** The date in the library's time zone, as a dateline: "Wednesday 15 October 2026" */
-function dateline() {
-  return new Intl.DateTimeFormat("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: appTimeZone() })
-    .format(new Date())
-    .replace(",", "");
-}
-
 export default function DashboardPage() {
   return (
     <>
       <PageHeader
         title="Dashboard"
-        description={dateline()}
+        description={<Dateline initial={formatDateline(new Date(), appTimeZone())} />}
         actions={
           // No Import: importing books is not built yet (SLN-832)
           <DomainAddLink kind="book" size="md" />

@@ -131,7 +131,7 @@ describe("the media manager", () => {
   const source = readFileSync(join(process.cwd(), "src/components/media/media-manager-dialog.tsx"), "utf8");
   it("asks before a close loses the editors' work", () => {
     expect(source).toContain("dirty={dirty}");
-    expect(source).toContain("unlessUnsaved(() => handleTabChange(tab.key))");
+    expect(source).toContain("unlessUnsaved(() => handleTabChange(key))");
     expect(source).toContain("unlessUnsaved(() => void handleSetActive(item.id))");
   });
 

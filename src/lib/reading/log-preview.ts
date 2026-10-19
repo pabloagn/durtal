@@ -121,8 +121,10 @@ export function logPreview(reading: LogReading, input: ProgressInput | null, ses
     done = `Logged ${pct(percent)}`;
   } else if (given.page !== undefined) {
     const since = given.page - (reading.currentPage ?? 0);
+    const pageTotal = input.kind === "page" && input.totalPages ? input.totalPages : totals.totalPages;
     line = [
-      `Page ${given.page}${totals.totalPages ? ` of ${totals.totalPages}` : ""}`,
+      // "250/480" also gives the page count: the line shows that one (SLN-932)
+      `Page ${given.page}${pageTotal ? ` of ${pageTotal}` : ""}`,
       percent !== null ? pct(percent) : null,
       since > 0 ? `${since} ${since === 1 ? "page" : "pages"} since last time` : null,
     ]
