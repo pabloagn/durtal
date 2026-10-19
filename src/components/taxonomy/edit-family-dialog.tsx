@@ -1,5 +1,6 @@
 "use client";
 
+import { RequiredNameHint } from "@/components/shared/required-name-hint";
 import { useEffect, useState, type FormEvent } from "react";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -120,7 +121,8 @@ export function EditFamilyDialog({
               {error}
             </p>
           )}
-          <div className="flex items-center justify-end gap-2 pt-2">
+          <div className="flex flex-wrap items-center justify-end gap-2 pt-2">
+            <RequiredNameHint value={value.name} message="Give the family a name" />
             <Button data-dismiss="" type="button" variant="ghost" size="sm" onClick={onClose}>
               Cancel
             </Button>

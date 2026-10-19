@@ -247,6 +247,15 @@ export function WorkSearchStep({
             )}
         </div>
 
+        {(!newTitle.trim() || !authorQuery.trim()) && (
+          <p className="text-xs text-fg-secondary">
+            {!newTitle.trim() && !authorQuery.trim()
+              ? "Add a title and author"
+              : !newTitle.trim()
+                ? "Add a title"
+                : "Add the author"}
+          </p>
+        )}
         <Button
           variant="primary"
           size="sm"
