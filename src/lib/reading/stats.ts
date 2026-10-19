@@ -421,11 +421,15 @@ export async function eras(year: StatsYear): Promise<EraStats> {
 /* ── 9. Where and how ───────────────────────────────────────────────────── */
 
 export interface WhereHowStats {
-  /** Time and pages by format: each session under its own format; a finished reading without sessions under the reading's */
+  /**
+   * Time and pages by format: each session under its own format; a finished
+   * reading without sessions under the reading's. Goodreads keeps no format,
+   * so its readings with no copy are "unknown", never print (SLN-1171)
+   */
   formats: { format: string; minutes: number; pages: number; readings: number }[];
   /** Readings by their home (readings.location_id), never by a copy's place now */
   homes: { home: string | null; readings: number }[];
-  /** Readings that name one of his copies, and those that do not (borrowed, library) */
+  /** Readings that name one of his copies, and those that do not (borrowed, a library, or imported with no copy) */
   ownCopy: number;
   noCopy: number;
 }
@@ -438,7 +442,8 @@ export async function whereAndHow(year: StatsYear): Promise<WhereHowStats> {
         select ss.format, ss.duration_seconds::float8 / 60 as minutes, coalesce(cp.pages, 0) as pages, ss.reading_id
         from ss left join cp on cp.session_id = ss.id where ${dayIn(year, sql`ss.read_on`)}
         union all
-        select rr.format, 0, cp.pages, rr.id from cp join rr on rr.id = cp.reading_id
+        select case when rr.instance_id is null and rr.source_key like 'goodreads:%' then 'unknown' else rr.format end, 0, cp.pages, rr.id
+        from cp join rr on rr.id = cp.reading_id
         where cp.session_id is null and ${dayIn(year, sql`cp.day`, sql`cp.day_precision`)}
       ) f group by 1 order by 2 desc, 3 desc`),
     rows<{ home: string | null; readings: number }>(sql`with ${BASE}
