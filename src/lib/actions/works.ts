@@ -180,11 +180,19 @@ export async function getWorksWith<T>(
       : sort === "authorFirstName" || sort === "authorLastName"
         ? await authorOrderedBookIds(where, sort, resolvedOrder, limit, offset)
         : undefined;
+  // Every other sort picks the page's ids inside the same query, before the
+  // card's relations load: a relational query's laterals otherwise run for
+  // every matching book before the limit (SLN-938). Same order, ties by id.
+  const pageOf = pageIds
+    ? undefined
+    : db.select({ id: works.id }).from(works).where(where)
+      .orderBy(orderBy, asc(works.id))
+      .limit(limit)
+      .offset(offset);
   const details = db.query.works.findMany({
-    where: pageIds ? inArray(works.id, pageIds) : where,
-    orderBy: [...(Array.isArray(orderBy) ? orderBy : [orderBy]), asc(works.id)],
+    where: inArray(works.id, pageIds ?? pageOf!),
+    orderBy: [orderBy, asc(works.id)],
     limit,
-    offset: pageIds ? 0 : offset,
     extras: readingExtras,
     with: {
       workAuthors: {

@@ -167,13 +167,16 @@ export async function getAuthors(opts?: {
     }
   })();
 
+  const pageOrder = [...(Array.isArray(orderBy) ? orderBy : [orderBy]), asc(authors.id)];
+  // The page's ids first, in the same query: the relational query's laterals
+  // otherwise run for every matching person before the limit (SLN-938)
+  const pageIds = db.select({ id: authors.id }).from(authors).where(where).orderBy(...pageOrder).limit(limit).offset(offset);
   const results = await db.query.authors.findMany({
     columns: { bio: false },
     extras: { bio: (opts?.includeBiography === false ? sql<string | null>`null::text` : sql<string | null>`${authors.bio}`).as("bio") },
-    where,
-    orderBy: [...(Array.isArray(orderBy) ? orderBy : [orderBy]), asc(authors.id)],
+    where: inArray(authors.id, pageIds),
+    orderBy: pageOrder,
     limit,
-    offset,
     with: {
       country: { columns: { name: true, alpha2: true } },
       workAuthors: {
