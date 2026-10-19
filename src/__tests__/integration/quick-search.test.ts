@@ -28,6 +28,8 @@ vi.mock("@/lib/db", () => ({
 // This search request has no reader device cookie.
 vi.mock("next/headers", () => ({ cookies: async () => ({ get: () => undefined }) }));
 import { quickSearch } from "@/lib/actions/quick-search";
+import { workSearchCondition } from "@/lib/library/search-condition";
+import { authorSearchCondition } from "@/lib/actions/utils/author-search";
 
 afterAll(async () => {
   await client?.end();
@@ -136,5 +138,73 @@ describe.skipIf(!url)("command palette search for records found by name (SLN-966
     const found = await quickSearch("nad\u0000ja");
     expect(found.organizations).toEqual([{ id: press.id, name: "Nadja Press", href: "/publishers/nadja-press", roles: "Publisher" }]);
     expect(found.series).toEqual([{ id: series.id, name: "Nadja", href: `/series/${series.id}` }]);
+  });
+});
+
+describe.skipIf(!url)("search in every script, through the palette, Books and People (SLN-1234)", () => {
+  const db = testDb!;
+  beforeEach(async () => {
+    await resetDisposableDatabase(url!, "sln403_test");
+  }, 30000);
+
+  async function book(title: string, by: string) {
+    const [found] = await db.select().from(schema.authors).where(eq(schema.authors.name, by));
+    const author = found ?? (await db.insert(schema.authors).values({ name: by, slug: `p-${Math.random().toString(36).slice(2)}` }).returning())[0];
+    const [work] = await db.insert(schema.works).values({ title, slug: `w-${Math.random().toString(36).slice(2)}` }).returning();
+    await db.insert(schema.workAuthors).values({ workId: work.id, authorId: author.id });
+    return work;
+  }
+  const palette = async (q: string) => {
+    const found = await quickSearch(q);
+    return { works: found.works.map((w) => w.title).sort(), people: found.people.map((p) => p.name).sort() };
+  };
+  const books = async (q: string) =>
+    (await db.select({ title: schema.works.title }).from(schema.works).where(workSearchCondition(q))).map((w) => w.title).sort();
+  const people = async (q: string) =>
+    (await db.select({ name: schema.authors.name }).from(schema.authors).where(authorSearchCondition(q))).map((a) => a.name).sort();
+
+  it("finds Korean, Japanese, Cyrillic and Devanagari as typed, and Latin, ё, Greek and Turkish folded", async () => {
+    await book("채식주의자", "한강");
+    await book("吾輩は猫である", "夏目漱石");
+    await book("Преступление и наказание", "Фёдор Достоевский");
+    await book("Ёлка", "Фёдор Достоевский");
+    await book("गोदान", "प्रेमचंद");
+    await book("Emlékiratok könyve", "Péter Nádas");
+    await book("Άξιον Εστί", "Οδυσσέας Ελύτης");
+    await book("İstanbul Hatırası", "Ahmet Ümit");
+    await book("The Owl and the Pussy-cat", "Edward Lear");
+
+    // The palette: people and their books, and titles
+    expect(await palette("한강")).toEqual({ works: ["채식주의자"], people: ["한강"] });
+    expect((await palette("채식주의자")).works).toEqual(["채식주의자"]);
+    expect((await palette("猫である")).works).toEqual(["吾輩は猫である"]);
+    expect(await palette("Достоевский")).toEqual({ works: ["Ёлка", "Преступление и наказание"], people: ["Фёдор Достоевский"] });
+    expect((await palette("प्रेमचंद")).people).toEqual(["प्रेमचंद"]);
+    expect((await palette("NADAS peter")).people).toEqual(["Péter Nádas"]);
+    // One CJK character is a word; symbols alone search nothing
+    expect((await palette("猫")).works).toEqual(["吾輩は猫である"]);
+    expect(await palette("🦉")).toEqual({ works: [], people: [] });
+    expect(await palette("a")).toEqual({ works: [], people: [] });
+
+    // Books: by author and by title
+    expect(await books("Достоевский")).toEqual(["Ёлка", "Преступление и наказание"]);
+    expect(await books("한강")).toEqual(["채식주의자"]);
+    expect(await books("猫である")).toEqual(["吾輩は猫である"]);
+    expect(await books("प्रेमचंद")).toEqual(["गोदान"]);
+    expect(await books("nadas")).toEqual(["Emlékiratok könyve"]);
+
+    // People
+    expect(await people("प्रेमचंद")).toEqual(["प्रेमचंद"]);
+    expect(await people("достоевский")).toEqual(["Фёдор Достоевский"]);
+
+    // Folding as before: ё, Greek accents, Turkish İ and ı, Latin accents
+    expect(await books("елка")).toEqual(["Ёлка"]);
+    expect(await books("ёлка")).toEqual(["Ёлка"]);
+    expect(await people("федор")).toEqual(["Фёдор Достоевский"]);
+    expect(await people("ελυτης")).toEqual(["Οδυσσέας Ελύτης"]);
+    expect((await palette("ΕΛΎΤΗΣ")).people).toEqual(["Οδυσσέας Ελύτης"]);
+    expect((await palette("istanbul hatirasi")).works).toEqual(["İstanbul Hatırası"]);
+    expect((await palette("umit")).people).toEqual(["Ahmet Ümit"]);
+    expect((await palette("pussy cat")).works).toEqual(["The Owl and the Pussy-cat"]);
   });
 });

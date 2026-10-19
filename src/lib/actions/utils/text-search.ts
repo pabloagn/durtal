@@ -1,5 +1,5 @@
 import { sql, type AnyColumn, type SQL } from "drizzle-orm";
-import { searchTokens } from "@/lib/utils/search-text";
+import { searchWords } from "@/lib/utils/search-text";
 import { containsPattern } from "@/lib/utils/like";
 
 /**
@@ -9,7 +9,8 @@ import { containsPattern } from "@/lib/utils/like";
  * `haystack` must be `search_normalize()` text (accents removed, lower-case,
  * punctuation turned into spaces). Query words go through the same function,
  * so "Peter Nadas", "nadas peter" and "Nádas, Péter" all find "Péter Nádas".
- * Normalized words hold only letters and digits, so they are safe inside LIKE.
+ * Query words are split as typed and folded only by `search_normalize()`
+ * (SLN-1234), which leaves letters, digits and spaces: safe inside LIKE.
  */
 
 /** Query words shorter than this only match exactly, never as typos */
@@ -23,7 +24,7 @@ const WORD_FUZZY_THRESHOLD = 0.4;
 const QUERY_FUZZY_THRESHOLD = 0.6;
 
 function queryParts(query: string) {
-  const tokens = searchTokens(query);
+  const tokens = searchWords(query);
   return { tokens, text: tokens.join(" ") };
 }
 
