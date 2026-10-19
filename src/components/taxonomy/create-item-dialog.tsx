@@ -5,9 +5,9 @@ import { toast } from "@/lib/notifications/toast";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { TaxonomyColorPicker } from "./taxonomy-color-picker";
+import { ParentPicker, type ParentChoice } from "./parent-picker";
 
 interface CreateItemDialogProps {
   open: boolean;
@@ -15,7 +15,9 @@ interface CreateItemDialogProps {
   familySlug: string;
   familyName: string;
   hierarchical: boolean;
-  existingItems: { id: string; name: string }[];
+  /** Whether the family's items keep a description (SLN-1158) */
+  describable: boolean;
+  existingItems: ParentChoice[];
   onCreated: (id: string) => void;
 }
 
@@ -25,6 +27,7 @@ export function CreateItemDialog({
   familySlug,
   familyName,
   hierarchical,
+  describable,
   existingItems,
   onCreated,
 }: CreateItemDialogProps) {
@@ -67,7 +70,7 @@ export function CreateItemDialog({
         );
         const created = await createTaxonomyItem(familySlug, {
           name: trimmedName,
-          description: description.trim() || null,
+          description: describable ? description.trim() || null : null,
           color,
           parentId: parentId || null,
         });
@@ -84,13 +87,8 @@ export function CreateItemDialog({
         setSubmitting(false);
       }
     },
-    [name, description, color, parentId, familySlug, resetForm, onCreated, onClose],
+    [name, description, describable, color, parentId, familySlug, resetForm, onCreated, onClose],
   );
-
-  const parentOptions = existingItems.map((item) => ({
-    value: item.id,
-    label: item.name,
-  }));
 
   return (
     <Dialog
@@ -125,23 +123,24 @@ export function CreateItemDialog({
           </div>
         </div>
 
-        {/* Description */}
-        <Textarea
-          label="Description"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          placeholder="Optional description"
-          rows={3}
-        />
+        {/* Description, where the family keeps one */}
+        {describable && (
+          <Textarea
+            label="Description"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Optional description"
+            rows={3}
+          />
+        )}
 
         {/* Parent (only for hierarchical families) */}
-        {hierarchical && parentOptions.length > 0 && (
-          <Select
-            label="Parent"
-            options={parentOptions}
-            placeholder="None (root level)"
+        {hierarchical && existingItems.length > 0 && (
+          <ParentPicker
+            familyName={familyName}
+            choices={existingItems}
             value={parentId}
-            onChange={(e) => setParentId(e.target.value)}
+            onChange={setParentId}
           />
         )}
 

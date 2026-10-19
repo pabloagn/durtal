@@ -110,6 +110,20 @@ export async function getTaxonomyEditorChoices(familySlug: string) {
   );
 }
 
+/** An item's description, read when its Edit dialog opens: list rows never carry it */
+export async function getTaxonomyItemDescription(familySlug: string, itemId: string) {
+  z.uuid().parse(itemId);
+  const family = await getTaxonomyFamily(familySlug);
+  if (!family) return null;
+  const s = taxonomyStorage(family);
+  const [row] = resultRows<{ description: string | null }>(
+    await db.execute(
+      sql`select ${itemProjection(s)} from ${sql.identifier(s.table)} i where ${familyItemCondition(s, family.id)} and i.id=${itemId}::uuid`,
+    ),
+  );
+  return row?.description ?? null;
+}
+
 /** Term metadata without materializing every linked id; shared by layout and metadata. */
 export async function getTaxonomyTerm(familySlug: string, itemSlug: string) {
   const family = await getTaxonomyFamily(familySlug);

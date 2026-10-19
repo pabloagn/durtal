@@ -107,7 +107,6 @@ function Family({ names }: { names: string[] }) {
         selectedIds: new Set<string>(),
         onSelectionChange: () => {},
         onReorder: noop,
-        onMove: noop,
         onColorChange: noop,
         onRename: noop,
         onDelete: () => {},
