@@ -318,7 +318,14 @@ export class UploadSupervisor {
       // This transport-owned failure CAS cannot overwrite a committed receipt
       // or cancellation. It leaves the lease live until actual cleanup proof,
       // so a later explicit core retry can use the retained original bytes.
-      await this.dependencies.persistence.recordJobFailure(this.owner!, fence, failure);
+      try {
+        await this.dependencies.persistence.recordJobFailure(this.owner!, fence, failure);
+      } catch (recordError) {
+        // The service stops either way; its log keeps why the check failed
+        const say = (e: unknown) => (e instanceof Error ? e.message : String(e));
+        throw new Error(`The failed upload check could not be recorded (${say(recordError)}). The check failed: ${say(error)}`,
+          { cause: recordError });
+      }
       throw local ? new UploadItemFailed(failure, { cause: error, canceled: active.canceled }) : error;
     } finally {
       clearTimeout(deadline); clearTimeout(inspectionDeadline);
