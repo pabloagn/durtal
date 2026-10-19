@@ -132,7 +132,7 @@ export function ActivityTimeline({ entityType, entityId, refreshKey }: ActivityT
   const handleCommentUpdated = () => { void readEvents(); };
 
   return (
-    <section className="mb-8">
+    <section className="mb-8" data-activity-timeline="">
       <SectionHeading title="Activity" />
 
       {loadError && (
@@ -164,7 +164,7 @@ export function ActivityTimeline({ entityType, entityId, refreshKey }: ActivityT
             </div>
           )}
           {/* Comment editor at the bottom, even when empty */}
-          <div className="mt-2">
+          <div className="mt-2" data-comment-box="">
             <CommentEditor
               entityType={entityType}
               entityId={entityId}
@@ -227,7 +227,7 @@ export function ActivityTimeline({ entityType, entityId, refreshKey }: ActivityT
               <div className="relative z-10 mt-2 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-bg-primary">
                 <div className="h-2 w-2 rounded-full bg-fg-muted/40" />
               </div>
-              <div className="min-w-0 flex-1">
+              <div className="min-w-0 flex-1" data-comment-box="">
                 <CommentEditor
                   entityType={entityType}
                   entityId={entityId}

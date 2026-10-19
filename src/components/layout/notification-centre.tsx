@@ -31,7 +31,7 @@ const ACTION =
 function Entry({ entry, now, onRemove }: { entry: NotificationEntry; now: number; onRemove: (button: HTMLButtonElement) => void }) {
   const Icon = entry.kind === "error" ? CircleAlert : TriangleAlert;
   return (
-    <li className="flex gap-2.5 py-2.5 pl-3 pr-1 text-xs" data-notification={entry.read ? "read" : "unread"}>
+    <li className="flex gap-2.5 py-2.5 pl-3 pr-1 text-xs" data-notification={entry.read ? "read" : "unread"} data-notification-id={entry.id}>
       <CapAligned height={16}>
         <Icon
           className={`h-4 w-4 ${entry.kind === "error" ? "text-accent-red-text" : "text-accent-gold"}`}
@@ -71,8 +71,9 @@ function Entry({ entry, now, onRemove }: { entry: NotificationEntry; now: number
 
 /**
  * The bell that opens the notification history (SLN-567): the errors and
- * warnings this browser showed, newest first. The ones seen while it is open
- * count as read when it closes. Each can be removed, or all at once.
+ * warnings this browser showed, newest first. The ones scrolled into view
+ * while it is open count as read when it closes (SLN-1460). Each can be
+ * removed, or all at once.
  */
 export function NotificationCentre({
   className,
@@ -86,7 +87,8 @@ export function NotificationCentre({
   const button = useRef<HTMLButtonElement>(null);
   const pop = useRef<HTMLDivElement>(null);
   const entries = useSyncExternalStore(subscribe, getEntries, getServerEntries);
-  const seen = useRef<string[]>([]);
+  const list = useRef<HTMLUListElement>(null);
+  const seen = useRef(new Set<string>());
   const unread = entries.filter((e) => !e.read).length;
   // The times are as of opening
   const [now, setNow] = useState(0);
@@ -100,11 +102,11 @@ export function NotificationCentre({
     const toggle = (e: Event) => {
       setOpen((e as ToggleEvent).newState === "open");
       if ((e as ToggleEvent).newState !== "open") {
-        markRead(seen.current);
-        seen.current = [];
+        markRead([...seen.current]);
+        seen.current = new Set();
         return;
       }
-      seen.current = getEntries().map((entry) => entry.id);
+      seen.current = new Set();
       setNow(Date.now());
       const b = button.current!.getBoundingClientRect();
       const width = Math.min(320, window.innerWidth - 32);
@@ -117,11 +119,24 @@ export function NotificationCentre({
     return () => el.removeEventListener("toggle", toggle);
   }, []);
 
-  // Entries that arrive while it is open are seen too
+  // What is scrolled into view while it is open is seen, entries that arrive
+  // meanwhile included; the rest of a long list stays unread (SLN-1460)
   useEffect(() => {
-    if (pop.current?.matches(":popover-open"))
-      seen.current = entries.map((entry) => entry.id);
-  }, [entries]);
+    const ul = list.current;
+    if (!open || !ul) return;
+    const rows = [...ul.querySelectorAll<HTMLElement>("[data-notification-id]")];
+    const see = (row: Element) => seen.current.add((row as HTMLElement).dataset.notificationId!);
+    if (typeof IntersectionObserver === "undefined") {
+      rows.forEach(see);
+      return;
+    }
+    const observer = new IntersectionObserver(
+      (records) => records.forEach((record) => record.isIntersecting && see(record.target)),
+      { root: ul, threshold: 0.5 },
+    );
+    rows.forEach((row) => observer.observe(row));
+    return () => observer.disconnect();
+  }, [open, entries]);
 
   // Each of these removes the button it is pressed on: the focus moves first,
   // so it never falls to the page body (SLN-922). Remove hands it to the
@@ -201,7 +216,7 @@ export function NotificationCentre({
           // Positioned, so each entry's hidden "(unread)" stays inside the
           // list that scrolls; else it is placed in the panel, which grows a
           // scroll height of the whole list behind its overflow-hidden
-          <ul className="relative min-h-0 flex-1 divide-y divide-glass-border overflow-y-auto overscroll-contain">
+          <ul ref={list} className="relative min-h-0 flex-1 divide-y divide-glass-border overflow-y-auto overscroll-contain">
             {entries.map((entry) => (
               <Entry key={entry.id} entry={entry} now={now} onRemove={handOn} />
             ))}
