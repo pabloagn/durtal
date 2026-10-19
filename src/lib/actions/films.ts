@@ -8,9 +8,8 @@ import { and, asc, eq, inArray, sql, type SQL } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { atomic } from "@/lib/db/atomic";
 import { readTogether } from "@/lib/db/read-together";
-import { readableDatabaseError, withReadableErrors } from "@/lib/db/errors";
+import { readableDatabaseError, uniqueConstraint, withReadableErrors } from "@/lib/db/errors";
 import {
-  authors,
   works,
   filmDetails,
   filmCountries,
@@ -88,8 +87,7 @@ import { filmHoldings as summarizeFilmHoldings } from "@/lib/catalogue/holdings"
 import { normalizeCatalogueDate } from "@/lib/catalogue/dates";
 import { alphabeticalWorkIds, alphabeticalWorkPage } from "./utils/alphabetical-works";
 import { getCreditRoles, getWorkCredits } from "./credits";
-import { generateWorkSlug } from "@/lib/utils/slugify";
-import { isWorkSlugClash, uniqueSlug } from "@/lib/catalogue/slugs";
+import { creditedWorkSlug } from "@/lib/catalogue/slugs";
 import { assertSql, resultRows } from "@/lib/harmonization/store";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
 import { wantedTargetQueries } from "@/lib/catalogue/acquisition-receipt";
@@ -576,36 +574,6 @@ async function getFilmHolding(id: string) {
 
 // ── Film writes ──────────────────────────────────────────────────────────────
 
-/**
- * The address of a new film: `{title}-by-{director}` (the first director, by
- * name or as credited; the title alone without one), numbered when taken, like
- * a book's. If another work takes it during the write, the next free one is
- * tried; the last try adds the film's id. Renames keep the address.
- */
-async function filmSlug(
-  id: string,
-  title: string,
-  credits: { roleId: string; personId: string | null; creditedAs: string | null }[],
-  attempt: number,
-) {
-  const director = credits.find(
-    (c) => c.roleId === "film.director" && (c.personId || c.creditedAs),
-  );
-  const name = director?.personId
-    ? ((
-        await db.query.authors.findFirst({
-          where: eq(authors.id, director.personId),
-          columns: { name: true },
-        })
-      )?.name ??
-      director.creditedAs ??
-      "")
-    : (director?.creditedAs ?? "");
-  const base = generateWorkSlug(title, name, id);
-  // "new" is the Add film page, /films/new: a film never takes it
-  return attempt < 2 ? uniqueSlug(works, base, { taken: ["new"] }) : `${base}-${id}`;
-}
-
 /** One transaction writes the film and every section. A remake is a new film. */
 export async function createFilm(input: CreateFilmInput) {
   const v = createFilmSchema.parse(input);
@@ -615,7 +583,8 @@ export async function createFilm(input: CreateFilmInput) {
   const id = randomUUID();
   const release = newDate(v.releaseDate);
   for (let attempt = 0; ; attempt++) {
-    const slug = await filmSlug(id, v.title, v.credits, attempt);
+    // The address: `{title}-by-{director}`, numbered when taken
+    const slug = await creditedWorkSlug(id, v.title, v.credits, "film.director", attempt);
     try {
       await atomic((d) => [
         d.insert(works).values({
@@ -640,7 +609,7 @@ export async function createFilm(input: CreateFilmInput) {
       ]);
       break;
     } catch (error) {
-      if (attempt < 2 && isWorkSlugClash(error)) continue;
+      if (attempt < 2 && uniqueConstraint(error) === "works_slug_unique") continue;
       throw readableDatabaseError(error);
     }
   }

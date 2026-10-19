@@ -20,6 +20,13 @@ describe("unique constraint errors", () => {
     ).toBeNull();
   });
 
+  it("finds a lost slug race for a work and a person however the write wrapped it (SLN-1287)", () => {
+    expect(uniqueConstraint(wrapped("works_slug_unique"))).toBe("works_slug_unique");
+    // A readable error keeps the database error as its cause
+    expect(uniqueConstraint(readableDatabaseError(wrapped("authors_slug_unique")))).toBe("authors_slug_unique");
+    expect(uniqueConstraint(Object.assign(new Error("pg"), { code: "23505", constraint: "works_slug_unique" }))).toBe("works_slug_unique");
+  });
+
   it("turns an ISBN constraint into the ISBN message, and leaves others", () => {
     expect(isbnTaken(wrapped("editions_isbn_13_unique"), { isbn13: "9780811214131" })).toBe(
       "An edition with ISBN 9780811214131 already exists",

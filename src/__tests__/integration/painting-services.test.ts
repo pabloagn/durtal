@@ -186,6 +186,9 @@ describe.skipIf(!url)("paintings, originals, versions and reproductions", () => 
     expect(await c`select id from editions`).toHaveLength(0);
     expect(await c`select id from instances`).toHaveLength(0);
     expect(mocks.invalidate).toHaveBeenCalledWith("data:works", "ref:authors", "ref:custom-taxonomy-items", "ref:art-movements");
+    // Its address reads as every other work's: title by painter, numbered when taken (SLN-1287)
+    expect(painting.slug).toBe("mona-lisa-by-leonardo-da-vinci");
+    expect((await monaLisa()).slug).toBe("mona-lisa-by-leonardo-da-vinci-2");
   });
 
   it("keeps several originals and versions distinct, with explicit attribution", async () => {
