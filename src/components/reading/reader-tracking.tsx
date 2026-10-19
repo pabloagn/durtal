@@ -25,6 +25,7 @@ import { hoursWords } from "@/lib/reading/pace";
 import { formatPercent } from "@/lib/reader/place-label";
 import { keepStayedAt, loggedPlaceAhead, loggedPlaceLabel, loggedPlaceWhere, stayedAt } from "@/lib/reading/logged-place";
 import { saveQuoteWithRefresh } from "@/lib/reader/annotation-server-changes";
+import { onActivityRefresh } from "@/lib/activity/refresh-event";
 
 type Controller = ReturnType<typeof createReadingReaderController>;
 type Queue = ReturnType<typeof createReaderSittingQueue>;
@@ -176,6 +177,25 @@ function ActiveReaderTracking({ data: initial }: { data: ReaderTrackingData }) {
   }, [initial.ebookId, initial.deviceId, context.fileId]);
 
   useLayoutEffect(() => { controller.current?.suspend(timerOwns); }, [timerOwns]);
+
+  // A log, edit or finish saved here changes the reading, and the server retires
+  // the sitting under way with it, so later saves to it would be dropped. The
+  // reading from here on goes in a fresh sitting, and the bar takes the new
+  // reading (SLN-1192). The undo of a new reading holds its own sitting.
+  useEffect(() => onActivityRefresh(() => {
+    const active = controller.current;
+    if (!live.current || !active || undo.current) return;
+    const expected = generation.current;
+    const before = latest.current.data.linked?.reading?.id ?? null;
+    active.flush();
+    active.setReading(before);
+    void getReaderTracking(initial.ebookId).then((fresh) => {
+      if (!live.current || expected !== generation.current || controller.current !== active) return;
+      setData(fresh);
+      const after = fresh.linked?.reading?.id ?? null;
+      if (after !== before) active.setReading(after);
+    }).catch(showFailure);
+  }), [initial.ebookId]);
 
   // Another reading has its own dismissal, kept in this tab or none
   const readingId = data.linked?.reading?.id ?? null;
