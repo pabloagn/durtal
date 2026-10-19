@@ -1,7 +1,6 @@
 "use client";
 import {
   Component,
-  cloneElement,
   createContext,
   useCallback,
   useContext,
@@ -18,6 +17,7 @@ import { createPortal } from "react-dom";
 import {
   createReaderBridge,
   type ReaderBridgeController,
+  type ReaderControllerFailureProps,
   type ReaderSlot,
   type ReaderPluginView,
 } from "@/lib/reader/bridge-state";
@@ -34,6 +34,16 @@ import {
 const Bridge = createContext<ReaderBridgeController | null>(null);
 const Order = createContext(0);
 const PluginIdentity = createContext<string | null>(null);
+// A plug-in's failure surface is built on the server, and can reach the client
+// as a lazy node that cloneElement can't copy (it rendered an undefined type and
+// crashed the plug-in). Its code and Retry come by context instead (SLN-1231).
+const ControllerFailure = createContext<Pick<ReaderControllerFailureProps, "code" | "onRetry"> | null>(null);
+
+/** A failure surface's props, with the failure and Retry its host gives it */
+export function useReaderControllerFailureProps(props: ReaderControllerFailureProps): ReaderControllerFailureProps {
+  const hosted = useContext(ControllerFailure);
+  return hosted ? { ...props, code: hosted.code, onRetry: props.onRetry ?? hosted.onRetry } : props;
+}
 function useBridge() {
   const bridge = useContext(Bridge);
   if (!bridge) throw new Error("Reader hooks require ReaderBridgeProvider");
@@ -115,7 +125,7 @@ function PluginHost({ plugin, bridge, onRetry }: {
   if (plugin.controller && failure)
     return plugin.failureNode ? (
       <PluginBoundary key={`${plugin.id}:failure`} id={plugin.id} bridge={bridge}>
-        {cloneElement(plugin.failureNode, { code: failure, onRetry })}
+        <ControllerFailure.Provider value={{ code: failure, onRetry }}>{plugin.failureNode}</ControllerFailure.Provider>
       </PluginBoundary>
     ) : null;
   return (

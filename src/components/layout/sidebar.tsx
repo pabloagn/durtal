@@ -220,9 +220,11 @@ export function Sidebar({
         </ul>
       </nav>
 
-      {/* The running timer (SLN-451): the phone bar carries it below md */}
+      {/* The running timer (SLN-451): the phone bar carries it below md. The
+          chip is 100px tall itself: a :has() here restyled every page on
+          each change (SLN-1249) */}
       {!drawer && (
-        <div className="shrink-0 [&:has([data-timer-chip])]:h-[100px]" data-sidebar-timer="">
+        <div className="shrink-0" data-sidebar-timer="">
           <TimerChip layout={rail || width < 200 ? "rail" : "expanded"} />
         </div>
       )}
