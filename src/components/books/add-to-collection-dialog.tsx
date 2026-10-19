@@ -55,6 +55,8 @@ export function AddToCollectionDialog({
   const [data, setData] = useState<Data | null>(null),
     [selected, setSelected] = useState<string[]>([]),
     [query, setQuery] = useState(""),
+    // The row the arrow keys moved to; else Enter's row is the first match
+    [moved, setMoved] = useState<number | null>(null),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(false);
   const request = useRef("");
@@ -75,6 +77,7 @@ export function AddToCollectionDialog({
     setData(null);
     setError(false);
     setQuery("");
+    setMoved(null);
     request.current = crypto.randomUUID();
     getCollectionSelection(
       selection.workIds,
@@ -153,14 +156,15 @@ export function AddToCollectionDialog({
       setBusy(false);
     }
   }
-  async function create(event: React.FormEvent) {
+  /** Enter in the field: adds to the highlighted collection, or creates one */
+  async function submit(event: React.FormEvent) {
     event.preventDefault();
+    if (saving.current || !target || !chosen) return;
+    if (target.kind === "create") return create();
+    if (!target.held) await toggle(target.collection.id, false);
+  }
+  async function create() {
     if (saving.current || !query.trim() || !chosen) return;
-    const existing = data?.collections.find((c) => sameName(c.name, query));
-    if (existing) {
-      await toggle(existing.id, false);
-      return;
-    }
     saving.current = true;
     setBusy(true);
     try {
@@ -194,6 +198,7 @@ export function AddToCollectionDialog({
       );
       request.current = crypto.randomUUID();
       setQuery("");
+      setMoved(null);
       // One kind per work added: a book once, however many of its editions
       const books = new Set(
         selected.map((id) => data?.editions.find((e) => e.id === id)?.workId ?? id),
@@ -217,6 +222,35 @@ export function AddToCollectionDialog({
     data?.collections.filter((c) =>
       normalizeSearchText(c.name).includes(normalizeSearchText(query)),
     ) ?? [];
+  const heldAll = (c: Data["collections"][number]) =>
+    chosen > 0 && heldEditions(c).length + wholeWorks.filter((id) => c.workIds.includes(id)).length === chosen;
+  // What Enter does (SLN-1350): the highlighted row. Typing highlights the
+  // collection of that very name, else the first match; "Create" is a row
+  // of its own, highlighted only when nothing matches or the arrows reach it
+  const name = query.trim();
+  const exact = filtered.findIndex((c) => sameName(c.name, name));
+  const canCreate = !!name && exact < 0;
+  const rows = filtered.length + (canCreate ? 1 : 0);
+  const activeIndex = !name && moved === null ? null : Math.min(moved ?? Math.max(exact, 0), rows - 1);
+  const target =
+    activeIndex === null || activeIndex < 0
+      ? null
+      : activeIndex < filtered.length
+        ? { kind: "add" as const, collection: filtered[activeIndex], held: heldAll(filtered[activeIndex]) }
+        : { kind: "create" as const };
+  const action = !target
+    ? "Create & add"
+    : target.kind === "create"
+      ? `Create “${name}”`
+      : target.held
+        ? `Already in “${target.collection.name}”`
+        : `Add to “${target.collection.name}”`;
+  function move(event: React.KeyboardEvent) {
+    if ((event.key !== "ArrowDown" && event.key !== "ArrowUp") || !rows) return;
+    event.preventDefault();
+    const from = activeIndex ?? -1;
+    setMoved(event.key === "ArrowDown" ? (from + 1) % rows : (from - 1 + rows) % rows);
+  }
   return (
     <Dialog
       open={open}
@@ -295,7 +329,7 @@ export function AddToCollectionDialog({
                 </div>
               </details>
             )}
-            <form onSubmit={create} className="flex gap-2">
+            <form onSubmit={submit} className="flex gap-2">
               <div className="min-w-0 flex-1">
                 <Input
                   ref={field}
@@ -305,28 +339,35 @@ export function AddToCollectionDialog({
                   maxLength={160}
                   onChange={(e) => {
                     setQuery(e.target.value);
+                    setMoved(null);
                     request.current = crypto.randomUUID();
                   }}
+                  onKeyDown={move}
+                  aria-describedby="add-to-collection-enter"
                   disabled={busy}
                   autoFocus
                 />
               </div>
               {/* ⌘Enter in the field creates too: the dialog's Done is
                   otherwise its last main button, and would close it */}
+              {/* It names what Enter does; a long name is cut here, whole in the list */}
               <Button
                 type="submit"
-                disabled={busy || !query.trim() || !chosen}
+                disabled={busy || !target || !chosen || (target.kind === "add" && target.held)}
                 variant="primary"
                 data-shortcut="save"
+                className="max-w-[45%]"
+                data-tooltip={action.length > 24 ? action : undefined}
               >
-                {data.collections.some((c) => sameName(c.name, query))
-                  ? "Add"
-                  : "Create & add"}
+                <span className="min-w-0 truncate">{action}</span>
               </Button>
             </form>
+            <span id="add-to-collection-enter" className="sr-only" aria-live="polite">
+              {target ? `Enter: ${action}` : ""}
+            </span>
             <div className="max-h-64 space-y-1 overflow-y-auto overflow-x-hidden">
               {filtered.length ? (
-                filtered.map((c) => {
+                filtered.map((c, index) => {
                   const amount =
                     heldEditions(c).length +
                     wholeWorks.filter((id) => c.workIds.includes(id)).length;
@@ -340,7 +381,8 @@ export function AddToCollectionDialog({
                       aria-label={c.name}
                       disabled={busy || !chosen}
                       onClick={() => toggle(c.id, all)}
-                      className="flex w-full items-start gap-3 rounded-sm px-2 py-2 text-left hover:bg-bg-tertiary disabled:opacity-50 pointer-coarse:min-h-11"
+                      data-active={index === activeIndex || undefined}
+                      className="flex w-full items-start gap-3 rounded-sm px-2 py-2 text-left hover:bg-bg-tertiary data-active:bg-bg-tertiary disabled:opacity-50 pointer-coarse:min-h-11"
                     >
                       {/* The box and icon sit on the name's first line, as it may wrap */}
                       <span className="flex h-6 shrink-0 items-center">
@@ -372,12 +414,26 @@ export function AddToCollectionDialog({
                     </button>
                   );
                 })
-              ) : (
+              ) : !canCreate ? (
                 <p className="py-4 text-center text-sm text-fg-secondary">
-                  {query
-                    ? "No matching collections. Create one above."
-                    : "Name your first collection above."}
+                  Name your first collection above.
                 </p>
+              ) : null}
+              {canCreate && (
+                <button
+                  type="button"
+                  disabled={busy || !chosen}
+                  onClick={() => create()}
+                  data-active={activeIndex === filtered.length || undefined}
+                  className="flex w-full items-start gap-3 rounded-sm px-2 py-2 text-left text-sm hover:bg-bg-tertiary data-active:bg-bg-tertiary disabled:opacity-50 pointer-coarse:min-h-11"
+                >
+                  {/* In the box's slot, with the icon's slot empty, so the words start on the names' edge */}
+                  <span className="flex h-6 w-4 shrink-0 items-center justify-center text-fg-secondary">
+                    <FolderPlus size={14} strokeWidth={1.5} aria-hidden />
+                  </span>
+                  <span className="w-3.5 shrink-0" />
+                  <span className="min-w-0 flex-1 [overflow-wrap:anywhere]">Create “{name}”</span>
+                </button>
               )}
             </div>
           </>

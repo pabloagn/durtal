@@ -60,7 +60,7 @@ describe("Add to collection", () => {
 
   it("adds to it rather than creating a second one", async () => {
     const submit = document.querySelector<HTMLButtonElement>('form button[type="submit"]')!;
-    expect(submit.textContent).toBe("Add");
+    expect(submit.textContent).toBe("Add to “Décadents”");
     await act(async () => submit.click());
     await settle();
     expect(action.create).not.toHaveBeenCalled();
