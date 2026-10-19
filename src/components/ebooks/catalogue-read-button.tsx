@@ -1,5 +1,3 @@
-"use client";
-
 import { BookOpen, ChevronDown } from "lucide-react";
 import { DropdownMenu } from "@/components/ui/dropdown-menu";
 import { ReaderEntryLink } from "@/components/reader/reader-entry-link";

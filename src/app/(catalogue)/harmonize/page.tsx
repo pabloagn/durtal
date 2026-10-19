@@ -1,4 +1,5 @@
 import { scanLibrary } from "@/lib/actions/harmonization";
+import { appTimeZone } from "@/lib/utils/date";
 import { HarmonizeWorkspace } from "./workspace";
 import "./harmonize.css";
 
@@ -11,6 +12,7 @@ export default async function HarmonizePage() {
     <HarmonizeWorkspace
       initialScan={result.ok ? result.value : null}
       initialError={result.ok ? null : result.error}
+      timeZone={appTimeZone()}
     />
   );
 }

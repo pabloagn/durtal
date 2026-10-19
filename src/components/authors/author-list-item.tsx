@@ -5,7 +5,7 @@ import Link from "next/link";
 import { AuthorCardActionsMenu } from "./author-card-actions-menu";
 import { mediaImageStyle, type MediaCrop } from "@/lib/utils/media-style";
 import { lifeDates } from "@/lib/utils/format";
-import { PersonRoles } from "@/components/people/person-roles";
+import { PersonRoles, WorkCounts } from "@/components/people/person-roles";
 import type { PersonRole } from "@/lib/catalogue/person-roles";
 import type { WorkKind } from "@/lib/catalogue/kinds";
 import { CapAlignedControls } from "@/components/shared/cap-aligned";
@@ -27,7 +27,8 @@ interface AuthorListItemProps {
   deathYearIsApproximate?: boolean | null;
   photoUrl?: string | null;
   posterCrop?: PosterCrop | null;
-  worksCount: number;
+  /** Works credited per collection: "3 films · 1 perfume" (SLN-1025) */
+  workCounts?: Partial<Record<WorkKind, number>>;
   /** Roles with credit counts; the line stays, empty, without them */
   roles?: PersonRole[];
   /** On a collection's list, that collection's roles come first */
@@ -54,7 +55,7 @@ export function AuthorListItem({
   deathYearIsApproximate,
   photoUrl,
   posterCrop,
-  worksCount,
+  workCounts,
   roles,
   preferKind,
   preferRoles,
@@ -111,7 +112,7 @@ export function AuthorListItem({
           {isSelecting && <RowCheckbox checked={isSelected} />}
         </div>
 
-        {/* Name and years, nationality and the book count, then the roles */}
+        {/* Name and years, nationality and the works, then the roles */}
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline gap-3">
             <h3 className="type-item-title min-w-0 flex-1 truncate group-hover:text-accent-primary">
@@ -121,14 +122,14 @@ export function AuthorListItem({
               <span className="font-mono text-micro text-fg-secondary">{years}</span>
             )}
           </div>
-          <div className="flex items-baseline gap-3">
-            <p className="min-w-0 flex-1 truncate text-sm text-fg-secondary">
+          {/* The works of every collection; none at all shows nothing, never
+              "0 books". Too long to sit beside the nationality, they take
+              the next line, broken only after a "·" */}
+          <div className="flex flex-wrap items-baseline gap-x-3">
+            <p className="min-w-24 flex-1 truncate text-sm text-fg-secondary">
               {nationality ?? "Unknown nationality"}
             </p>
-            <span className="w-16 whitespace-nowrap text-right font-mono text-micro text-fg-secondary">
-              {/* A director or a perfumer has no books: no "0 books" */}
-              {worksCount > 0 && `${worksCount} ${worksCount === 1 ? "book" : "books"}`}
-            </span>
+            <WorkCounts counts={workCounts} className="ml-auto text-right font-mono text-micro text-fg-secondary" />
           </div>
           {/* What the person is: one line, reserved when empty */}
           <PersonRoles roles={roles} preferKind={preferKind} preferRoles={preferRoles} />

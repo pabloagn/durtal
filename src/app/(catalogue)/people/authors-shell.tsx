@@ -83,7 +83,9 @@ export interface AuthorItem {
   worksCount: number;
   /** Roles with credit counts: the card's role line (SLN-420) */
   roles: PersonRole[];
-  /** Books written: the cards' "N books" */
+  /** Works credited per collection: the cards' "3 films · 1 perfume" */
+  workCounts: Partial<Record<WorkKind, number>>;
+  /** Books written: the cover previews' candidates */
   booksCount: number;
   isFavourite: boolean;
   createdAt: string;
@@ -337,7 +339,7 @@ export function AuthorsShell({
                 posterCrop={a.posterCrop}
                 photoTone={a.photoTone}
                 coverPreviews={a.coverPreviews}
-                worksCount={a.booksCount}
+                workCounts={a.workCounts}
                 roles={a.roles}
                 preferKind={preferKind}
                 preferRoles={preferRoles}
@@ -393,7 +395,7 @@ export function AuthorsShell({
               deathYearIsApproximate={a.deathYearIsApproximate}
               photoUrl={a.photoUrl}
               posterCrop={a.posterCrop}
-              worksCount={a.booksCount}
+              workCounts={a.workCounts}
               roles={a.roles}
               preferKind={preferKind}
               preferRoles={preferRoles}

@@ -18,3 +18,25 @@ export function loggedPlaceWhere(reading: LoggedReading): string {
 export function loggedPlaceLabel(reading: LoggedReading): string {
   return `Jump to ${loggedPlaceWhere(reading)}`;
 }
+
+// "Stay at this place" holds for the tab's visit, so a reload doesn't offer the
+// jump again; a later logged place is another place, and offers it (SLN-1179)
+const STAYED_KEY = "durtal-reader-stayed";
+/** The logged place the jump was dismissed or taken at for a reading in this tab */
+export function stayedAt(readingId: string): number | null {
+  try {
+    const value = sessionStorage.getItem(`${STAYED_KEY}:${readingId}`);
+    const at = value === null ? NaN : Number(value);
+    return Number.isFinite(at) ? at : null;
+  } catch {
+    // Blocked storage: the jump is offered again on a reload, as before
+    return null;
+  }
+}
+export function keepStayedAt(readingId: string, at: number): void {
+  try {
+    sessionStorage.setItem(`${STAYED_KEY}:${readingId}`, String(at));
+  } catch {
+    // Blocked or full storage: the dismissal holds until the page reloads
+  }
+}

@@ -559,7 +559,12 @@ export default async function PerfumePage({
       <section className="mb-10" aria-labelledby="perfume-classification">
         <SectionHeading
           id="perfume-classification"
-          title="Families and accords"
+          // Themes, subjects and keywords apply to perfumes too (SLN-1157)
+          title={
+            families.every((f) => f.slug in VOCABULARY_LABELS)
+              ? "Families and accords"
+              : "Classification"
+          }
           description={
             selected
               ? `${formulationName(selected)}: edit its own families and accords with the formulation`

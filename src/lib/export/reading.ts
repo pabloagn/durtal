@@ -119,7 +119,12 @@ export async function readingExportRows(ids: string[] | null): Promise<Row[]> {
   return ids ? ids.flatMap((id) => byId.get(id) ?? []) : [...byId.values()];
 }
 
-/** The sessions of these readings (ids), or of every reading (null); a running timer is not exported */
+/**
+ * The sessions of these readings (ids), or of every reading (null); a running
+ * timer is not exported. The counted pages hold one row per session, joined
+ * once: a filter on the session can't reach inside their window, so a
+ * subquery per session rebuilt them all for each one (SLN-1203).
+ */
 export async function sessionExportRows(readingIds: string[] | null): Promise<Row[]> {
   if (readingIds && !readingIds.length) return [];
   const only = readingIds ? sql`and s.reading_id = any(${idArray(readingIds)})` : sql``;
@@ -129,10 +134,11 @@ export async function sessionExportRows(readingIds: string[] | null): Promise<Ro
         to_json(s.started_at)#>>'{}' as started_at, to_json(s.ended_at)#>>'{}' as ended_at, s.time_zone, s.duration_seconds,
         s.start_page, s.end_page, s.start_percent::float8 as start_percent, s.end_percent::float8 as end_percent,
         s.start_minutes, s.end_minutes, s.end_chapter,
-        (select round(coalesce(sum(c.pages), 0))::float8 from cp c where c.session_id = s.id) as pages_counted,
+        round(coalesce(c.pages, 0))::float8 as pages_counted,
         e.title as edition_title, s.format, s.source
       from reading_sessions s join readings r on r.id = s.reading_id join works w on w.id = r.work_id
         left join editions e on e.id = s.edition_id
+        left join cp c on c.session_id = s.id
       where w.kind = 'book' and not (s.source = 'timer' and s.ended_at is null) ${only}
       order by search_normalize(w.title), w.id, s.read_on, coalesce(s.started_at, s.created_at), s.created_at, s.id`),
   );

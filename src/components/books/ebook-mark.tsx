@@ -1,12 +1,7 @@
-import { BookOpen } from "lucide-react";
 import type { WorkEbookDTO } from "@/lib/ebooks/catalogue-dto";
 import { readerEntryPolicy } from "@/lib/reader/entry-policy";
-import {
-  COVER_CHIP,
-  COVER_CHIP_ICON,
-  COVER_CHIP_STROKE,
-  COVER_CHIP_TONE,
-} from "./cover-chip";
+import { COVER_CHIP, COVER_CHIP_TONE } from "./cover-chip";
+import { CoverMark } from "./cover-mark";
 
 /** The page supplies shared availability, never a linked-row count. */
 export function EbookMark({ ebook }: { ebook: WorkEbookDTO | null }) {
@@ -23,11 +18,7 @@ export function EbookMark({ ebook }: { ebook: WorkEbookDTO | null }) {
       aria-label="eBook available"
       data-tooltip="eBook available"
     >
-      <BookOpen
-        className={`${COVER_CHIP_ICON} ${COVER_CHIP_TONE.blue}`}
-        strokeWidth={COVER_CHIP_STROKE}
-        aria-hidden="true"
-      />
+      <CoverMark name="book-open" className={COVER_CHIP_TONE.blue} />
     </div>
   );
 }
