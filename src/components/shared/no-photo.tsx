@@ -68,7 +68,7 @@ export function Monogram({ name }: { name: string }) {
       style={monogramTint(name)}
       aria-hidden
     >
-      <span className="font-serif text-micro leading-none text-fg-primary [text-box:trim-both_cap_alphabetic] @[40px]/monogram:text-lg @[120px]/monogram:text-4xl @[120px]/monogram:text-fg-secondary">
+      <span data-decorative="" className="font-serif text-micro leading-none text-fg-primary [text-box:trim-both_cap_alphabetic] @[40px]/monogram:text-lg @[120px]/monogram:text-4xl @[120px]/monogram:text-fg-secondary">
         {initials.toUpperCase()}
       </span>
     </div>

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CapAligned } from "@/components/shared/cap-aligned";
+import { CapAligned, CapAlignedControls } from "@/components/shared/cap-aligned";
 import { CardHeading } from "@/components/shared/card-heading";
 import { FavouriteToggle } from "@/components/shared/favourite-toggle";
 import { ExternalLink } from "lucide-react";
@@ -73,7 +73,7 @@ export function RecommenderListItem({
   recommender: RecommenderItem;
 }) {
   return (
-    <div className="group relative flex items-center gap-3 rounded-sm px-3 py-2 transition-colors hover:bg-bg-secondary">
+    <div className="group relative flex items-start gap-3 rounded-sm px-3 py-2 transition-colors hover:bg-bg-secondary">
       <Link
         href={`/recommenders/${r.id}`}
         aria-label={`Open ${r.name}`}
@@ -88,15 +88,18 @@ export function RecommenderListItem({
         </h3>
         {r.url && <WebsiteLink url={r.url} name={r.name} />}
       </div>
-      <span className="w-20 flex-shrink-0 text-right font-mono text-micro text-fg-secondary">
-        {booksLabel(r.bookCount)}
+      {/* On the name's baseline: the box takes the name's line */}
+      <span className="type-item-title w-20 flex-shrink-0 text-right">
+        <span className="font-mono text-micro text-fg-secondary">{booksLabel(r.bookCount)}</span>
       </span>
-      <FavouriteToggle
-        favourite={r.isFavourite}
-        target={{ entity: "recommender", id: r.id }}
-        name={r.name}
-        className="relative z-20"
-      />
+      {/* On the name's cap-height center, as on the people rows */}
+      <CapAlignedControls height={32} coarseHeight={44} className="type-item-title relative z-20">
+        <FavouriteToggle
+          favourite={r.isFavourite}
+          target={{ entity: "recommender", id: r.id }}
+          name={r.name}
+        />
+      </CapAlignedControls>
     </div>
   );
 }
