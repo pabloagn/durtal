@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { GOODREADS_EXPORT_HEADER, ImportFileError } from "@/lib/reading/import/formats";
-import { parseImportFile } from "@/lib/reading/import/parse";
+import { parseImportFile, parseUploadedFile } from "@/lib/reading/import/parse";
 import { fileLine } from "@/lib/reading/import/preview-text";
 
 /* The reading import's checks on what a file holds (SLN-955): an impossible
@@ -50,9 +50,13 @@ describe("files with nothing to import", () => {
     }
   });
 
-  it("refuses a file with only its header", () => {
-    expect(() => parseImportFile(`${GOODREADS_EXPORT_HEADER.join(",")}\n`)).toThrow("This file has no rows");
-    expect(() => parseImportFile(`${GOODREADS_EXPORT_HEADER.join(",")}\n,,,\n`)).toThrow("This file has no rows");
+  it("refuses the upload of a file with only its header, which still parses as no rows", () => {
+    for (const text of [`${GOODREADS_EXPORT_HEADER.join(",")}\n`, `${GOODREADS_EXPORT_HEADER.join(",")}\n,,,\n`]) {
+      expect(() => parseUploadedFile(text)).toThrow(ImportFileError);
+      expect(() => parseUploadedFile(text)).toThrow("This file has no rows");
+      // Durtal's own export of no readings reads back as its format with no rows
+      expect(parseImportFile(text)).toMatchObject({ source: "goodreads", rows: [] });
+    }
   });
 
   it("still names an unknown file's columns before counting its rows", () => {
