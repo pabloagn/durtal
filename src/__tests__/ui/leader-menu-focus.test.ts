@@ -124,11 +124,15 @@ describe("a leader menu", () => {
     expect(focused()).toBe(items()[0]);
     press("Enter");
     expect(menu()).toBeNull();
+    // A pause, as a person makes: a fast key after a pick is dropped (SLN-1190)
+    const later = performance.now() + 1000;
+    const clock = vi.spyOn(performance, "now").mockReturnValue(later);
     // A pointer that moves picks the item it is over
     press("g");
     at(720, 400);
     at(724, 402);
     expect(focused()).toBe(items()[3]);
     expect(items()[3].dataset.active).toBe("true");
+    clock.mockRestore();
   });
 });
