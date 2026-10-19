@@ -40,7 +40,7 @@ export function RelatedBookCard({ work, ebook, readerReturnTo }: {
       coverTone={poster?.tone ?? null}
       publicationYear={edition?.publicationYear ?? work.originalYear}
       language={edition?.language}
-      instanceCount={edition?.instances?.length ?? 0}
+      instanceCount={work.copyCount}
       rating={work.rating}
       catalogueStatus={work.catalogueStatus}
       acquisitionPriority={work.acquisitionPriority}

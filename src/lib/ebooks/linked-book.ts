@@ -1,4 +1,5 @@
 import { sql, type SQL } from "drizzle-orm";
+import { POSTER_ORDER, workCoverEditionSql } from "@/lib/library/filter-conditions";
 import { db } from "@/lib/db";
 import { resultRows } from "@/lib/harmonization/store";
 import { cardReadingOf, type CardReadingValue } from "@/lib/reading/card";
@@ -51,9 +52,8 @@ export async function getLinkedBook(
       coalesce(e.thumbnail_s3_key, e.cover_s3_key) as edition_cover,
       (select json_build_object('s3Key', m.s3_key, 'thumbnailS3Key', m.thumbnail_s3_key, 'cropX', m.crop_x, 'cropY', m.crop_y,
           'cropZoom', m.crop_zoom, 'brightness', m.brightness, 'contrast', m.contrast, 'tone', m.color_palette->'dominant'->>'hex')
-        from media m where m.work_id = w.id and m.type = 'poster' and m.is_active order by m.created_at desc, m.id limit 1) as poster,
-      (select coalesce(o.thumbnail_s3_key, o.cover_s3_key) from editions o where o.work_id = w.id
-        and coalesce(o.thumbnail_s3_key, o.cover_s3_key) is not null order by o.created_at, o.id limit 1) as work_cover,
+        from media m where m.work_id = w.id and m.type = 'poster' and m.is_active order by ${POSTER_ORDER} limit 1) as poster,
+      (select coalesce(o.thumbnail_s3_key, o.cover_s3_key) from editions o where o.id = ${workCoverEditionSql(sql`w.id`)}) as work_cover,
       e.publisher, e.publication_year as year,
       (select array_agg(coalesce(ec.credited_as, a.name) order by ec.sort_order, a.name) from edition_contributors ec
         join authors a on a.id = ec.author_id where ec.edition_id = e.id and ec.role = 'translator') as translators,
@@ -64,7 +64,7 @@ export async function getLinkedBook(
     where i.id = ${instanceId}::uuid`));
   if (!row) return null;
   // The e-book edition's own cover first; else the book's, as its library
-  // card shows it: the poster, else the first edition with a cover
+  // card shows it: the poster, else the cover edition's (SLN-1286)
   const poster = !row.edition_cover ? row.poster : null;
   const cover = row.edition_cover ?? (poster ? poster.thumbnailS3Key ?? poster.s3Key : row.work_cover);
   return {

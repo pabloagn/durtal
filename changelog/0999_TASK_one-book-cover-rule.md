@@ -45,16 +45,20 @@ Cards that showed only an edition's thumbnail now fall back to its full cover ke
 
 These keep their own edition first, since the row is that edition:
 
-- a reading;
-- a queued book;
+- a reading (its edition's thumbnail, else its full cover, in every reading list);
+- a queued book, when an edition was queued (`queuedCover`, `lib/reading/queue.ts`); one with no queued edition shows the book's cover, not the home edition the queue reads its length from;
 - a collection's edition member;
 - a publisher's book list, which still prefers the owned edition among the house's own editions.
 
-The poster order there now follows `POSTER_ORDER`. Other kinds (films, perfumes, paintings) and the timeline (poster only) are unchanged.
+The poster order there now follows `POSTER_ORDER`, as do the identify queue's and the publisher name inbox's posters. An e-book's linked-book card falls back to the cover edition (`lib/ebooks/linked-book.ts`).
+
+A card with one edition (the carousels, a person's books, a recommender's picks, the dashboard shelves) now counts every copy of the book (`copyCount` in `workCardExtras`), since its edition is the cover edition, which need not hold the copies. Other kinds (films, perfumes, paintings) and the timeline (poster only) are unchanged.
 
 The collection previews computed a cover for every member. At 5,000 books with 9,772 collection works, that pushed the planned cost past `jit_above_cost`, and the JIT compile took 2.1 s. They now read through `batchedRows(..., { jit: false })` (SLN-1309).
 
 ## Completion Notes
+
+- Rebased onto main on 19 Oct; a self-review then moved Up next's and Suggestions' fallback, the linked-book card and the identify and name-inbox posters onto the rule, gave the reading lists the full-cover fallback, and counted a one-edition card's copies across the book. Checks for the landed version are in the PR; the notes below are from the first draft.
 
 - Test: `library-filters.test.ts` (database) covers four books:
   - two editions with a copy of the newer one (a deaccessioned copy of the older one, added later, is ignored);

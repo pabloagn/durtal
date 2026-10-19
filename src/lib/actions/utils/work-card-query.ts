@@ -73,6 +73,11 @@ export const workCardWith = {
  * so a nested `work` relation can take it too.
  */
 export const workCardExtras = (work: { id: AnyColumn }) => ({
+  // Every copy of the book: a card's one edition is its cover edition
+  // (SLN-1286), which need not hold the copies
+  copyCount: sql<number>`(select count(*) from instances i join editions e on e.id = i.edition_id where e.work_id = ${work.id})`
+    .mapWith(Number)
+    .as("copy_count"),
   readingState: readingStateSql(work.id).as("reading_state"),
   readingPercent: sql<number | null>`${openReadingPercentSql(work.id)}`
     .mapWith(Number)

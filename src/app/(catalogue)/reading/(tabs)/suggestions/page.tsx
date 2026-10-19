@@ -15,7 +15,7 @@ import { StartAgainButton } from "@/components/reading/suggestions/start-again";
 import { FEEDBACK_REASON_LABELS } from "@/lib/reading/constants";
 import { formatReadingDate } from "@/lib/reading/dates";
 import { storedHomeId } from "@/lib/reading/home-cookie";
-import { bookEdition } from "@/lib/reading/suggest/build";
+import { bookCover, bookEdition } from "@/lib/reading/suggest/build";
 import { getSuggestionContext } from "@/lib/reading/suggest/context";
 import { SUGGESTIONS_PER_PAGE, parseSuggestionParams, suggestionQuery } from "@/lib/reading/suggest/params";
 import { worthRereading } from "@/lib/reading/suggest/rereads";
@@ -61,7 +61,7 @@ export default async function SuggestionsPage({ searchParams }: { searchParams: 
         title: b.title,
         href: `/library/${b.slug ?? b.id}`,
         author: b.authors[0]?.name ?? null,
-        cover: bookEdition(b, ctx)?.thumbnail ?? b.cover ?? b.editions.find((e) => e.thumbnail)?.thumbnail ?? null,
+        cover: bookCover(b),
         verdict,
         note: f.note,
         date: `Hidden on ${day(f.updatedAt.slice(0, 10))}`,
@@ -178,7 +178,7 @@ export default async function SuggestionsPage({ searchParams }: { searchParams: 
               {rereads.map(({ book, text }) => (
                 <li key={book.id} className="flex items-start gap-3" data-reread={book.id}>
                   <Link href={`/library/${book.slug ?? book.id}`} tabIndex={-1} aria-label={book.title} className="shrink-0">
-                    <Cover s3Key={bookEdition(book, ctx)?.thumbnail ?? book.cover ?? book.editions.find((e) => e.thumbnail)?.thumbnail ?? null} title={book.title} className="h-16 w-11" />
+                    <Cover s3Key={bookCover(book)} title={book.title} className="h-16 w-11" />
                   </Link>
                   <div className="min-w-0 space-y-1">
                     <p className="text-sm text-fg-primary">{text}</p>

@@ -17,7 +17,7 @@ import { formatReadingDate } from "@/lib/reading/dates";
 import { readingToday } from "@/lib/reading/day";
 import { readingHomes } from "@/lib/reading/page-data";
 import { formatMinutes } from "@/lib/reading/positions";
-import { queueAtHand, queueEdition, queueSummary, queueWhereabouts, readHistory, timeToRead, timeToReadText } from "@/lib/reading/queue";
+import { queueAtHand, queueEdition, queuedCover, queueSummary, queueWhereabouts, readHistory, timeToRead, timeToReadText } from "@/lib/reading/queue";
 
 export const metadata = { title: "Up next" };
 
@@ -56,7 +56,7 @@ export default async function UpNextPage({ searchParams }: { searchParams: Promi
       title: item.title,
       href: `/library/${item.slug ?? item.workId}`,
       author: item.author,
-      cover: edition?.thumbnail ?? item.workCover,
+      cover: queuedCover(item.editions, item.editionId, item.workCover),
       editionId: edition?.id ?? null,
       line: [length, queueWhereabouts(item.editions, item.atHandCopyId, today), timeToReadText(time)].filter(Boolean).join(" · "),
       note: item.note,

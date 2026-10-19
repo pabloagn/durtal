@@ -388,7 +388,7 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
                       ? mediaUrl(coverKey)
                       : null;
 
-                    const instanceCount = work.editions[0]?.instances.length ?? 0;
+                    const instanceCount = work.copyCount;
 
                     const authorName =
                       work.workAuthors[0]?.author?.name ?? author.name;

@@ -39,6 +39,15 @@ export interface QueueEdition extends EditionChoice {
 }
 
 /** The edition he means to read: the queued one, else the Start dialog's default for the home */
+/**
+ * A queued book's cover: its queued edition's, else the book's cover by the
+ * one rule (SLN-1286). The edition the queue falls back to (the home's) is
+ * for the length and the whereabouts, not the cover.
+ */
+export function queuedCover(editions: QueueEdition[], queuedId: string | null, bookCover: string | null): string | null {
+  return (queuedId ? editions.find((e) => e.id === queuedId)?.thumbnail : null) ?? bookCover;
+}
+
 export function queueEdition(editions: QueueEdition[], queuedId: string | null, homeId: string | null): QueueEdition | null {
   const queued = queuedId ? editions.find((e) => e.id === queuedId) : undefined;
   if (queued) return queued;

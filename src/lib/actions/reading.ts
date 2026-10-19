@@ -1429,7 +1429,7 @@ export async function getReadingHubOpen(today: string) {
         'totalPages',r.total_pages,'totalMinutes',r.total_minutes,'lastReadAt',r.last_read_at,'updatedAt',r.updated_at),
       'fingerprint',md5(to_jsonb(r)::text),'work',jsonb_build_object('id',w.id,'title',w.title,'slug',w.slug),
       'author',(select a.name from work_authors wa join authors a on a.id=wa.author_id where wa.work_id=w.id order by wa.sort_order limit 1),
-      'cover',coalesce((select e.thumbnail_s3_key from editions e where e.id=r.edition_id),${workCoverSql(sql`w.id`)}),
+      'cover',coalesce((select coalesce(e.thumbnail_s3_key,e.cover_s3_key) from editions e where e.id=r.edition_id),${workCoverSql(sql`w.id`)}),
       'pausedAt',(select max(h.changed_at) from reading_status_history h where h.reading_id=r.id and h.to_status='paused')
     ) order by n.status,n.place) from ranked n join readings r on r.id=n.id join works w on w.id=r.work_id where n.place<=${HUB_OPEN_LIMIT}),'[]'::jsonb) as rows`));
   if (result?.duplicateOpenWorks) throw new ExpectedActionError("A book has more than one open reading; its history needs checking");
@@ -1451,7 +1451,7 @@ export async function getOpenReadings() {
         jsonb_build_object('id', w.id, 'title', w.title, 'slug', w.slug) as work,
         (select max(h.changed_at) from reading_status_history h where h.reading_id = r.id and h.to_status = 'paused') as "pausedAt",
         (select a.name from work_authors wa join authors a on a.id = wa.author_id where wa.work_id = w.id order by wa.sort_order limit 1) as author,
-        coalesce((select e.thumbnail_s3_key from editions e where e.id = r.edition_id), ${workCoverSql(sql`w.id`)}) as cover
+        coalesce((select coalesce(e.thumbnail_s3_key, e.cover_s3_key) from editions e where e.id = r.edition_id), ${workCoverSql(sql`w.id`)}) as cover
       from readings r join works w on w.id = r.work_id
       where r.status in ('reading','paused')
       order by r.last_read_at desc nulls last, r.started_on desc nulls last, r.created_at desc`),

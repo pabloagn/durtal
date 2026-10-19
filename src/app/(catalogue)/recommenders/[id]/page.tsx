@@ -159,7 +159,7 @@ export default async function RecommenderPage({
                       work.editions[0]?.publicationYear ?? work.originalYear
                     }
                     language={work.editions[0]?.language}
-                    instanceCount={work.editions[0]?.instances?.length ?? 0}
+                    instanceCount={work.copyCount}
                     rating={work.rating}
                     catalogueStatus={work.catalogueStatus}
                     acquisitionPriority={work.acquisitionPriority}

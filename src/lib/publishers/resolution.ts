@@ -19,6 +19,7 @@
  */
 import { randomUUID } from "node:crypto";
 import { eq, sql, and, gte, count } from "drizzle-orm";
+import { POSTER_ORDER } from "@/lib/library/filter-conditions";
 import { db } from "@/lib/db";
 import { atomic } from "@/lib/db/atomic";
 import {
@@ -123,7 +124,7 @@ export async function loadNameInbox() {
         (select count(*)::int from publisher_candidates(n.name)) as candidates,
         (select json_build_object('s3Key', m.s3_key, 'thumbnailS3Key', m.thumbnail_s3_key, 'cropX', m.crop_x, 'cropY', m.crop_y, 'cropZoom', m.crop_zoom, 'brightness', m.brightness, 'contrast', m.contrast)
           from media m where m.work_id = w.id and m.type = 'poster' and m.is_active
-          order by m.created_at, m.id limit 1) as poster
+          order by ${POSTER_ORDER} limit 1) as poster
       from editions e
       join works w on w.id = e.work_id
       cross join lateral (

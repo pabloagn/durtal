@@ -9,6 +9,7 @@
  */
 import { ExpectedActionError } from "@/lib/actions/expected-error";
 import { eq, sql, type SQL } from "drizzle-orm";
+import { POSTER_ORDER } from "@/lib/library/filter-conditions";
 import { z } from "zod/v4";
 import { db } from "@/lib/db";
 import { atomic } from "@/lib/db/atomic";
@@ -98,7 +99,7 @@ export async function getIdentifyQueue(): Promise<QueueItem[]> {
         (select json_build_object('s3Key', m.s3_key, 'thumbnailS3Key', m.thumbnail_s3_key, 'cropX', m.crop_x,
             'cropY', m.crop_y, 'cropZoom', m.crop_zoom, 'brightness', m.brightness, 'contrast', m.contrast)
           from media m where m.work_id = w.id and m.type = 'poster' and m.is_active
-          order by m.created_at, m.id limit 1) as poster,
+          order by ${POSTER_ORDER} limit 1) as poster,
         coalesce((select json_agg(json_build_object('location', l.name, 'type', l.type,
             'format', i.format, 'status', i.status) order by i.created_at)
           from instances i join locations l on l.id = i.location_id

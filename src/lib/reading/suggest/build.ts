@@ -1,5 +1,5 @@
 import { MAX_PAGES, MIN_PAGES } from "@/lib/books/enrichment";
-import { queueEdition, type QueueEdition } from "../queue";
+import { queueEdition, queuedCover, type QueueEdition } from "../queue";
 import type { SuggestBook, SuggestContext, SuggestLoad } from "./types";
 
 /*
@@ -37,6 +37,11 @@ export function bookEdition(book: SuggestBook, ctx: Pick<SuggestContext, "homeId
   editions.set(book, byHome);
   if (!byHome.has(ctx.homeId)) byHome.set(ctx.homeId, queueEdition(book.editions, book.queueEditionId, ctx.homeId));
   return byHome.get(ctx.homeId)!;
+}
+
+/** The book's cover: its queued edition's, else its cover by the one rule (SLN-1286) */
+export function bookCover(book: SuggestBook): string | null {
+  return queuedCover(book.editions, book.queueEditionId, book.cover);
 }
 
 /** The book's length: the page count of that edition, unknown outside 16 to 3,000 pages, as the page rule reads it (SLN-466) */

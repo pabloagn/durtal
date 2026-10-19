@@ -70,6 +70,7 @@ import { getWorkBySlug } from "@/lib/actions/works";
 import { quickSearch } from "@/lib/actions/quick-search";
 import { searchBooksToRead } from "@/lib/actions/reading";
 import { workCoverSql } from "@/lib/library/filter-conditions";
+import { workCardExtras, workCardWith } from "@/lib/actions/utils/work-card-query";
 import { sql } from "drizzle-orm";
 
 function palette(rgb: [number, number, number]) {
@@ -284,7 +285,8 @@ describe.skipIf(!url)("library filters with PostgreSQL", () => {
     await copyAt(await edition(chosen, { thumb: "gold/chosen/edition.webp" }), "2025-01-01");
     await poster(chosen, { key: "gold/chosen/poster.webp" });
     const later = await book("Cover later edition");
-    await edition(later, { created: "2020-01-01" });
+    // Its one copy is of the first edition, which has no cover
+    await copyAt(await edition(later, { created: "2020-01-01" }), "2023-01-01");
     await edition(later, { thumb: "gold/later/second.webp", created: "2022-01-01" });
     await edition(later, { thumb: "gold/later/third.webp", created: "2024-01-01" });
     const none = await book("Cover none");
@@ -308,6 +310,23 @@ describe.skipIf(!url)("library filters with PostgreSQL", () => {
       const poster = w.media.find((m) => m.type === "poster" && m.isActive);
       return poster?.thumbnailS3Key ?? poster?.s3Key ?? w.editions[0]?.thumbnailS3Key ?? w.editions[0]?.coverS3Key;
     })).toEqual(want);
+    // The carousel, people and recommender cards: one edition, the cover
+    // edition, and every copy of the book counted, not that edition's
+    const carousel = await db.query.works.findMany({
+      where: (w, { like }) => like(w.title, "Cover %"),
+      extras: workCardExtras,
+      with: workCardWith,
+    });
+    expect(byTitle(carousel, (w) => w.title, (w) => {
+      const poster = w.media[0];
+      return poster?.thumbnailS3Key ?? poster?.s3Key ?? w.editions[0]?.thumbnailS3Key ?? w.editions[0]?.coverS3Key;
+    })).toEqual(want);
+    expect(Object.fromEntries(carousel.map((w) => [w.title, w.copyCount]))).toEqual({
+      "Cover owned newer": 3,
+      "Cover chosen poster": 1,
+      "Cover later edition": 1,
+      "Cover none": 0,
+    });
     // The palette and the Start reading picker
     const palette = await quickSearch("Cover");
     expect(byTitle(palette.works, (w) => w.title, (w) => w.cover)).toEqual(want);

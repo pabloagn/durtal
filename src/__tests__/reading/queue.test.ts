@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { QUEUE_GAP } from "@/lib/reading/constants";
-import { ordinal, positionBetween, queueSummary, readHistory, renumbered, timeToRead, timeToReadText } from "@/lib/reading/queue";
+import { ordinal, positionBetween, queuedCover, queueSummary, readHistory, renumbered, timeToRead, timeToReadText, type QueueEdition } from "@/lib/reading/queue";
 import type { PacePriors } from "@/lib/reading/pace";
 
 /* Up next's arithmetic (SLN-452): positions and the time a list takes. */
@@ -68,5 +68,17 @@ describe("words", () => {
     expect(readHistory(1, "2012-05-01")).toBe("Read in 2012");
     expect(readHistory(2, "2019-01-01")).toBe("Read twice, last in 2019");
     expect([1, 2, 3, 4, 11, 12, 13, 21, 22].map(ordinal)).toEqual(["1st", "2nd", "3rd", "4th", "11th", "12th", "13th", "21st", "22nd"]);
+  });
+});
+
+describe("a queued book's cover (SLN-1286)", () => {
+  const ed = (id: string, thumbnail: string | null) => ({ id, thumbnail }) as QueueEdition;
+  const editions = [ed("home", "home.webp"), ed("queued", "queued.webp"), ed("bare", null)];
+
+  it("is the queued edition's, else the book's cover by the one rule, never the home edition's", () => {
+    expect(queuedCover(editions, "queued", "book.webp")).toBe("queued.webp");
+    expect(queuedCover(editions, null, "book.webp")).toBe("book.webp");
+    expect(queuedCover(editions, "bare", "book.webp")).toBe("book.webp");
+    expect(queuedCover(editions, null, null)).toBeNull();
   });
 });

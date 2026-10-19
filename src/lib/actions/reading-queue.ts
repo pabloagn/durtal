@@ -285,7 +285,7 @@ export async function getQueueHead(limit = 5) {
   return resultRows<{ workId: string; title: string; slug: string | null; editionId: string | null; cover: string | null }>(
     await db.execute(sql`
       select w.id::text as "workId", w.title, w.slug, q.edition_id::text as "editionId",
-        coalesce((select e.thumbnail_s3_key from editions e where e.id = q.edition_id), ${workCoverSql(sql`w.id`)}) as cover
+        coalesce((select coalesce(e.thumbnail_s3_key, e.cover_s3_key) from editions e where e.id = q.edition_id), ${workCoverSql(sql`w.id`)}) as cover
       from reading_queue q join works w on w.id = q.work_id
       order by q.position, q.work_id limit ${limit}`),
   );

@@ -156,6 +156,8 @@ function workToCardProps(work: {
   originalYear: number | null;
   readingState?: string | null;
   readingPercent?: number | null;
+  /** Every copy of the book (workCardExtras) */
+  copyCount: number;
   workAuthors: Array<{ author: { name: string } }>;
   editions: Array<{
     id: string;
@@ -182,10 +184,7 @@ function workToCardProps(work: {
 }) {
   const edition = work.editions[0];
   const author = work.workAuthors[0]?.author;
-  const instanceCount = work.editions.reduce(
-    (acc, e) => acc + (e.instances?.length ?? 0),
-    0,
-  );
+  const instanceCount = work.copyCount;
 
   // Prefer active poster from media table, fall back to edition cover
   const activePoster = work.media?.find(

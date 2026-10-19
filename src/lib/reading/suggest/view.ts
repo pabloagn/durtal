@@ -1,7 +1,7 @@
 import { formatOfCopy } from "../constants";
 import { formatMinutes } from "../positions";
 import { queueWhereabouts, timeToRead, timeToReadText } from "../queue";
-import { bookEdition, bookPages } from "./build";
+import { bookCover, bookEdition, bookPages } from "./build";
 import type { Evidence, FeatureKey } from "./features";
 import { predict, predictionSource, predictionText } from "./predict";
 import type { Scored } from "./score";
@@ -76,7 +76,7 @@ export function suggestionRow(s: Scored, ctx: SuggestContext): SuggestionRow {
     title: book.title,
     href: `/library/${book.slug ?? book.id}`,
     author: book.authors[0]?.name ?? null,
-    cover: edition?.thumbnail ?? book.cover ?? book.editions.find((e) => e.thumbnail)?.thumbnail ?? null,
+    cover: bookCover(book),
     editionId: edition?.id ?? null,
     isPoison: book.isPoison,
     line: [length, s.reasons.includes(where) ? null : where, time].filter(Boolean).join(" · "),
