@@ -38,6 +38,7 @@ import { posterTone, workCardExtras, workCardWith } from "@/lib/actions/utils/wo
 import { PAGE_SIZES } from "@/lib/utils/pagination";
 import { lastReadAtSql, readCountSql, readingStateSql } from "@/lib/reading/summary";
 import { cleanBioForStorage, sanitizeDescriptionHtml, stripHtmlToText } from "@/lib/utils/sanitize";
+import { cleanText } from "@/lib/utils/clean-text";
 import { z } from "zod";
 import { mediaUrl } from "@/lib/s3/media-url";
 
@@ -660,10 +661,12 @@ export async function createAuthor(input: CreateAuthorInput) {
 /**
  * Find an existing author by name or create a new one. The match ignores
  * accents, case and punctuation, so "Peter Nadas" reuses "Péter Nádas"
- * instead of creating a duplicate. An exact spelling wins, then the oldest.
+ * instead of creating a duplicate, and a pasted name with invisible
+ * characters reuses the clean one (SLN-1393). An exact spelling wins, then
+ * the oldest.
  */
 export async function findOrCreateAuthor(name: string) {
-  const trimmed = name.trim();
+  const trimmed = cleanText(name).trim();
   const existing = await db.query.authors.findFirst({
     where: authorNameEquals(trimmed),
     orderBy: [desc(sql`${authors.name} = ${trimmed}`), asc(authors.createdAt)],

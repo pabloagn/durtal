@@ -10,6 +10,7 @@ import {
   series,
   collections,
 } from "@/lib/db/schema";
+import { cleanString } from "@/lib/validations/helpers";
 
 const kinds = [
   "film",
@@ -24,7 +25,8 @@ const kinds = [
 export type NamedKind = (typeof kinds)[number];
 const inputSchema = z.object({
   kind: z.enum(kinds),
-  name: z.string().trim().max(500),
+  // A pasted name matches the clean record it repeats (SLN-1393)
+  name: cleanString().trim().max(500),
   excludeId: z.uuid().optional(),
 });
 

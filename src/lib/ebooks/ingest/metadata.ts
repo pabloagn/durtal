@@ -1,6 +1,7 @@
 import sanitizeHtml from "sanitize-html";
 import { defaultSortName, naturalAuthorName, naturalNameParts } from "@/lib/utils/author-names";
 import { normalizeLanguage } from "@/lib/utils/language";
+import { cleanText } from "@/lib/utils/clean-text";
 import { normalizeSearchText } from "@/lib/utils/search-text";
 import { isbn10To13, validIsbn10, validIsbn13 } from "@/lib/match/plan";
 import type { FileMetadata } from "./inspect/types";
@@ -77,8 +78,9 @@ export function storable<T>(value: T): T {
   return value;
 }
 
+/** A metadata string as a title or name: storable, without invisible format characters (SLN-1393), spaces collapsed */
 const clean = (value: string | null | undefined) => {
-  const text = value && storableText(value).replace(/\s+/g, " ").trim();
+  const text = value && cleanText(storableText(value)).replace(/\s+/g, " ").trim();
   return text ? text : null;
 };
 

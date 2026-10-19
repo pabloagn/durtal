@@ -1,11 +1,11 @@
 import { z } from "zod/v4";
+import { cleanString } from "./helpers";
 import { parseWebsite } from "@/lib/utils/website";
 
 export { parseWebsite, websiteLabel } from "@/lib/utils/website";
 
 export const recommenderInputSchema = z.object({
-  name: z
-    .string()
+  name: cleanString()
     .trim()
     .min(1, "Name is required")
     .max(120, "Name is too long"),

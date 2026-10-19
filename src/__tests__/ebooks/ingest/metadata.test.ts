@@ -94,6 +94,15 @@ describe("mergeMetadata", () => {
     expect(deep).toEqual({ title: "x", details: { pages: ["p"], at: new Date(0), bytes }, k: null });
     expect(deep.details.bytes).toBe(bytes);
   });
+
+  it("drops invisible format characters from titles and names, so they match the clean record (SLN-1393)", () => {
+    const merged = mergeMetadata(
+      [{ source: "epub", metadata: { title: "\ufeffDas Ver\u00adschwinden", subtitle: "Ro\u200bman",
+        authors: [{ name: "Peter\u200e Handke", role: "aut" }], series: "Werke\u2060", publisher: "Suhr\u00adkamp" } }],
+      "x.epub",
+    );
+    expect(merged).toMatchObject({ title: "Das Verschwinden", subtitle: "Roman", authors: ["Peter Handke"], series: "Werke", publisher: "Suhrkamp" });
+  });
 });
 
 describe("failureMessage", () => {

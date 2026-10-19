@@ -1,8 +1,8 @@
 import { z } from "zod/v4";
-import { toUpdateSchema } from "./helpers";
+import { cleanString, toUpdateSchema } from "./helpers";
 
 export const createLocationSchema = z.object({
-  name: z.string().min(1).max(200),
+  name: cleanString().min(1).max(200),
   type: z.enum(["physical", "digital"]),
   street: z.string().max(500).nullable().optional(),
   city: z.string().max(200).nullable().optional(),
@@ -24,7 +24,7 @@ export const updateLocationSchema = toUpdateSchema(
 
 export const createSubLocationSchema = z.object({
   locationId: z.string().uuid(),
-  name: z.string().min(1).max(200),
+  name: cleanString().min(1).max(200),
   sortOrder: z.number().int().optional(),
 });
 

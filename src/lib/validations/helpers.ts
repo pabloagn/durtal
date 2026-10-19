@@ -1,4 +1,5 @@
 import { z } from "zod/v4";
+import { cleanText } from "@/lib/utils/clean-text";
 
 /** A work's rating: 0.5 to 5 in half steps, or none (SLN-446). Venue ratings keep their own scale. */
 export const RATING_SCHEMA = z
@@ -8,6 +9,13 @@ export const RATING_SCHEMA = z
   .multipleOf(0.5, "Rate in half steps")
   .nullable()
   .optional();
+
+/**
+ * A title or name as typed or pasted, stored without invisible format
+ * characters and in NFC (SLN-1393). Chain `.trim()`, `.min()` and `.max()`
+ * as on `z.string()`: they check the cleaned text.
+ */
+export const cleanString = () => z.string().overwrite(cleanText);
 
 /** Record ids are UUIDs; a bad id gets a clear validation error, not a database error. */
 export const idSchema = z.string().uuid("Invalid id");

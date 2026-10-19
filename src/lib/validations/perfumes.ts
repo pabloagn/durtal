@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { cleanString } from "./helpers";
 import { catalogueDateSchema, datesInOrder } from "@/lib/catalogue/dates";
 import {
   NOTE_POSITIONS,
@@ -58,7 +59,7 @@ const itemIds = z
   .superRefine(unique((id) => id, "List each classification once"));
 
 const perfumeFields = {
-  title: z.string().trim().min(1).max(500),
+  title: cleanString().trim().min(1).max(500),
   description: z.string().trim().max(50000).nullable(),
   releaseDate: date,
   discontinuedDate: date,

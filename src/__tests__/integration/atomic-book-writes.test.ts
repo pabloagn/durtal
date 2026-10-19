@@ -497,6 +497,15 @@ describe.skipIf(!url)("atomic book writes", () => {
       expect(await counts()).toEqual(before);
     });
 
+    // SLN-1393 review: an author of only a zero-width space passed "Author is required"
+    // and was then cleaned to an empty name
+    it("refuses an author or title made only of invisible characters, and writes nothing", async () => {
+      const before = await counts();
+      await expect(createOrderForNewBook({ book: { title: "Lotte in Weimar", authorName: "\u200b" }, order })).rejects.toThrow("Author is required");
+      await expect(createOrderForNewBook({ book: { title: "\u00ad\ufeff", authorName: "Thomas Mann" }, order })).rejects.toThrow("Title is required");
+      expect(await counts()).toEqual(before);
+    });
+
     it("refuses a status change validated against a status that has changed since", async () => {
       const { order: placed } = await createOrderForNewBook({
         book: { title: "Doctor Faustus", authorName: "Thomas Mann" },
