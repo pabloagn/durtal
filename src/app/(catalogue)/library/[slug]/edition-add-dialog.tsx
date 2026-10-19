@@ -23,6 +23,8 @@ import { refusalAction, refusalMessage } from "@/lib/actions/refusal";
 interface EditionAddDialogProps {
   workId: string;
   workTitle: string;
+  /** The work's original language: a new edition starts in it (SLN-1132) */
+  workLanguage?: string | null;
   /** When provided, the dialog is externally controlled and no trigger button is rendered */
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
@@ -31,6 +33,7 @@ interface EditionAddDialogProps {
 export function EditionAddDialog({
   workId,
   workTitle,
+  workLanguage,
   open: controlledOpen,
   onOpenChange,
 }: EditionAddDialogProps) {
@@ -47,13 +50,14 @@ export function EditionAddDialog({
   const [isPending, setIsPending] = useState(false);
   // The genres and tags load as the dialog opens (SLN-510); a new edition has none chosen yet
   const lists = useEditOptions(EDITION_GROUPS, open);
-  // A new edition starts in the new-book language (Settings, General)
+  // A new edition starts in the work's language, else the new-book language
+  // (Settings, General); its title is the work's until another is typed
   const { newBookLanguage } = useAppSettings();
 
   const initialValues: EditionFormValues = {
     ...EMPTY_EDITION,
-    title: workTitle,
-    language: newBookLanguage,
+    title: "",
+    language: workLanguage || newBookLanguage,
   };
 
   async function handleSubmit(values: EditionFormValues) {
@@ -118,6 +122,7 @@ export function EditionAddDialog({
             isPending={isPending}
             notice={<OptionsNotice loading={lists.loading} failed={lists.failed} onRetry={lists.retry} />}
             listsNote={lists.failed ? "Not loaded" : lists.loading ? "Loading…" : undefined}
+            work={{ title: workTitle, language: workLanguage ?? null }}
           />
         </div>
       </Dialog>
