@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { ingestMedia } from "@/lib/media/ingest";
 import { ingestRefusal, parseAttribution, parseParams } from "@/lib/media/route-input";
 import { isMediaEntityType, supportsMediaType } from "@/lib/media/owner";
-import { isAllowedImageType, MAX_MEDIA_SIZE_BYTES } from "@/lib/validations/media-security";
+import { imageFileRefusal } from "@/lib/validations/media-security";
 import type { MediaEntityType } from "@/lib/s3/keys";
 import type { MediaType } from "@/lib/types";
 import { isUuid } from "@/lib/utils/uuid";
@@ -66,19 +66,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid entityId" }, { status: 400 });
     }
 
-    if (file.size > MAX_MEDIA_SIZE_BYTES) {
-      return NextResponse.json(
-        { error: "File too large. Maximum size: 50 MB." },
-        { status: 400 },
-      );
-    }
-
-    if (!isAllowedImageType(file.type)) {
-      return NextResponse.json(
-        { error: "File type not allowed. Accepted: JPEG, PNG, WebP, GIF." },
-        { status: 400 },
-      );
-    }
+    const refused = imageFileRefusal(file);
+    if (refused) return NextResponse.json({ error: refused }, { status: 400 });
 
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
