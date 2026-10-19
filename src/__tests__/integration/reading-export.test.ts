@@ -44,7 +44,7 @@ import { createReadingImport } from "@/lib/reading/import/store";
 import { commitReadingImport } from "@/lib/actions/reading-import";
 import { parseImportFile } from "@/lib/reading/import/parse";
 import { parseCsv } from "@/lib/reading/import/csv";
-import { NOTE_EXPORT_COLUMNS, READING_EXPORT_COLUMNS, readingExportRows } from "@/lib/export/reading";
+import { NOTE_EXPORT_COLUMNS, READING_EXPORT_COLUMNS, readingExportRows, sessionExportRows } from "@/lib/export/reading";
 import { countedPagesSql } from "@/lib/reading/summary";
 import { readingToday } from "@/lib/reading/day";
 import { GOODREADS_EXPORT_HEADER } from "@/lib/reading/import/formats";
@@ -232,6 +232,29 @@ describe.skipIf(!url)("the reading exports with PostgreSQL", () => {
     const ratings = readingsFile.slice(1).map((row) => row[readingsFile[0].indexOf("rating")]).filter(Boolean);
     expect(ratings.sort()).toEqual(["4", "4.5"]);
     expect(readingsFile.slice(1).find((row) => row[0] === openId)![readingsFile[0].indexOf("current_percent")]).toBe("44.5");
+  });
+
+  it("counts each session's pages with one join, as a subquery per session did (SLN-1203)", async () => {
+    const { openId } = await library();
+    // Forward, back, on past the furthest point, the reading's page total, another total, and a reread from 50%
+    const b = await book("Many sittings");
+    const first = await reading(b, { status: "finished", finished_on: "2025-03-01", finished_precision: "day", total_pages: 400 });
+    for (const [day, end, total] of [["2025-01-01", 10, 400], ["2025-01-02", 25, 400], ["2025-01-03", 15, 400], ["2025-01-04", 40, null], ["2025-01-05", 60, 380], ["2025-03-01", 100, 400]] as const)
+      await session(first, { read_on: day, end_percent: end, pages_total: total, duration_seconds: 600 });
+    const again = await reading(b, { status: "reading", start_percent: 50, total_pages: 400 });
+    await session(again, { read_on: "2026-01-01", end_percent: 55, pages_total: 400 });
+    await session(again, { read_on: "2026-01-02", end_percent: 70, pages_total: 400 });
+    const rows = await sessionExportRows(null);
+    const before = await testDb!.execute<{ session_id: string; pages_counted: number }>(sql`with cp as ${countedPagesSql()}
+      select s.id::text as session_id, (select round(coalesce(sum(c.pages), 0))::float8 from cp c where c.session_id = s.id) as pages_counted
+      from reading_sessions s where not (s.source = 'timer' and s.ended_at is null)`);
+    expect(rows).toHaveLength(before.length);
+    const counted = new Map(before.map((row) => [row.session_id, row.pages_counted]));
+    expect(rows.map((row) => [row.session_id, row.pages_counted])).toEqual(rows.map((row) => [row.session_id, counted.get(row.session_id as string)]));
+    // 10 and 15% of 400, back to 15% (0), on from 25 to 40% of the reading's 400, 20% of 380, the last 40% of 400
+    expect(rows.filter((row) => row.reading_id === first).map((row) => row.pages_counted)).toEqual([40, 60, 0, 60, 76, 160]);
+    expect(rows.filter((row) => row.reading_id === again).map((row) => row.pages_counted)).toEqual([20, 60]);
+    expect(rows.filter((row) => row.reading_id === openId).map((row) => row.pages_counted)).toEqual([60, 0]);
   });
 
   it("guards a title or a passage that starts with = in every spreadsheet export, the works export too", async () => {

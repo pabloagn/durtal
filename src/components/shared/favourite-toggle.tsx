@@ -4,9 +4,10 @@ import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "@/lib/notifications/toast";
 import { useShortcut } from "@/components/shortcuts/shortcuts-provider";
-import { setFavourite } from "@/lib/actions/favourites";
 import { FAVOURITE_STAR_ID } from "@/components/shared/favourite-star";
 import type { FavouriteEntity } from "@/lib/constants/favourites";
+import { setFavourite } from "@/lib/actions/catalogue-client";
+import { refusalMessage } from "@/lib/actions/refusal";
 import { shortcutProps } from "@/lib/shortcuts/shortcuts";
 
 /** A then this key toggles the favourite on a detail page (SLN-571) */
@@ -72,8 +73,8 @@ export function FavouriteToggle({
       await setFavourite(target.entity, target.id, next);
       router.refresh();
       return true;
-    } catch {
-      toast.error("Could not update the favourite. Try again.");
+    } catch (error) {
+      toast.error(refusalMessage(error, "Could not update the favourite. Try again."));
       return false;
     }
   }

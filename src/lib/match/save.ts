@@ -8,6 +8,7 @@ import { readEditionWriteSnapshot, editionWriteGuardQueries, editionUpdateQuery,
 import { retainCoverAttempt, requireVerifiedCover, type VerifiedCoverStage } from "@/lib/s3/cover-stage";
 import { eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
+import { ExpectedActionError } from "@/lib/actions/expected-error";
 import { editions } from "@/lib/db/schema";
 import { processAndUploadCover } from "@/lib/s3/covers";
 import { editionCoverPaletteFields } from "@/lib/color/color-buckets";
@@ -43,7 +44,7 @@ export async function loadMatchEdition(editionId: string) {
       },
     },
   });
-  if (!edition) throw new Error("Edition not found");
+  if (!edition) throw new ExpectedActionError("This edition no longer exists");
   // Keep SQL snapshot server-local; never add related row JSON to UI payloads.
   matchWriteSnapshots.set(edition, writeSnapshot);
   return edition;

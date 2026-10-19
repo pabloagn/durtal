@@ -6,7 +6,7 @@ import {
   SelectionToolbar,
   type SelectionToolbarProps,
 } from "@/components/shared/selection-toolbar";
-import { deleteAuthor } from "@/lib/actions/authors";
+import { deleteAuthor } from "@/lib/actions/catalogue-client";
 
 /** The people list's selection bar: favourites and export */
 export function AuthorBulkActionToolbar({

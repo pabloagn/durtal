@@ -10,8 +10,9 @@ import { EntityActionMenu } from "@/components/shared/entity-action-menu";
 import { useEditActions } from "@/components/shortcuts/shortcuts-provider";
 import { EDIT_KEYS, editHint } from "@/lib/shortcuts/shortcuts";
 import { ConfirmDeleteDialog } from "@/components/catalogue/confirm-delete-dialog";
-import { removeOrganization } from "@/lib/actions/organization-directory";
 import { OrganizationDialog, type EditableOrganization } from "./organization-dialog";
+import { removeOrganization } from "@/lib/actions/catalogue-client";
+import { refusalMessage } from "@/lib/actions/refusal";
 
 /**
  * The organization's own actions beside its name, on the name's cap-height
@@ -73,7 +74,7 @@ export function OrganizationActions({
                   toast.success(`${organization.name} deleted`);
                   router.push("/organizations");
                 } catch (err) {
-                  toast.error(err instanceof Error ? err.message : "Could not delete the organization");
+                  toast.error(refusalMessage(err, "Could not delete the organization"));
                 }
               }}
             />

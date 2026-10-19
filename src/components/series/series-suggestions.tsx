@@ -5,9 +5,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "@/lib/notifications/toast";
 import { Button } from "@/components/ui/button";
-import { addWorksToSeries, type SeriesSuggestion } from "@/lib/actions/series";
+import { type SeriesSuggestion } from "@/lib/actions/series";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
 import { Link2 } from "lucide-react";
+import { addWorksToSeries } from "@/lib/actions/catalogue-client";
+import { refusalMessage } from "@/lib/actions/refusal";
 
 /**
  * Books whose titles match a series. Nothing is linked until the user
@@ -43,8 +45,8 @@ export function SeriesSuggestions({
       );
       router.refresh();
       triggerActivityRefresh();
-    } catch {
-      toast.error("Could not link these books");
+    } catch (error) {
+      toast.error(refusalMessage(error, "Could not link these books"));
     } finally {
       setBusy(null);
     }

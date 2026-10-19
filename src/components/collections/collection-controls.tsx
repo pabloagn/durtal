@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowUp,
@@ -18,17 +18,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { MediaManagerDialog } from "@/components/media/media-manager-dialog";
 import { useEditActions } from "@/components/shortcuts/shortcuts-provider";
 import { EDIT_KEYS, editTooltipKeys, shortcutProps } from "@/lib/shortcuts/shortcuts";
-import {
-  updateCollection,
-  deleteCollection,
-  moveCollectionMember,
-  removeEditionFromCollection,
-  removeWorksFromCollection,
-} from "@/lib/actions/collections";
 import { AddCollectionBooksDialog } from "./add-books-dialog";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
 import { collectionDeletedMessage } from "@/lib/collections/counts";
 import type { WorkKind } from "@/lib/catalogue/kinds";
+import { updateCollection, deleteCollection, moveCollectionMember, removeEditionFromCollection, removeWorksFromCollection } from "@/lib/actions/catalogue-client";
+import { refusalMessage } from "@/lib/actions/refusal";
 
 const ADD_EVENT = "durtal:collection-add";
 
@@ -150,8 +145,8 @@ export function CollectionControls({
       setEdit(false);
       router.refresh();
       toast.success("Collection updated");
-    } catch {
-      toast.error("Could not update the collection");
+    } catch (error) {
+      toast.error(refusalMessage(error, "Could not update the collection"));
     } finally {
       pending.current = false;
       setBusy(false);
@@ -169,8 +164,8 @@ export function CollectionControls({
       router.push("/collections");
       router.refresh();
       triggerActivityRefresh();
-    } catch {
-      toast.error("Could not delete the collection");
+    } catch (error) {
+      toast.error(refusalMessage(error, "Could not delete the collection"));
     } finally {
       pending.current = false;
       setBusy(false);
@@ -324,23 +319,42 @@ export function CollectionMemberControls({
   // its card goes (FocusKeeper); the others ignore presses meanwhile
   const [busy, setBusy] = useState<-1 | 1 | 0 | null>(null);
   const pending = useRef(false);
+  // A move that lands can move the card's node, which blurs the button in it
+  // (SLN-1028). Once the refresh is in, the focus goes back to the Move
+  // pressed, or to the other Move when the card reached that end
+  const [refreshing, startRefresh] = useTransition();
+  const moved = useRef<-1 | 1 | null>(null);
+  const earlier = useRef<HTMLButtonElement>(null);
+  const later = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (refreshing || !moved.current) return;
+    const atEnd = moved.current === -1 ? first : last;
+    const pressed = moved.current === -1 ? earlier.current : later.current;
+    const other = moved.current === -1 ? later.current : earlier.current;
+    moved.current = null;
+    const active = document.activeElement;
+    const lost = !active || active === document.body || !active.isConnected;
+    if (lost || (atEnd && active === pressed)) (atEnd ? other : pressed)?.focus({ preventScroll: true });
+  }, [refreshing, first, last]);
   async function act(direction?: -1 | 1) {
     if (pending.current) return;
     pending.current = true;
     setBusy(direction ?? 0);
     try {
-      if (direction)
+      if (direction) {
         await moveCollectionMember(collectionId, member, direction);
-      else {
-        if (member.kind === "edition")
-          await removeEditionFromCollection(collectionId, member.id);
-        else await removeWorksFromCollection(collectionId, [member.id]);
-        toast.success("Removed from collection. Kept in your library.");
-        triggerActivityRefresh();
+        moved.current = direction;
+        startRefresh(() => router.refresh());
+        return;
       }
+      if (member.kind === "edition")
+        await removeEditionFromCollection(collectionId, member.id);
+      else await removeWorksFromCollection(collectionId, [member.id]);
+      toast.success("Removed from collection. Kept in your library.");
+      triggerActivityRefresh();
       router.refresh();
-    } catch {
-      toast.error("Could not update collection");
+    } catch (error) {
+      toast.error(refusalMessage(error, "Could not update collection"));
     } finally {
       pending.current = false;
       setBusy(null);
@@ -355,9 +369,11 @@ export function CollectionMemberControls({
         variant="ghost"
         data-tooltip="Move earlier"
         aria-label={`Move ${title} earlier`}
+        ref={earlier}
         busy={busy === -1}
-        disabled={first}
-        onClick={() => act(-1)}
+        // Held, not disabled, at the start: a disabled button drops the focus
+        aria-disabled={first || busy === -1 || undefined}
+        onClick={() => !first && act(-1)}
       >
         <ArrowUp size={14} />
       </Button>
@@ -366,9 +382,10 @@ export function CollectionMemberControls({
         variant="ghost"
         data-tooltip="Move later"
         aria-label={`Move ${title} later`}
+        ref={later}
         busy={busy === 1}
-        disabled={last}
-        onClick={() => act(1)}
+        aria-disabled={last || busy === 1 || undefined}
+        onClick={() => !last && act(1)}
       >
         <ArrowDown size={14} />
       </Button>

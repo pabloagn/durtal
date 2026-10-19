@@ -9,31 +9,25 @@
  * covers carry
  * only the marks that make a copy special (rare, poison, digital edition);
  * status and rating sit in the card's info row (`CardStatus`).
+ *
+ * The chip and its icon are one class each (`cover-chip`, `cover-chip-icon`
+ * in globals.css), and the book marks draw from the icon sprite
+ * (`CoverMark`): a shelf repeats them on every card (SLN-1163).
  */
-export const COVER_CHIP =
-  "flex h-4 min-w-4 shrink-0 items-center justify-center rounded-sm border-0 glass-chip [--glass-chip-blur:3px] @[220px]:h-5 @[220px]:min-w-5 @[220px]:[--glass-chip-blur:4px]";
+export const COVER_CHIP = "cover-chip";
 
 /** Text chips (status, rating): side padding and small type */
 export const COVER_CHIP_TEXT =
   "px-0.5 font-mono text-micro leading-none tracking-wider @[220px]:px-1.5";
 
 /** An icon inside a chip */
-export const COVER_CHIP_ICON = "h-2.5 w-2.5 @[220px]:h-3 @[220px]:w-3";
+export const COVER_CHIP_ICON = "cover-chip-icon";
 
-/**
- * The stroke of a chip icon, in Lucide's 24-unit box: 1.25px at 10px and
- * 1.5px at 12px. The usual 1.5 would draw a faint 0.6px line at this size.
- */
-export const COVER_CHIP_STROKE = 3;
-
-/** The corners: 4px in, 8px on wide cards; chips in a corner sit 4px apart */
+/** The corners: 4px in, 8px on wide cards; chips in a corner sit 4px apart (`cover-corner-*` in globals.css) */
 export const COVER_CORNER = {
-  topLeft:
-    "absolute left-1 top-1 flex items-center gap-1 @[220px]:left-2 @[220px]:top-2",
-  topRight:
-    "absolute right-1 top-1 flex items-center gap-1 @[220px]:right-2 @[220px]:top-2",
-  bottomLeft:
-    "absolute bottom-1 left-1 flex items-center gap-1 @[220px]:bottom-2 @[220px]:left-2",
+  topLeft: "cover-corner-tl",
+  topRight: "cover-corner-tr",
+  bottomLeft: "cover-corner-bl",
 } as const;
 
 /** Icon color per badge variant: the accent lit for glass (`--color-chip-*`) */

@@ -6,13 +6,15 @@ import { toast } from "@/lib/notifications/toast";
 import { DropdownMenu, DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { FavouriteToggle } from "@/components/shared/favourite-toggle";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
-import { deleteReadingNote, restoreReadingNote, toggleNoteFavourite, type NoteEdit } from "@/lib/actions/reading-notes";
+import { type NoteEdit } from "@/lib/actions/reading-notes";
 import type { NoteEdition } from "@/lib/reading/edition-label";
 import { formatNoteForCopy, type CopyBook } from "@/lib/reading/notes-text";
 import { showError, undoToast } from "./reading-client";
 import { useReadingDialogs } from "./reading-dialogs-provider";
 import { useOptionalReading } from "./reading-provider";
 import { refreshServerAnnotations } from "@/lib/reader/annotation-server-changes";
+import { deleteReadingNote, restoreReadingNote, toggleNoteFavourite } from "@/lib/actions/catalogue-client";
+import { refusalMessage } from "@/lib/actions/refusal";
 
 const menuButton =
   "action-icon";
@@ -81,8 +83,8 @@ export function NoteControls({ note, book, edition = null }: { note: NoteEdit; b
             await toggleNoteFavourite({ id: note.id });
             router.refresh();
             return true;
-          } catch {
-            toast.error("Could not update the favourite. Try again.");
+          } catch (error) {
+            toast.error(refusalMessage(error, "Could not update the favourite. Try again."));
             return false;
           }
         }}

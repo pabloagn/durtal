@@ -21,7 +21,7 @@ export function EstimateLine({
   onAddLength?: () => void;
 }) {
   // A line breaks between its parts, never inside "Around 25 Oct"; a long part
-  // ("Log a few sessions for an estimate") may wrap, so a narrow card never widens
+  // ("Log a few sessions for a finish date") may wrap, so a narrow card never widens
   const interactive = estimate.needsLength && !!onAddLength;
   const parts = estimate.text.split(" · ");
   const text = parts.map((part, i) => (

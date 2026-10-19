@@ -4,11 +4,12 @@ import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "@/lib/notifications/toast";
 import { ChevronDown } from "lucide-react";
-import { updateInstance } from "@/lib/actions/instances";
 import { todayLocal } from "@/lib/utils/date";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
 import { INSTANCE_STATUSES } from "@/lib/types/index";
 import { enumLabel } from "@/lib/utils/labels";
+import { updateInstance } from "@/lib/actions/catalogue-client";
+import { refusalMessage } from "@/lib/actions/refusal";
 
 interface InstanceStatusButtonProps {
   instanceId: string;
@@ -47,8 +48,8 @@ export function InstanceStatusButton({
       setPendingStatus(null);
       router.refresh();
       triggerActivityRefresh();
-    } catch {
-      toast.error("Failed to update status");
+    } catch (error) {
+      toast.error(refusalMessage(error, "Failed to update status"));
     } finally {
       setIsPending(false);
     }

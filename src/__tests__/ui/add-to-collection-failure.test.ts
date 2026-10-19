@@ -16,8 +16,9 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: () => {} }) }))
 vi.mock("@/lib/notifications/toast", () => ({ toast: { success: () => {}, error: action.error } }));
 vi.mock("@/lib/activity/refresh-event", () => ({ triggerActivityRefresh: () => {} }));
 vi.mock("@/components/collections/collection-icon-lazy", () => ({ CollectionIconLazy: () => null }));
-vi.mock("@/lib/actions/collections", () => ({
-  getCollectionSelection: action.select,
+vi.mock("@/lib/actions/collections", () => ({ getCollectionSelection: action.select }));
+// Its writes go through the client adapters (SLN-1033)
+vi.mock("@/lib/actions/catalogue-client", () => ({
   createCollection: vi.fn(),
   addToCollection: action.add,
   removeFromCollection: action.remove,

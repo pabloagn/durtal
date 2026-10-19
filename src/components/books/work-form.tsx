@@ -12,7 +12,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
 import { RatingInput } from "@/components/shared/rating";
 import { CapAligned } from "@/components/shared/cap-aligned";
-import { findOrCreateAuthor } from "@/lib/actions/authors";
+import { findOrCreateAuthor } from "@/lib/actions/catalogue-client";
+import { refusalMessage } from "@/lib/actions/refusal";
 import { LANGUAGES } from "@/lib/constants/languages";
 import { normalizeSearchText } from "@/lib/utils/search-text";
 import { seriesPositionSchema } from "@/lib/validations/series";
@@ -276,8 +277,8 @@ export function WorkForm({
           { id: created.id, name: created.name, role: "author" },
         ]);
       }
-    } catch {
-      toast.error("Failed to add author");
+    } catch (error) {
+      toast.error(refusalMessage(error, "Failed to add author"));
     } finally {
       setIsAddingAuthor(false);
       setAuthorSearch("");

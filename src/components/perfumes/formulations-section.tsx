@@ -79,7 +79,7 @@ export function FormulationsSection({
             : undefined
         }
         action={
-          <Button variant="ghost" size="sm" onClick={() => setDialog({ kind: "add" })}>
+          <Button variant="ghost" size="sm" data-focus-empty="perfume-formulations" onClick={() => setDialog({ kind: "add" })}>
             <Plus className="h-3.5 w-3.5" strokeWidth={1.5} />
             Add formulation
           </Button>
@@ -91,12 +91,13 @@ export function FormulationsSection({
           Eau de Parfum or Extrait; bottles and samples belong to one.
         </p>
       ) : (
-        <ul className="space-y-2">
+        <ul data-focus-list="perfume-formulations" className="space-y-2">
           {formulations.map((f) => {
             const selected = f.id === selectedId;
             return (
               <li
                 key={f.id}
+                data-focus-row=""
                 className={`flex items-start gap-3 rounded-sm border px-3 py-2.5 transition-colors ${
                   selected
                     ? "border-accent-primary/30 bg-selection-bg/15"

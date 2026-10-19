@@ -15,13 +15,13 @@ import { AddToCollectionDialog } from "@/components/books/add-to-collection-dial
 import { MatchAgainDialog } from "@/components/books/match-again-dialog";
 import { WorkQuickEditDialog } from "@/components/books/work-quick-edit-dialog";
 import { getWorkDeleteSummary } from "@/lib/actions/works";
-import { deleteWork } from "@/lib/actions/catalogue-client";
-import { ActionRefusal } from "@/lib/actions/action-refusal";
 import { workDeleteCascade } from "@/lib/catalogue/delete-cascade";
 import { useDeleteSummary } from "@/components/books/use-delete-summary";
 import { toast } from "@/lib/notifications/toast";
 import { EbookReadMenuItem } from "@/components/ebooks/catalogue-read-action";
 import type { WorkEbookDTO } from "@/lib/ebooks/catalogue-dto";
+import { deleteWork } from "@/lib/actions/catalogue-client";
+import { refusalMessage } from "@/lib/actions/refusal";
 
 interface BookCardActionsMenuProps {
   workId: string;
@@ -56,10 +56,10 @@ export function BookCardActionsMenu({
   async function handleDelete() {
     try {
       await deleteWork(workId);
-      toast.success("Work deleted");
+      toast.success("Book deleted");
       router.refresh();
     } catch (error) {
-      toast.error(error instanceof ActionRefusal ? error.message : "Could not delete the book. Try again.");
+      toast.error(refusalMessage(error, "Could not delete the book. Try again."));
     }
     setDeleteOpen(false);
   }

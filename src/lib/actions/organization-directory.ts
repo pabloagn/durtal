@@ -1,5 +1,6 @@
 "use server";
 
+import { ExpectedActionError } from "@/lib/actions/expected-error";
 import { z } from "zod";
 import { eq, sql, type SQL } from "drizzle-orm";
 import { db } from "@/lib/db";
@@ -296,9 +297,9 @@ export async function updateOrganizationProfile(id: string, input: OrganizationP
       .where(eq(organizationRoles.organizationId, id)),
     countryIdFor(fields.country),
   ]);
-  if (!current) throw new Error("Organization not found");
+  if (!current) throw new ExpectedActionError("Organization not found");
   if (!current.kind && roles.length === 0)
-    throw new Error("Choose at least one role for this organization");
+    throw new ExpectedActionError("Choose at least one role for this organization");
   // The paintings it owns keep it a museum or gallery once it is one
   const institution = (list: readonly string[]) => list.includes("museum") || list.includes("gallery");
   const keepsInstitution = !institution(held.map((r) => r.role)) || institution(roles);
@@ -355,7 +356,7 @@ async function countryIdFor(text: string | null | undefined) {
  */
 export async function addOrganization(input: OrganizationProfileInput) {
   const { roles, aliases: names, ...fields } = profileSchema.parse(input);
-  if (roles.length === 0) throw new Error("Choose at least one role for this organization");
+  if (roles.length === 0) throw new ExpectedActionError("Choose at least one role for this organization");
   const countryId = await countryIdFor(fields.country);
   return saveOrganization({ ...fields, countryId, roles, aliases: names });
 }

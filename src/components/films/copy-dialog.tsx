@@ -18,7 +18,8 @@ import {
   type AcquisitionDraft,
   type StorageLocation,
 } from "@/components/catalogue/holding-fields";
-import { addFilmHolding, updateFilmHolding } from "@/lib/actions/films";
+import { addFilmHolding, updateFilmHolding } from "@/lib/actions/catalogue-client";
+import { refusalMessage } from "@/lib/actions/refusal";
 import { FILM_HOLDING_MEDIA } from "@/lib/catalogue/films";
 import { PERSONAL_HOLDING_STATUSES } from "@/lib/catalogue/holdings";
 import {
@@ -185,7 +186,7 @@ function CopyForm({
       onDone();
       router.refresh();
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Could not save the copy";
+      const message = refusalMessage(err, "Could not save the copy");
       setError(message);
       toast.error(message);
       setSaving(false);

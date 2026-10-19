@@ -1,5 +1,6 @@
 "use server";
 
+import { ExpectedActionError } from "@/lib/actions/expected-error";
 import { requireBookWork } from "@/lib/catalogue/book-boundary";
 
 import { readEditionWriteSnapshot, editionWriteGuardQueries, editionUpdateQuery } from "@/lib/catalogue/edition-write-guard";
@@ -33,7 +34,7 @@ import { editionCoverPaletteFields } from "@/lib/color/color-buckets";
 import { deleteUnusedObjects, keysOf, ownedPrefixes } from "@/lib/s3/cleanup";
 import { recordActivity } from "@/lib/activity/record";
 import { autoResolveEditions } from "@/lib/publishers/resolution";
-import { isbnClash, isbnTaken } from "@/lib/catalogue/isbn-clash";
+import { isbnHolder, isbnTaken } from "@/lib/catalogue/isbn-clash";
 import { queueNewBookEnrichment } from "@/lib/enrichment/queue";
 
 export async function createEdition(input: CreateEditionInput) {
@@ -41,8 +42,8 @@ export async function createEdition(input: CreateEditionInput) {
   await requireBookWork(parsed.workId);
 
   // An ISBN another edition holds is refused before anything is uploaded
-  const clash = await isbnClash(parsed);
-  if (clash) throw new Error(clash);
+  const clash = await isbnHolder(parsed);
+  if (clash) throw new ExpectedActionError(clash.message, { href: clash.href });
 
   // The cover is uploaded first; the edition, its links and any contributor
   // created by name are one write. A failed write retains the uploaded cover
@@ -57,7 +58,7 @@ export async function createEdition(input: CreateEditionInput) {
   } catch (err) {
     await plan.discardCover();
     const taken = isbnTaken(err, parsed);
-    throw taken ? new Error(taken, { cause: err }) : err;
+    throw taken ? new ExpectedActionError(taken, { cause: err }) : err;
   }
 
   // A publisher name no house knows yet is decided when it is safe
@@ -89,8 +90,8 @@ async function updateEditionOnce(id: string, input: UpdateEditionInput) {
     ...editionData
   } = parsed;
 
-  const clash = await isbnClash(editionData, id);
-  if (clash) throw new Error(clash);
+  const clash = await isbnHolder(editionData, id);
+  if (clash) throw new ExpectedActionError(clash.message, { href: clash.href });
 
   const expected = await readEditionWriteSnapshot(id, db, editionData.workId !== undefined);
   let stagedCover: VerifiedCoverStage | null = null;
@@ -179,7 +180,7 @@ async function updateEditionOnce(id: string, input: UpdateEditionInput) {
   } catch (err) {
     if (stagedCover) retainCoverAttempt(stagedCover, "edition publication rejected or uncertain");
     const taken = isbnTaken(err, editionData);
-    throw taken ? new Error(taken, { cause: err }) : err;
+    throw taken ? new ExpectedActionError(taken, { cause: err }) : err;
   }
 
   // Record activity — resolve workId from editionData or fetch from DB

@@ -1,10 +1,10 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { removeSuggestionFeedback, restoreSuggestionFeedback, setSuggestionFeedback } from "@/lib/actions/suggestions";
 import type { FeedbackReason, FeedbackVerdict } from "@/lib/reading/constants";
 import type { SuggestionFeedbackSnapshot } from "@/lib/validations/suggestions";
 import { showError, undoToast } from "../reading-client";
+import { removeSuggestionFeedback, restoreSuggestionFeedback, setSuggestionFeedback } from "@/lib/actions/catalogue-client";
 
 const DONE: Record<FeedbackVerdict, string> = {
   not_now: "Hidden for 30 days",

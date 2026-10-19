@@ -23,8 +23,9 @@ import { useReadingDialogs } from "./reading-dialogs-provider";
 import { browserZone } from "./reading-client";
 import { hoursWords } from "@/lib/reading/pace";
 import { formatPercent } from "@/lib/reader/place-label";
-import { loggedPlaceAhead, loggedPlaceLabel, loggedPlaceWhere } from "@/lib/reading/logged-place";
+import { keepStayedAt, loggedPlaceAhead, loggedPlaceLabel, loggedPlaceWhere, stayedAt } from "@/lib/reading/logged-place";
 import { saveQuoteWithRefresh } from "@/lib/reader/annotation-server-changes";
+import { onActivityRefresh } from "@/lib/activity/refresh-event";
 
 type Controller = ReturnType<typeof createReadingReaderController>;
 type Queue = ReturnType<typeof createReaderSittingQueue>;
@@ -62,7 +63,10 @@ function ActiveReaderTracking({ data: initial }: { data: ReaderTrackingData }) {
   const [endPrompt, setEndPrompt] = useState(false);
   const [quoteChoice, setQuoteChoice] = useState<QuoteChoice | null>(null);
   // The logged place the jump was dismissed at, or reached: a later log offers it again
-  const [jumpDoneAt, setJumpDoneAt] = useState<number | null>(null);
+  const [jumpDoneAt, setJumpDoneAt] = useState<number | null>(() => {
+    const id = initial.linked?.reading?.id;
+    return id ? stayedAt(id) : null;
+  });
   const controller = useRef<Controller | null>(null);
   const queue = useRef<Queue | null>(null);
   const live = useRef(false);
@@ -174,6 +178,33 @@ function ActiveReaderTracking({ data: initial }: { data: ReaderTrackingData }) {
 
   useLayoutEffect(() => { controller.current?.suspend(timerOwns); }, [timerOwns]);
 
+  // A log, edit or finish saved here changes the reading, and the server retires
+  // the sitting under way with it, so later saves to it would be dropped. The
+  // reading from here on goes in a fresh sitting, and the bar takes the new
+  // reading (SLN-1192). The undo of a new reading holds its own sitting.
+  useEffect(() => onActivityRefresh(() => {
+    const active = controller.current;
+    if (!live.current || !active || undo.current) return;
+    const expected = generation.current;
+    const before = latest.current.data.linked?.reading?.id ?? null;
+    active.flush();
+    active.setReading(before);
+    void getReaderTracking(initial.ebookId).then((fresh) => {
+      if (!live.current || expected !== generation.current || controller.current !== active) return;
+      setData(fresh);
+      const after = fresh.linked?.reading?.id ?? null;
+      if (after !== before) active.setReading(after);
+    }).catch(showFailure);
+  }), [initial.ebookId]);
+
+  // Another reading has its own dismissal, kept in this tab or none
+  const readingId = data.linked?.reading?.id ?? null;
+  const stayedFor = useRef(readingId);
+  useEffect(() => {
+    if (stayedFor.current === readingId) return;
+    stayedFor.current = readingId;
+    setJumpDoneAt(readingId ? stayedAt(readingId) : null);
+  }, [readingId]);
   const loggedPercent = data.linked?.reading?.percent ?? null;
   const behind = loggedPlaceAhead(data.linked?.reading, context.percent);
   // Once the reader reaches or passes the logged place, the jump goes
@@ -291,6 +322,7 @@ function ActiveReaderTracking({ data: initial }: { data: ReaderTrackingData }) {
   // The jump and its dismiss leave the bar, so the focus goes to the tracking control in their place
   const jumpDone = (at: number | null) => {
     setJumpDoneAt(at);
+    if (reading && at !== null) keepStayedAt(reading.id, at);
     requestAnimationFrame(() => statusRef.current?.querySelector<HTMLElement>("button")?.focus());
   };
   const status = timerOwns ? "Manual timer active" : snapshot?.held ? "Starting tracking" : reading?.status === "paused" ? "Paused" : "Tracking";

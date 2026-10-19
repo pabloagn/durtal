@@ -9,12 +9,13 @@ import { languageName } from "@/lib/utils/language";
 import {
   searchEditionsForPicker,
   searchWorksForCollection,
-  addToCollection,
 } from "@/lib/actions/collections";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
 import { WORK_DOMAINS, getEnabledWorkKinds } from "@/lib/catalogue/domains";
 import type { WorkKind } from "@/lib/catalogue/kinds";
 import { mediaUrl } from "@/lib/s3/media-url";
+import { addToCollection } from "@/lib/actions/catalogue-client";
+import { refusalMessage } from "@/lib/actions/refusal";
 
 type Edition = Awaited<ReturnType<typeof searchEditionsForPicker>>[number];
 type Work = Awaited<ReturnType<typeof searchWorksForCollection>>[number];
@@ -128,8 +129,8 @@ export function AddCollectionBooksDialog({
       router.refresh();
       triggerActivityRefresh();
       onClose();
-    } catch {
-      toast.error("Could not add these, so nothing was added. Your selection is still here.");
+    } catch (error) {
+      toast.error(refusalMessage(error, "Could not add these, so nothing was added. Your selection is still here."));
     } finally {
       busy.current = false;
       setSaving(false);

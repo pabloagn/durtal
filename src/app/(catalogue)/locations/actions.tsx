@@ -9,8 +9,9 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Dialog } from "@/components/ui/dialog";
 import { AddressInput, EMPTY_ADDRESS, type AddressFields } from "@/components/locations/address-input";
-import { createLocation } from "@/lib/actions/locations";
 import type { CreateLocationInput } from "@/lib/validations/locations";
+import { createLocation } from "@/lib/actions/catalogue-client";
+import { refusalMessage } from "@/lib/actions/refusal";
 
 type LocationType = CreateLocationInput["type"];
 
@@ -53,8 +54,8 @@ export function LocationActions() {
         setOpen(false);
         resetForm();
         router.refresh();
-      } catch {
-        toast.error("Failed to create location");
+      } catch (error) {
+        toast.error(refusalMessage(error, "Failed to create location"));
       }
     });
   }

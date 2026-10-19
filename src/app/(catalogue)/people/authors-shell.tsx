@@ -80,7 +80,9 @@ export interface AuthorItem {
   worksCount: number;
   /** Roles with credit counts: the card's role line (SLN-420) */
   roles: PersonRole[];
-  /** Books written: the cards' "N books" */
+  /** Works credited per collection: the cards' "3 films · 1 perfume" */
+  workCounts: Partial<Record<WorkKind, number>>;
+  /** Books written: the cover previews' candidates */
   booksCount: number;
   isFavourite: boolean;
   createdAt: string;
@@ -318,7 +320,7 @@ export function AuthorsShell({
 
       {viewMode === "grid" && (
         <div className="@container">
-          <div data-catalogue-grid="" data-grid-density={gridColumns} className={`grid gap-4 ${COL_CLASSES[gridColumns] ?? COL_CLASSES[5]}`}>
+          <div data-catalogue-grid="" data-grid-density={gridColumns} data-focus-list="people" className={`grid gap-4 ${COL_CLASSES[gridColumns] ?? COL_CLASSES[5]}`}>
             {authors.map((a) => (
               <AuthorCard
                 key={a.id}
@@ -334,7 +336,7 @@ export function AuthorsShell({
                 posterCrop={a.posterCrop}
                 photoTone={a.photoTone}
                 coverPreviews={a.coverPreviews}
-                worksCount={a.booksCount}
+                workCounts={a.workCounts}
                 roles={a.roles}
                 preferKind={preferKind}
                 preferRoles={preferRoles}
@@ -374,7 +376,7 @@ export function AuthorsShell({
       )}
 
       {viewMode === "list" && (
-        <div className="space-y-1">
+        <div className="space-y-1" data-focus-list="people">
           {authors.map((a) => (
             <AuthorListItem
               key={a.id}
@@ -388,7 +390,7 @@ export function AuthorsShell({
               deathYear={a.deathYear}
               photoUrl={a.photoUrl}
               posterCrop={a.posterCrop}
-              worksCount={a.booksCount}
+              workCounts={a.workCounts}
               roles={a.roles}
               preferKind={preferKind}
               preferRoles={preferRoles}

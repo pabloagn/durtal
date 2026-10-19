@@ -15,7 +15,6 @@ import {
   AddressInput,
   type AddressFields,
 } from "@/components/locations/address-input";
-import { updateLocation, deleteLocation } from "@/lib/actions/locations";
 import type { CreateLocationInput } from "@/lib/validations/locations";
 import { CapAligned } from "@/components/shared/cap-aligned";
 import {
@@ -23,6 +22,8 @@ import {
   locationItemCount,
   type LocationItemCounts,
 } from "@/lib/catalogue/location-items";
+import { updateLocation, deleteLocation } from "@/lib/actions/catalogue-client";
+import { refusalMessage } from "@/lib/actions/refusal";
 
 type LocationType = CreateLocationInput["type"];
 
@@ -114,8 +115,8 @@ export function LocationCard({
         toast.success("Location updated");
         setEditOpen(false);
         router.refresh();
-      } catch {
-        toast.error("Failed to update location");
+      } catch (error) {
+        toast.error(refusalMessage(error, "Failed to update location"));
       }
     });
   }
@@ -127,8 +128,8 @@ export function LocationCard({
         toast.success("Location deleted");
         setDeleteOpen(false);
         router.refresh();
-      } catch {
-        toast.error("Failed to delete location");
+      } catch (error) {
+        toast.error(refusalMessage(error, "Failed to delete location"));
       }
     });
   }
@@ -289,13 +290,14 @@ export function LocationCard({
             >
               Cancel
             </Button>
+            {/* Danger, as every delete: plain Enter never deletes (SLN-1053) */}
             <Button
-              variant="primary"
+              variant="danger"
               size="sm"
+              data-shortcut="save"
               onClick={handleDelete}
               busy={isPending}
               disabled={!!blocking}
-              className="bg-accent-red/80 hover:bg-accent-red"
             >
               Delete
             </Button>

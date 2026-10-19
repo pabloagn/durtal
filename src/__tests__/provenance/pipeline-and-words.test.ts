@@ -67,7 +67,7 @@ describe("words elsewhere", () => {
     expect(read("app/(catalogue)/provenance/order-create-dialog.tsx")).not.toContain("New Order");
     for (const file of ["order-create-steps.tsx", "order-edit-dialog.tsx"]) expect(read(`app/(catalogue)/provenance/${file}`)).toContain('"In-store purchase"');
     expect(read("app/(catalogue)/places/venue-create-dialog.tsx")).not.toContain("Add Venue");
-    expect(read("app/(catalogue)/taxonomy/[familySlug]/[itemSlug]/page.tsx")).toContain('title="Associated works"');
+    expect(read("app/(catalogue)/taxonomy/[familySlug]/[itemSlug]/page.tsx")).toContain(': "Associated works"');
   });
 
   it("ends Harmonize without a full stop and hides its key hints on touch", () => {

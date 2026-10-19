@@ -36,20 +36,24 @@ export function bookReadingState(readings: Pick<ReadingSummary, "status">[]): Bo
   return "unread";
 }
 
+/** "1,234", grouped like every other count */
+const pageNumber = (n: number) => n.toLocaleString("en");
+
 const percent = (r: Pick<ReadingSummary, "currentPercent">) => `${Math.round(r.currentPercent ?? 0)}%`;
 
 /** "p. 212 of 480 · 44%", "44%", "3:12 of 9:40" */
 export function positionText(r: Omit<ReadingSummary, "id" | "status" | "finishedOn" | "finishedPrecision">) {
   if (r.unit === "minutes" && r.currentMinutes !== null)
     return r.totalMinutes ? `${formatMinutes(r.currentMinutes)} of ${formatMinutes(r.totalMinutes)}` : formatMinutes(r.currentMinutes);
-  if (r.unit === "pages" && r.currentPage !== null && r.totalPages)
-    return `p. ${r.currentPage} of ${r.totalPages} · ${percent(r)}`;
+  // "p. 0 of 240" before the first page reads as nothing; the share says it (SLN-932)
+  if (r.unit === "pages" && r.currentPage && r.totalPages)
+    return `p. ${pageNumber(r.currentPage)} of ${pageNumber(r.totalPages)} · ${percent(r)}`;
   return percent(r);
 }
 
 /** Where an abandoned or paused reading stopped: "p. 120", else "44%" */
 function stopText(r: ReadingSummary) {
-  if (r.unit === "pages" && r.currentPage !== null) return `p. ${r.currentPage}`;
+  if (r.unit === "pages" && r.currentPage !== null) return `p. ${pageNumber(r.currentPage)}`;
   if (r.unit === "minutes" && r.currentMinutes !== null) return formatMinutes(r.currentMinutes);
   return percent(r);
 }
@@ -102,7 +106,7 @@ export function readingMenu(state: BookReadingState): ReadingMenuAction[] {
     case "reading":
       return ["progress", "pause", "finish", "abandon", "edit"];
     case "paused":
-      return ["resume", "progress", "finish", "abandon"];
+      return ["resume", "progress", "finish", "abandon", "edit"];
     case "read":
       return ["reread", "past"];
     case "abandoned":

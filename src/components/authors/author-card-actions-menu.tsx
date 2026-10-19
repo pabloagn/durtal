@@ -9,8 +9,9 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { DeleteConfirmDialog } from "@/app/(catalogue)/library/[slug]/delete-confirm-dialog";
-import { deleteAuthor } from "@/lib/actions/authors";
 import { toast } from "@/lib/notifications/toast";
+import { deleteAuthor } from "@/lib/actions/catalogue-client";
+import { refusalMessage } from "@/lib/actions/refusal";
 
 interface AuthorCardActionsMenuProps {
   authorId: string;
@@ -47,8 +48,8 @@ export function AuthorCardActionsMenu({
       await deleteAuthor(authorId);
       toast.success("Person deleted");
       router.refresh();
-    } catch {
-      toast.error("Could not delete the person");
+    } catch (error) {
+      toast.error(refusalMessage(error, "Could not delete the person"));
     }
     setDeleteOpen(false);
   }

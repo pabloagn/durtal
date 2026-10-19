@@ -1,5 +1,6 @@
 "use server";
 
+import { ExpectedActionError } from "@/lib/actions/expected-error";
 import { randomUUID } from "node:crypto";
 import { z } from "zod/v4";
 import { db } from "@/lib/db";
@@ -78,7 +79,7 @@ function lockVenue(d: typeof db, id: string) {
 }
 function geographicPoint(input: Partial<CreateVenueInput>) {
   if (!input.placeCoordinates) return null;
-  if (input.placeId) throw new Error("Choose an existing place or new coordinates, not both");
+  if (input.placeId) throw new ExpectedActionError("Choose an existing place or new coordinates, not both");
   return {
     id: randomUUID(), name: input.formattedAddress || input.name || "Geographic point",
     fullName: input.formattedAddress ?? null, type: "address",
