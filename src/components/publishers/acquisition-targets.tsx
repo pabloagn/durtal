@@ -16,7 +16,7 @@ import { useEscapeToCancel } from "@/components/shared/escape-to-cancel";
 import { refusalMessage } from "@/lib/actions/refusal";
 export function AcquisitionTargets({
   workId,
-  targets: given,
+  targets,
   editions,
 }: {
   workId: string;
@@ -53,19 +53,14 @@ export function AcquisitionTargets({
       }
     });
   }
-  // A removed target leaves at once. The action revalidates the page, but
-  // the new list it brings is sometimes dropped on this page (seen in all
-  // three browsers, with or without a refresh of its own), and the focus
-  // waits for the row to go
+  // The action revalidates the page, which brings the list without the
+  // removed target; the focus waits on Remove for its row to go
   const [removing, setRemoving] = useState<string | null>(null);
-  const [gone, setGone] = useState<ReadonlySet<string>>(new Set());
-  const targets = given.filter(({ target }) => !gone.has(target.id));
   async function remove(id: string) {
     if (pending || removing) return;
     setRemoving(id);
     try {
       await cancelAcquisitionTarget(id);
-      setGone((before) => new Set(before).add(id));
     } catch (err) {
       toast.error(refusalMessage(err, "Could not remove target"));
     } finally {
