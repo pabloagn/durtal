@@ -202,8 +202,12 @@ dialog::backdrop {
   border-radius: var(--radius-sm);
 }
 
-::-webkit-scrollbar-thumb:hover {
-  background: var(--color-fg-muted);
+/* A touch screen keeps :hover on what was tapped last, so every hover here
+   waits for a pointer that can hover (SLN-1223) */
+@media (hover: hover) {
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-fg-muted);
+  }
 }
 
 /* Selection */
@@ -225,12 +229,14 @@ dialog::backdrop {
 
 @utility card-interactive {
   transition: border-color 200ms ease, box-shadow 200ms ease;
-  &:hover {
-    border-color: var(--color-glass-border);
-    box-shadow:
-      0 0 0 1px var(--color-glass-border),
-      0 8px 24px -8px rgba(28, 42, 53, 0.14),
-      0 2px 8px -2px rgba(0, 0, 0, 0.3);
+  @media (hover: hover) {
+    &:hover {
+      border-color: var(--color-glass-border);
+      box-shadow:
+        0 0 0 1px var(--color-glass-border),
+        0 8px 24px -8px rgba(28, 42, 53, 0.14),
+        0 2px 8px -2px rgba(0, 0, 0, 0.3);
+    }
   }
 }
 
@@ -363,9 +369,11 @@ dialog::backdrop {
   text-decoration-color: color-mix(in oklab, currentColor 45%, transparent);
   border-radius: var(--radius-sm);
   transition: color 0.15s, text-decoration-color 0.15s;
-  &:hover {
-    color: var(--color-fg-primary);
-    text-decoration-color: currentColor;
+  @media (hover: hover) {
+    &:hover {
+      color: var(--color-fg-primary);
+      text-decoration-color: currentColor;
+    }
   }
 }
 
@@ -699,8 +707,10 @@ dialog::backdrop {
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
   }
-  & > button.chip-button:hover, & > div > button.chip-button:hover {
-    background: var(--color-glass-highlight);
+  @media (hover: hover) {
+    & > button.chip-button:hover, & > div > button.chip-button:hover {
+      background: var(--color-glass-highlight);
+    }
   }
 }
 
@@ -708,7 +718,9 @@ dialog::backdrop {
 @utility input-open {
   border-color: transparent;
   background: transparent;
-  &:hover { background: var(--color-glass-highlight); }
+  @media (hover: hover) {
+    &:hover { background: var(--color-glass-highlight); }
+  }
 }
 
 /* Glass remains readable if the platform cannot blur, or requests opacity. */
@@ -1009,8 +1021,10 @@ dialog::backdrop {
     text-underline-offset: 0.2em;
     transition: color 0.15s;
   }
-  & a:hover {
-    color: var(--color-fg-primary);
+  @media (hover: hover) {
+    & a:hover {
+      color: var(--color-fg-primary);
+    }
   }
   & ul,
   & ol {
@@ -1094,8 +1108,10 @@ dialog::backdrop {
   border: 1px solid var(--color-glass-border);
   transition: background 0.15s;
 }
-.crop-range-slider::-webkit-slider-thumb:hover {
-  background: var(--color-fg-primary);
+@media (hover: hover) {
+  .crop-range-slider::-webkit-slider-thumb:hover {
+    background: var(--color-fg-primary);
+  }
 }
 .crop-range-slider::-moz-range-thumb {
   width: 14px;
@@ -1106,8 +1122,10 @@ dialog::backdrop {
   border: 1px solid var(--color-glass-border);
   transition: background 0.15s;
 }
-.crop-range-slider::-moz-range-thumb:hover {
-  background: var(--color-fg-primary);
+@media (hover: hover) {
+  .crop-range-slider::-moz-range-thumb:hover {
+    background: var(--color-fg-primary);
+  }
 }
 .crop-range-slider::-moz-range-track {
   height: 4px;
@@ -1157,8 +1175,10 @@ dialog::backdrop {
   text-underline-offset: 2px;
   transition: color 0.15s;
 }
-.bio-content a:hover {
-  color: var(--color-fg-primary);
+@media (hover: hover) {
+  .bio-content a:hover {
+    color: var(--color-fg-primary);
+  }
 }
 .bio-content ul,
 .bio-content ol {
@@ -1272,11 +1292,23 @@ dialog::backdrop {
   background: transparent;
   color: var(--color-fg-secondary);
 }
-:root [data-sonner-toaster] [data-sonner-toast][data-styled="true"]:hover [data-close-button]:hover,
-:root [data-sonner-toaster] [data-sonner-toast][data-styled="true"] [data-close-button]:hover {
-  background: var(--color-bg-tertiary);
-  border: 0;
-  color: var(--color-fg-primary);
+@media (hover: hover) {
+  :root [data-sonner-toaster] [data-sonner-toast][data-styled="true"]:hover [data-close-button]:hover,
+  :root [data-sonner-toaster] [data-sonner-toast][data-styled="true"] [data-close-button]:hover {
+    background: var(--color-bg-tertiary);
+    border: 0;
+    color: var(--color-fg-primary);
+  }
+}
+/* Sonner's own hover paints the close button from these; on touch it keeps
+   its resting look */
+@media (hover: none) {
+  :root [data-sonner-toaster] [data-sonner-toast] [data-close-button] {
+    --gray2: transparent;
+    --gray5: transparent;
+    --normal-bg-hover: transparent;
+    --normal-border-hover: transparent;
+  }
 }
 :root [data-sonner-toaster] [data-sonner-toast][data-styled="true"] [data-close-button]:focus-visible {
   box-shadow: none;

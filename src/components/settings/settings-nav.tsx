@@ -8,7 +8,13 @@ import { SETTINGS_SECTIONS } from "./sections";
 export function SettingsNav() {
   const pathname = usePathname();
   return (
-    <nav aria-label="Settings" className="md:sticky md:top-6 md:self-start">
+    // Sticky beside the settings, and never taller than the screen: held
+    // sideways a phone's menu is taller than its 390px, so it scrolls inside.
+    // The 4px pad keeps a focused link's outline in view (SLN-1223)
+    <nav
+      aria-label="Settings"
+      className="md:sticky md:top-6 md:-m-1 md:max-h-[calc(100dvh-3rem+0.5rem)] md:self-start md:overflow-y-auto md:overscroll-contain md:p-1"
+    >
       <ul className="flex flex-wrap gap-1 pointer-coarse:gap-2 md:flex-col md:gap-0.5">
         {SETTINGS_SECTIONS.map(({ href, label, icon: Icon }) => {
           // A page inside a section (Reading's history recovery) keeps it marked
