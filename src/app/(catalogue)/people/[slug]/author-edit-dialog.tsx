@@ -11,7 +11,7 @@ import {
   authorFormValues,
   authorPayload,
 } from "@/components/authors/author-form";
-import { getAuthor, getCountries } from "@/lib/actions/authors";
+import { getAuthor, getCountries, getPersonEditFingerprint } from "@/lib/actions/authors";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
 import { updateAuthor } from "@/lib/actions/catalogue-client";
 import { refusalMessage } from "@/lib/actions/refusal";
@@ -36,12 +36,17 @@ export function AuthorEditDialog({
     { value: string; label: string }[]
   >([]);
   const [values, setValues] = useState(EMPTY_AUTHOR_FORM);
+  // Read before the person, so a save landing between the two reads makes
+  // this one refused rather than let older values through (SLN-1244)
+  const [fingerprint, setFingerprint] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [author, countries] = await Promise.all([
-        getAuthor(authorId),
+      const [[basis, author], countries] = await Promise.all([
+        getPersonEditFingerprint(authorId).then(
+          async (fp) => [fp, await getAuthor(authorId)] as const,
+        ),
         getCountries(),
       ]);
 
@@ -55,6 +60,7 @@ export function AuthorEditDialog({
         { value: "", label: "Not specified" },
         ...countries.map((c) => ({ value: c.id, label: c.name })),
       ]);
+      setFingerprint(basis);
       setValues(authorFormValues(author));
       setLoaded(true);
     } catch {
@@ -84,7 +90,11 @@ export function AuthorEditDialog({
 
     startTransition(async () => {
       try {
-        const result = await updateAuthor(authorId, authorPayload(values));
+        const result = await updateAuthor(
+          authorId,
+          authorPayload(values),
+          fingerprint ?? undefined,
+        );
         notices.success("Person updated");
         onClose();
         // A new name gives the person a new address; the old one does not
