@@ -8,14 +8,15 @@ import { seriesInputSchema } from "@/lib/validations/series";
 // SLN-1393: a title or name pasted with invisible characters is stored without them
 describe("cleanText", () => {
   it("strips each invisible format character and leaves the text otherwise as typed", () => {
-    for (const hidden of ["\u00ad", "\u180e", "\u200b", "\u200e", "\u200f", "\u202a", "\u202e", "\u2060", "\u2066", "\u2069", "\ufeff"])
+    for (const hidden of ["\u00ad", "\u200b", "\u200e", "\u200f", "\u202a", "\u202e", "\u2060", "\u2066", "\u2069", "\ufeff"])
       expect(cleanText(`Ver${hidden}schwinden`), JSON.stringify(hidden)).toBe("Verschwinden");
     expect(cleanText("  À rebours, ﬁn  ")).toBe("  À rebours, ﬁn  ");
   });
 
-  it("keeps the joiners Persian, Indic scripts and emoji need", () => {
+  it("keeps the joiners Persian, Indic scripts and emoji need, and the Mongolian vowel separator", () => {
     expect(cleanText("می\u200cخواهم")).toBe("می\u200cخواهم");
     expect(cleanText("क्\u200dष")).toBe("क्\u200dष");
+    expect(cleanText("\u182a\u1820\u1822\u180e\u1820")).toBe("\u182a\u1820\u1822\u180e\u1820");
   });
 
   it("composes decomposed letters", () => {
