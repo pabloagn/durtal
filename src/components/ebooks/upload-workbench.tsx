@@ -39,7 +39,7 @@ function UploadBar({ bytes, total, failed, label }: { bytes: number; total: numb
   </div>;
 }
 type Preview = NonNullable<UploadOutcome["preview"]>;
-export function UploadWorkbench({ target, initialBatchId, available = true, accept }: { target: UploadTarget; initialBatchId: string | null; available?: boolean; accept?: string }) {
+export function UploadWorkbench({ target, initialBatchId, available = true, notice = null, accept }: { target: UploadTarget; initialBatchId: string | null; available?: boolean; notice?: string | null; accept?: string }) {
   const [session, setSession] = useState<UploadBrowserSession>({ version: 1, batchId: initialBatchId, pending: null });
   const sessionRef = useRef(session);
   const [loaded, setLoaded] = useState(false); const [batch, setBatch] = useState<UploadBatchView | null>(null);
@@ -229,6 +229,7 @@ export function UploadWorkbench({ target, initialBatchId, available = true, acce
   const returnTo = session.batchId ? `/ebooks/upload?batch=${session.batchId}` : "/ebooks/upload";
   return <div className="space-y-8">
     {!available && <p role="note" className="text-sm text-fg-secondary">Uploads are off on this server: it is running without the upload service, so no file can be sent yet.</p>}
+    {available && notice && <p role="note" className="text-sm text-fg-secondary">{notice}</p>}
     {message && <p role="status" aria-live="polite" className="break-words text-sm text-fg-secondary">{message}</p>}
     {session.pending && <div className="space-y-3 rounded-sm border border-border-control p-4">
       <p className="text-sm text-fg-primary">The last request got no answer, so Durtal does not know whether it worked. Send it again to find out, or discard it.</p>
