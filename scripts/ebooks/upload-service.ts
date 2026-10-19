@@ -34,7 +34,7 @@ import { chmod, mkdir, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { delimiter, join, resolve } from "node:path";
 import { loadEnvironment } from "./environment";
-import { clearUploadServiceStatus, writeUploadServiceStatus } from "@/lib/ebooks/upload/service-status";
+import { clearUploadServiceStatus, downReasonOf, writeUploadServiceStatus } from "@/lib/ebooks/upload/service-status";
 import {
   createUploadServiceConfig,
   readPrivateConfig,
@@ -73,9 +73,7 @@ const log = (message: string) => console.log(`[upload-service ${new Date().toISO
 
 /** Whether a failure, or what caused it, is the AWS sign-in having expired */
 function signInNeeded(error: unknown): boolean {
-  for (let at = error, depth = 0; at instanceof Error && depth < 5; at = at.cause, depth++)
-    if (at.name === "AwsSignInNeeded") return true;
-  return false;
+  return downReasonOf(error) === "aws_sign_in";
 }
 
 /** Leave the reason where the app reads it, then exit so launchd tries again later */
@@ -85,7 +83,19 @@ async function exitForSignIn(): Promise<never> {
   process.exit(SIGN_IN_EXIT);
 }
 
-/** Any other exit clears a sign-in note left earlier: whatever stops it now is not the sign-in */
+/**
+ * Three file checks failed in a row (SLN-1467): leave the reason where the
+ * app reads it and exit cleanly, so launchd leaves the service stopped. A
+ * restart would take the next queued file and fail it too; a person looks
+ * first, and starting it again clears the note.
+ */
+async function exitForFailingChecks(): Promise<never> {
+  await writeUploadServiceStatus(paths.socket, "checks_failing").catch(() => {});
+  log("The last three file checks failed: the service stays stopped. Read this log, fix the cause, then start it again (launchctl kickstart)");
+  process.exit(0);
+}
+
+/** Any other exit clears a note left earlier: whatever stops it now is not that */
 async function exitWith(code: number): Promise<never> {
   await clearUploadServiceStatus(paths.socket).catch(() => {});
   process.exit(code);
@@ -188,10 +198,11 @@ async function start() {
   if (uploadTargetFingerprint(url) !== config.bridge.targetFingerprint)
     throw new Error(`${paths.service} belongs to another database than this environment's`);
   const { composeActualUploadService } = await import("@/lib/ebooks/upload-core/owned-service");
-  let failed = false, expired = false;
+  let failed = false, expired = false, checksFailing = false;
   const service = await composeActualUploadService(config, (error) => {
     failed = true;
     expired ||= signInNeeded(error);
+    checksFailing ||= downReasonOf(error) === "checks_failing";
     log(`Failure: ${error instanceof Error ? error.message : String(error)}`);
   }, (error) => {
     const cause = error.cause instanceof Error ? error.cause.message : String(error.cause);
@@ -200,7 +211,12 @@ async function start() {
   let stopping: Promise<void> | null = null;
   const stop = (reason: string, code: number) => {
     stopping ??= service.stop(reason).then(
-      async () => { log(`Stopped (${reason})`); if (expired) await exitForSignIn(); await exitWith(code); },
+      async () => {
+        log(`Stopped (${reason})`);
+        if (expired) await exitForSignIn();
+        if (checksFailing) await exitForFailingChecks();
+        await exitWith(code);
+      },
       async (error: unknown) => {
         log(`Stop did not settle; ownership stays held until the process exits: ${error instanceof Error ? error.message : String(error)}`);
         if (expired) await exitForSignIn();
@@ -214,7 +230,8 @@ async function start() {
   await service.start();
   await clearUploadServiceStatus(paths.socket);
   log(`Ready on ${config.bridge.socketPath}`);
-  // A failure inside the running service stops it; exit so the supervisor loop restarts it
+  // A failure inside the running service stops it; exit so launchd restarts it
+  // (three failed checks in a row exit cleanly instead, and stay stopped)
   const watch = setInterval(() => { if (failed) { clearInterval(watch); stop("upload_service_failure", 1); } }, 1000);
 }
 

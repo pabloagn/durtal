@@ -7,7 +7,8 @@ Node directly, so launchd's SIGTERM reaches the service itself: it then waits
 for running inspections and settles its spool before it exits. launchd starts
 it again after any non-zero exit, no sooner than THROTTLE_SECONDS after the
 last start: a failure, or 78 when the AWS sign-in expired (the app then says
-"Uploads need the Mac to sign in to AWS again"). A clean stop stays stopped.
+"Uploads need the Mac to sign in to AWS again"). A clean stop stays stopped,
+as does the service's own stop after three failed checks in a row (SLN-1467).
 Installing and loading the plist is a step on the Mac (docs/11_DEPLOYMENT.md,
 Browser uploads).
 """
@@ -68,7 +69,8 @@ def plan(repo, state_dir, log_directory, node, docker, aws, output):
                              '--aws-profile', PROFILE, '--state-dir', str(state), '--env-dir', str(repo)],
         'WorkingDirectory': str(repo),
         'RunAtLoad': True,
-        # Restart after a failure or an expired sign-in; a SIGTERM stop exits 0 and stays down
+        # Restart after a failure or an expired sign-in; a SIGTERM stop, or three
+        # failed checks in a row, exits 0 and stays down
         'KeepAlive': {'SuccessfulExit': False},
         'ThrottleInterval': THROTTLE_SECONDS,
         'ExitTimeOut': EXIT_SECONDS,
