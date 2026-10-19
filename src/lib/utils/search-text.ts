@@ -3,7 +3,8 @@
  *
  * Mirrors the SQL function `search_normalize()` (migration 0021): remove
  * accents, lower-case, and turn punctuation and whitespace into single
- * spaces. "Péter Nádas" -> "peter nadas", "Gell-Mann" -> "gell mann".
+ * spaces. "Péter Nádas" -> "peter nadas", "Gell-Mann" -> "gell mann". A NUL
+ * character, which Postgres refuses in text, is dropped (SLN-1137).
  */
 import { transliterate } from "@/lib/utils/slugify";
 
@@ -14,7 +15,7 @@ import { transliterate } from "@/lib/utils/slugify";
  * are dropped, not turned into a space (SLN-1393).
  */
 export function normalizeSearchText(text: string): string {
-  return transliterate(text.normalize("NFKC"))
+  return transliterate(text.replaceAll("\0", "").normalize("NFKC"))
     .normalize("NFD")
     .replace(/[\p{M}\p{Cf}]/gu, "") // strip combining marks (accents) and format characters
     .toLowerCase()

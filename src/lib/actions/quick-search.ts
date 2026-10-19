@@ -332,10 +332,11 @@ async function searchTaxonomy(q: string, kinds: WorkKind[]): Promise<QuickSearch
  * name or other name, with what they are; organizations; venues; series,
  * collections, recommenders and taxonomy items by name. Accent-
  * insensitive and typo-tolerant, best matches first. The search text is
- * normalized to letters and digits, so "%" and "_" match nothing special.
+ * normalized to letters and digits, so "%" and "_" match nothing special. A
+ * NUL character, which Postgres refuses, is dropped: "nad\0ja" finds Nadja.
  */
 export async function quickSearch(query: string): Promise<QuickSearchResult> {
-  const q = query.trim().slice(0, 200);
+  const q = query.replaceAll("\0", "").trim().slice(0, 200);
   if (q.length < 2) return EMPTY;
   const kinds = getEnabledWorkKinds();
   const [works, people, organizations, venues, ebooks, series, collections, recommenders, taxonomy] = await Promise.all([

@@ -26,6 +26,12 @@ describe("normalizeSearchText", () => {
     expect(normalizeSearchText("J.R.R. Tolkien")).toBe("j r r tolkien");
   });
 
+  it("drops a NUL character, which Postgres refuses (SLN-1137)", () => {
+    expect(normalizeSearchText("nad\u0000ja")).toBe("nadja");
+    expect(searchTokens("\u0000")).toEqual([]);
+    expect(searchTokens("André\u0000 Breton")).toEqual(["andre", "breton"]);
+  });
+
   it("keeps non-Latin letters", () => {
     expect(normalizeSearchText("Фёдор Достоевский")).toBe("федор достоевскии");
   });
