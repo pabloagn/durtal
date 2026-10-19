@@ -62,7 +62,6 @@ export interface OrderItem {
 
 export interface ProvenanceStats {
   spentByCurrency: CurrencyTotal[];
-  avgOrderCost: string;
   orderCount: number;
   activeOrders: number;
   inTransit: number;

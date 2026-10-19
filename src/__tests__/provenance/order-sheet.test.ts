@@ -29,7 +29,7 @@ const order = (id: string, status: OrderItem["status"] = "placed"): OrderItem =>
   trackingUrl: null, orderUrl: null, orderConfirmation: null, price: null, shippingCost: null, totalCost: null,
   currency: "EUR", notes: null, createdAt: new Date("2026-10-01"),
 } as unknown as OrderItem);
-const stats = { spentByCurrency: [], avgOrderCost: "0", orderCount: 2, activeOrders: 2, inTransit: 0, arrivingThisWeek: 0 };
+const stats = { spentByCurrency: [], orderCount: 2, activeOrders: 2, inTransit: 0, arrivingThisWeek: 0 };
 
 let host: HTMLDivElement;
 let root: Root;

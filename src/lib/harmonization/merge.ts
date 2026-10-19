@@ -54,6 +54,7 @@ const PROTECTED = new Set([
   "created_at",
   "updated_at",
   "search_text",
+  // Unused venue totals, kept until a release drops them (SLN-1307): never offered or written
   "total_orders",
   "total_spent",
   "last_order_date",
@@ -610,11 +611,6 @@ async function executeMergeOnce(input: MergeInput) {
     const released = releasedDetailDatesQuery(detailTable, [detail.source, detail.target]);
     if (released) queries.push(released);
   }
-  // Venue counters are currency-blind legacy caches. Rebuild counts and date; never sum across currencies.
-  if (input.entity === "venues")
-    queries.push(
-      sql`update venues set total_orders = (select count(*) from orders where venue_id = ${target.id}::uuid), last_order_date = (select max(order_date) from orders where venue_id = ${target.id}::uuid), total_spent = case when (select count(distinct currency) from orders where venue_id = ${target.id}::uuid) <= 1 then coalesce((select sum(total_cost) from orders where venue_id = ${target.id}::uuid), 0) else 0 end where id = ${target.id}::uuid`,
-    );
   // One activity event per author merge, in the same transaction, for every
   // merge path (author page and Harmonize).
   if (input.entity === "authors")

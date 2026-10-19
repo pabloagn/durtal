@@ -76,7 +76,6 @@ async function ProvenanceContent() {
 
   const provenanceStats: ProvenanceStats = {
     spentByCurrency: stats.spentByCurrency,
-    avgOrderCost: stats.avgOrderCost ?? "0",
     orderCount: stats.orderCount,
     activeOrders: stats.activeOrders,
     inTransit: stats.inTransit,

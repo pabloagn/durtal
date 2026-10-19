@@ -6,8 +6,9 @@ import { z } from "zod/v4";
 import { db } from "@/lib/db";
 import { atomic } from "@/lib/db/atomic";
 import { venues, places } from "@/lib/db/schema";
-import { eq, and, asc, inArray, count, sql, isNull, isNotNull } from "drizzle-orm";
+import { eq, and, asc, inArray, count, sql, isNull, isNotNull, getTableColumns } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
+import { WITHOUT_VENUE_TOTALS } from "@/lib/catalogue/venue-totals";
 import { slugify } from "@/lib/utils/slugify";
 import { naturalOrder } from "./utils/natural-order";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
@@ -39,6 +40,9 @@ function venueWhere({ search, filters }: z.output<typeof venueSearchSchema>) {
   if (filters?.tags?.length) conditions.push(sql`${venues.tags} && ARRAY[${sql.join(filters.tags.map(t => sql`${t}`), sql`, `)}]::text[]`);
   return and(...conditions);
 }
+/** Every column but the unused order totals (SLN-1307), for a write that returns its row */
+const { totalOrders: _orders, totalSpent: _spent, lastOrderDate: _last, ...venueColumns } = getTableColumns(venues);
+
 export async function getVenues(input: SearchInput = {}) {
   const opts = venueSearchSchema.parse(input);
   const column = opts.sort === "recent" ? venues.createdAt : opts.sort === "rating" ? venues.personalRating : venues.name;
@@ -52,6 +56,7 @@ export async function getVenues(input: SearchInput = {}) {
       asc(venues.id),
     ],
     limit: opts.limit, offset: opts.offset,
+    columns: WITHOUT_VENUE_TOTALS,
     with: { place: { columns: { id: true, name: true, fullName: true } } },
   });
 }
@@ -61,11 +66,11 @@ export async function getVenueCount(input: SearchInput = {}) {
 }
 export async function getVenue(id: string) {
   z.uuid().parse(id);
-  return db.query.venues.findFirst({ where: eq(venues.id, id), with: { place: true } });
+  return db.query.venues.findFirst({ where: eq(venues.id, id), columns: WITHOUT_VENUE_TOTALS, with: { place: true } });
 }
 export async function getVenueBySlug(slug: string) {
   z.string().min(1).max(1000).parse(slug);
-  return db.query.venues.findFirst({ where: eq(venues.slug, slug), with: { place: true } });
+  return db.query.venues.findFirst({ where: eq(venues.slug, slug), columns: WITHOUT_VENUE_TOTALS, with: { place: true } });
 }
 export async function searchVenues(query: string) {
   return getVenues({ search: query, limit: 20 });
@@ -93,10 +98,10 @@ export async function createVenue(input: CreateVenueInput) {
   const id = randomUUID();
   const results = await atomic(d => [
     ...(point ? [d.insert(places).values(point)] : []),
-    d.insert(venues).values({ ...fields, id, placeId: point?.id ?? fields.placeId, slug: `${slugify(fields.name) || "venue"}-${id}` }).returning(),
+    d.insert(venues).values({ ...fields, id, placeId: point?.id ?? fields.placeId, slug: `${slugify(fields.name) || "venue"}-${id}` }).returning(venueColumns),
   ]);
   changed();
-  return resultRows<typeof venues.$inferSelect>(results.at(-1))[0];
+  return resultRows<Omit<typeof venues.$inferSelect, keyof typeof WITHOUT_VENUE_TOTALS>>(results.at(-1))[0];
 }
 export async function updateVenue(id: string, input: Partial<CreateVenueInput>) {
   z.uuid().parse(id);

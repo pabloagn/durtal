@@ -111,6 +111,21 @@ describe.skipIf(!url)("provenance spend with PostgreSQL", () => {
     ]);
   });
 
+  it("counts an order with a price but no total, as its card shows it (SLN-1485)", async () => {
+    const priced = async (status: typeof schema.orders.$inferInsert.status, price: string, currency: string) =>
+      db.insert(schema.orders).values({ workId, acquisitionMethod: "online_order", status, orderDate: "2026-09-26", price, totalCost: null, currency });
+    await order("delivered", "10.00", "EUR");
+    await priced("delivered", "5.00", "EUR");
+    await priced("cancelled", "7.00", "EUR");
+    await priced("delivered", "1200", "JPY");
+    const stats = await getProvenanceStats();
+    expect(stats.spentByCurrency).toEqual([
+      { currency: "EUR", total: "15.00" },
+      { currency: "JPY", total: "1200.00" },
+    ]);
+    expect(stats).not.toHaveProperty("avgOrderCost");
+  });
+
   it("returns no totals when nothing was spent", async () => {
     await order("cancelled", "12.00", "EUR");
     expect((await getProvenanceStats()).spentByCurrency).toEqual([]);
