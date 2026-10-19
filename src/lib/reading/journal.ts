@@ -9,7 +9,7 @@ import { db } from "@/lib/db";
 import { resultRows } from "@/lib/harmonization/store";
 import { textSearchCondition } from "@/lib/actions/utils/text-search";
 import type { ReadingDatePrecision, ReadingFormat, ReadingStatus } from "./constants";
-import { readingOrdinalSql, readingRatingSql, rereadSql } from "./summary";
+import { readingOrdinalSql, readingRatingOverAllSql, readingRatingSql, rereadSql } from "./summary";
 import type { JournalQuery } from "./journal-params";
 
 export interface JournalRow {
@@ -49,7 +49,7 @@ const base = sql`(
   select r.id, r.work_id, r.status, r.started_on, r.started_precision, r.finished_on, r.finished_precision,
     r.format, r.edition_id, r.last_read_at, r.created_at,
     md5(to_jsonb(r)::text) as fingerprint,
-    ${readingRatingSql("r")} as read_rating,
+    ${readingRatingOverAllSql("r")} as read_rating,
     ${rereadSql("r")} as reread,
     ${readingOrdinalSql("r")} as ordinal,
     case when r.finished_precision <> 'unknown' and r.finished_on is not null then extract(year from r.finished_on)::int end as finish_year

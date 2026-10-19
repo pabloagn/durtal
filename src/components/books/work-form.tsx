@@ -1,5 +1,6 @@
 "use client";
 
+import { RequiredNameHint } from "@/components/shared/required-name-hint";
 import { useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { X, Plus, Loader2 } from "lucide-react";
 import { toast } from "@/lib/notifications/toast";
@@ -608,6 +609,7 @@ export function WorkForm({
 
       <DialogFooter>
         {notice && <div className="mr-auto min-w-0">{notice}</div>}
+        <RequiredNameHint value={values.title} message="Give the book a title" />
         <Button data-dismiss="" variant="secondary" size="sm" onClick={onCancel} disabled={pending}>
           Cancel
         </Button>

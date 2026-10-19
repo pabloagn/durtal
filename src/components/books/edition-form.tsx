@@ -1,5 +1,6 @@
 "use client";
 
+import { RequiredNameHint } from "@/components/shared/required-name-hint";
 import {
   FormSection as Section,
   FormColumns,
@@ -813,6 +814,7 @@ export function EditionForm({
       {/* In a dialog, under its body: the submit names this form */}
       <DialogFooter>
         {notice && <div className="mr-auto min-w-0">{notice}</div>}
+        <RequiredNameHint value={values.title} message="Give the edition a title" />
         {onCancel && (
           <Button data-dismiss=""
             type="button"
