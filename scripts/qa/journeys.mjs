@@ -102,7 +102,7 @@ if (refusal) {
 const COLLECTIONS = {
   perfumes: { form: "Add perfume", placeholder: "Shalimar", entity: "perfumes", missing: "Perfume not found" },
   films: { form: "Add film", placeholder: "The Thing", entity: "films", missing: "Film not found" },
-  paintings: { form: "Add painting", placeholder: "The Garden of Earthly Delights", entity: "paintings", missing: "Painting not found" },
+  paintings: { form: "Add painting", placeholder: "e.g. The Night Watch", entity: "paintings", missing: "Painting not found" },
 };
 // Without a name, every journey that needs no seed runs
 const SEEDLESS = [...Object.keys(COLLECTIONS), "collect", "books", "kinds"];
@@ -263,10 +263,22 @@ async function deleteRecord(name, path) {
 async function deleteBook(path) {
   await go(path);
   await click("Actions", "document.querySelector('main')");
-  await click("Delete Work", MENU);
+  await click("Delete work", MENU);
   await waitFor(DIALOG, "the delete dialog");
   await click("Delete", DIALOG);
   await waitFor("location.pathname === '/library'", "the library after the delete");
+}
+/** Sets the status of the order for `title` from its panel in the pipeline */
+async function orderStatus(title, status) {
+  await go("/provenance");
+  const card = `[...document.querySelectorAll('main button')].find((b) => b.textContent.includes(${JSON.stringify(title)}))`;
+  await waitFor(card, "the order in the pipeline");
+  await evaluate(`${card}.click(), true`);
+  await waitFor("document.querySelector('[aria-label=\"Change status\"]')", "the order's panel");
+  await evaluate("document.querySelector('[aria-label=\"Change status\"]').click(), true");
+  await sleep(300);
+  await click(status, "document.querySelector('[aria-label=\"Change status\"]').parentElement");
+  await waitFor(toastSays(`Status updated to ${status}`), `the order to be ${status}`);
 }
 /** A valid ISBN-13 of the 979 range, from a number */
 function isbn13(n) {
@@ -1188,7 +1200,7 @@ async function booksJourney() {
   };
   /** The copy form of the open dialog or the wizard: a physical location, a format, how it came */
   const copy = async (scope, format, acquired) => {
-    await pickOption("Location", /\(physical\)$/, scope);
+    await pickOption("Location", /, physical$/, scope);
     await pickOption("Format", format, scope);
     if (acquired) {
       await click("Acquisition", scope);
@@ -1202,7 +1214,7 @@ async function booksJourney() {
     ["add a publisher", async () => {
       await go("/publishers/new");
       await fillIn("Name", house);
-      await click("Save publisher", main);
+      await click("Add publisher", main);
       await waitFor("location.pathname.startsWith('/publishers/') && location.pathname !== '/publishers/new'", "the publisher's page");
       housePath = await evaluate("location.pathname");
     }],
@@ -1248,7 +1260,7 @@ async function booksJourney() {
     ["add a second edition and a copy of it", async () => {
       await go(book);
       await click("Add edition", main);
-      await waitFor(`${DIALOG}?.textContent.includes('Add Edition')`, "the edition form");
+      await waitFor(`${DIALOG}?.textContent.includes('Add edition')`, "the edition form");
       await fillIn("ISBN-13", isbnTwo, DIALOG);
       await click("Create edition", DIALOG);
       await waitFor(toastSays("Edition created"), "the edition to save");
@@ -1260,7 +1272,7 @@ async function booksJourney() {
       await waitFor(`${DIALOG} && ${labelled("Location", DIALOG)}`, "the copy form");
       await copy(DIALOG, "Paperback");
       await click("Create instance", DIALOG);
-      await waitFor(toastSays("Instance added"), "the copy to save");
+      await waitFor(toastSays("Copy added"), "the copy to save");
       await go(book);
       if (!(await pageText()).includes("Paperback")) throw new Error("The second edition's copy is not on the page");
     }],
@@ -1291,7 +1303,7 @@ async function booksJourney() {
     }],
     ["find the edition, order it from the hunt", async () => {
       await click("Add edition", main);
-      await waitFor(`${DIALOG}?.textContent.includes('Add Edition')`, "the edition form");
+      await waitFor(`${DIALOG}?.textContent.includes('Add edition')`, "the edition form");
       await fillIn("Publisher", house, DIALOG);
       await click("Create edition", DIALOG);
       await waitFor(toastSays("Edition created"), "the edition to save");
@@ -1303,30 +1315,25 @@ async function booksJourney() {
       await pickOption("Ordered edition", new RegExp(house), DIALOG);
       await click("Next", DIALOG);
       await click("Next", DIALOG);
-      await click("Create Order", DIALOG);
+      await click("Create order", DIALOG);
       await waitFor(toastSays(`Order for "${wish}" created`), "the order to save");
       await go(wanted);
       const text = await evaluate(`${hunt}?.innerText ?? ''`);
       if (!text.includes("on order")) throw new Error(`Hunting for reads "${text.replace(/\s+/g, " ")}"`);
-      if (!(await pageText()).includes("On Order")) throw new Error("The book is not on order");
+      if (!(await pageText()).includes("On order")) throw new Error("The book is not on order");
     }],
     ["it arrives: the hunt is received, the book accessioned", async () => {
-      await go("/provenance");
-      const card = `[...document.querySelectorAll('main button')].find((b) => b.textContent.includes(${JSON.stringify(wish)}))`;
-      await waitFor(card, "the order in the pipeline");
-      await evaluate(`${card}.click(), true`);
-      await waitFor("document.querySelector('[aria-label=\"Change status\"]')", "the order's panel");
-      await evaluate("document.querySelector('[aria-label=\"Change status\"]').click(), true");
-      await sleep(300);
-      await click("Delivered", "document.querySelector('[aria-label=\"Change status\"]').parentElement");
-      await waitFor(toastSays("Status updated to Delivered"), "the delivery to save");
+      await orderStatus(wish, "Delivered");
       await go(wanted);
       const text = await evaluate(`${hunt}?.innerText ?? ''`);
       if (!text.includes("received")) throw new Error(`Hunting for reads "${text.replace(/\s+/g, " ")}"`);
       if (!(await pageText()).includes("Accessioned")) throw new Error("The book is not accessioned");
     }],
-    ["delete the two books", async () => {
-      for (const path of [book, wanted]) await deleteBook(path);
+    ["delete the first book", async () => {
+      // The wanted book stays: its delivered order is its acquisition record,
+      // and a delivered order leaves the pipeline, the one place to mark it
+      // Returned (SLN-1507)
+      await deleteBook(book);
     }],
   ]);
 }
