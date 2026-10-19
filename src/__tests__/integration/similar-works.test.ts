@@ -40,6 +40,7 @@ vi.mock("@/lib/db", () => ({
 }));
 import { getSimilarWorks } from "@/lib/actions/similar-works";
 import { getBookRelatedGroups } from "@/lib/actions/book-related";
+import { relatedBookRows } from "@/lib/catalogue/related-groups";
 import { getWorksByAuthorId, getWorksWithMark } from "@/lib/actions/works";
 import { getCollectionsForWork } from "@/lib/actions/collections";
 
@@ -567,8 +568,18 @@ describe.skipIf(!url)(
         ]),
         { editionId: wrongEd.id, authorId: a.id, role: "editor" },
       ]);
+      // Three shelves at most, authors first: Bob's translator shelf is left out
       const groups = await getBookRelatedGroups(target.id, 1);
       expect(groups.map((group) => `${group.kind}:${group.name}`)).toEqual([
+        "author:Alice",
+        "author:Bob",
+        "translator:Alice",
+      ]);
+      expect(
+        (await relatedBookRows(target.id, 1, 4)).map(
+          (row) => `${row.kind}:${row.name}`,
+        ),
+      ).toEqual([
         "author:Alice",
         "author:Bob",
         "translator:Alice",
@@ -666,6 +677,23 @@ describe.skipIf(!url)(
       const groups = await getBookRelatedGroups(target.id);
       expect(groups.map((group) => group.kind)).toEqual(["author"]);
       expect(groups[0].works.map((book) => book.id)).toEqual([other.id]);
+      // Creators with no other books take no place among the three shelves
+      for (const [i, name] of ["Empty one", "Empty two", "Empty three"].entries()) {
+        const empty = await person(name);
+        await db.insert(schema.workAuthors).values({
+          workId: target.id,
+          authorId: empty.id,
+          role: "co_author",
+          sortOrder: i + 1,
+        });
+      }
+      const translated = await edition((await work("Other by translator")).id);
+      await db
+        .insert(schema.editionContributors)
+        .values({ editionId: translated.id, authorId: t.id, role: "translator" });
+      expect(
+        (await getBookRelatedGroups(target.id)).map((group) => group.kind),
+      ).toEqual(["author", "translator"]);
     });
 
     it("rejects malformed IDs and unbounded/fractional limits for both loaders", async () => {
