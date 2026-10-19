@@ -51,6 +51,9 @@ export function NewBookFields({ row, disabled, onPrepare, issues = [] }: {
       placeholder="Choose a language" onChange={(event) => setLanguage(event.target.value)} />
     <p className="text-xs text-fg-secondary">The new edition will have no ISBN. Link to an existing book when its ISBN is already in the catalogue.</p>
     {error && <p role="alert" className="text-sm text-accent-red-text">{error}</p>}
+    {(!name.trim() || !language) && <p className="text-xs text-fg-secondary">
+      {!name.trim() ? (language ? "Add the author's name" : "Add the author's name and choose a language") : "Choose a language"}
+    </p>}
     <Button type="submit" variant="primary" disabled={disabled || !name.trim() || !language}>Preview new book</Button>
   </form>;
 }

@@ -22,9 +22,13 @@ The line sits beside Cancel and Save, as `RequiredNameHint` (`src/components/sha
 - Add source (books, films, paintings, perfumes): "Name the source to save", and a line for a missing or future consulted day.
 - A series' Add books: "Choose a book to add".
 - Add a quote or note: "Write the passage to save", "Write the note to save", through a `hint` on the reading dialogs' `DialogFooter`.
+- Not for me: "Choose at least one reason" beside Hide it.
+- A perfume's Note retailer: "Choose a retailer", then "Add the address of the listing" (a wrong address already says so under the field).
+- New order: "Add a title and author" (or whichever is missing) over Select new book, and "Choose a book" or "Add the order date" beside Next.
+- E-book review: "Add the author's name" or "Choose a language" over Preview new book, and "Choose a language for the new edition" over Preview link.
 - Add and Edit organization: Save is off while the name is empty, with "Give the organization a name"; the field is `aria-required` instead of `required`, so the browser's bubble no longer shows.
 
-Rows that held the line without `flex-wrap items-center` gained them, so on a phone the line takes its own row above the buttons instead of pushing them out.
+Rows that held the line without `flex-wrap items-center` gained them (Edit family and New item too, after review), so on a phone the line takes its own row above the buttons instead of pushing them out.
 
 Not changed: Add to collection's inline field (its placeholder already says "Find or create a collection") and the book's Add copy, whose save does not wait on a field.
 

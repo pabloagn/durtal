@@ -224,7 +224,12 @@ function ListingForm({
         maxLength={4000}
         error={url && !validUrl ? "Enter an address that starts with http:// or https://" : undefined}
       />
-      <div className="flex justify-end gap-2">
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        {!retailer ? (
+          <p className="mr-auto text-xs text-fg-secondary">Choose a retailer</p>
+        ) : (
+          !url.trim() && <p className="mr-auto text-xs text-fg-secondary">Add the address of the listing</p>
+        )}
         <Button data-dismiss="" variant="ghost" onClick={onDone} disabled={saving}>
           Cancel
         </Button>

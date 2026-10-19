@@ -22,6 +22,13 @@ describe("a disabled Save says what it waits for (SLN-945)", () => {
     ["components/series/add-series-books-dialog.tsx", "Choose a book to add"],
     ["components/reading/dialogs/note-dialog.tsx", "Write the passage to save"],
     ["components/organizations/organization-dialog.tsx", "Give the organization a name"],
+    ["components/reading/suggestions/not-for-me-dialog.tsx", "Choose at least one reason"],
+    ["components/perfumes/retailers-section.tsx", "Choose a retailer"],
+    ["app/(catalogue)/provenance/order-create-steps.tsx", "Add a title and author"],
+    ["app/(catalogue)/provenance/order-create-dialog.tsx", "Choose a book"],
+    ["app/(catalogue)/provenance/order-create-dialog.tsx", "Add the order date"],
+    ["components/ebooks/new-book-dialog.tsx", "Choose a language"],
+    ["components/ebooks/choose-book-dialog.tsx", "Choose a language for the new edition"],
   ])("%s", (file, line) => {
     expect(read(file)).toContain(line);
   });

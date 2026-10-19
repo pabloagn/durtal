@@ -150,7 +150,7 @@ export function CreateItemDialog({
         {error && <p className="text-xs text-accent-red-text">{error}</p>}
 
         {/* Actions */}
-        <div className="flex items-center justify-end gap-2 pt-2">
+        <div className="flex flex-wrap items-center justify-end gap-2 pt-2">
           <RequiredNameHint value={name} message="Give the item a name" />
           <Button data-dismiss=""
             type="button"
