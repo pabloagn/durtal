@@ -333,12 +333,13 @@ class ReleaseTests(unittest.TestCase):
         children = []
         for _ in range(3):
             child = MagicMock(); child.poll.side_effect = [None, 0, 0]; children.append(child)
-        env = {'EBOOK_CDN_PRIVATE_KEY': 'PRIVATE-FIXTURE', 'PORT': str(config['port'])}
+        env = {'EBOOK_CDN_PRIVATE_KEY': 'PRIVATE-FIXTURE', 'PORT': str(config['port']), 'DATABASE_URL': 'postgresql://fixture'}
         with patch.object(launcher, 'verify_release', return_value=manifest), \
              patch.object(launcher, 'node_identity', return_value=self.node), \
              patch.object(launcher, 'executable', return_value=config['python']), \
              patch.object(launcher, 'load_helper'), \
              patch.object(launcher, 'load_environment', return_value=(env, {})) as preflight, \
+             patch.object(launcher, 'require_migrated') as migrated, \
              patch.object(launcher, 'BoundedLog'), patch.object(launcher, 'unused_port'), \
              patch.object(launcher, 'probe_health', return_value=True), \
              patch.object(launcher.signal, 'signal'), \
@@ -347,11 +348,160 @@ class ReleaseTests(unittest.TestCase):
              patch.object(launcher.subprocess, 'Popen', side_effect=children) as spawn:
             launcher.launch(path, release.file_hash(path))
         preflight.assert_called_once(); self.assertEqual(spawn.call_count, 3)
+        # The ledger is checked once, at the first start, not on crash restarts
+        migrated.assert_called_once(); self.assertEqual(migrated.call_args.args[:2], (manifest, 'postgresql://fixture'))
         for call in spawn.call_args_list:
             self.assertIs(call.kwargs['env'], env)
             self.assertEqual(call.args[0], [config['node']['path'], 'server.js'])
             self.assertNotIn('PRIVATE-FIXTURE', str(call.args))
         for child in children: child.stdout.close.assert_called_once()
+
+    def journal(self, count):
+        return [{'tag': '%04d_step' % i, 'when': 1000 + i, 'sha256': ('%x' % i) * 64} for i in range(count)]
+
+    def test_ledger_check_speaks_the_app_driver_protocol(self):
+        seen = {}
+        def fetch(endpoint, body, headers):
+            seen.update(endpoint=endpoint, body=json.loads(body), headers=headers)
+            return {'results': [{'rows': [['1' * 64, '1001']]}]}
+        url = 'postgresql://owner:secret@ep-quiet-1234-pooler.eu-central-1.aws.neon.tech/durtal?sslmode=require'
+        self.assertEqual(launcher.latest_migration(url, fetch), ('1' * 64, '1001'))
+        self.assertEqual(seen['endpoint'], 'https://api.eu-central-1.aws.neon.tech/sql')
+        self.assertEqual(seen['body'], {'queries': [{'query': launcher.LATEST_MIGRATION, 'params': []}]})
+        self.assertEqual({k: seen['headers'][k] for k in ('Neon-Connection-String', 'Neon-Array-Mode', 'Neon-Raw-Text-Output', 'Neon-Batch-Read-Only')},
+                         {'Neon-Connection-String': url, 'Neon-Array-Mode': 'true', 'Neon-Raw-Text-Output': 'true', 'Neon-Batch-Read-Only': 'true'})
+        self.assertIsNone(launcher.latest_migration(url, lambda *_: {'results': [{'rows': []}]}))
+        with self.assertRaisesRegex(release.Refusal, 'Neon database only'):
+            launcher.latest_migration('postgresql://o:p@db.example.com/durtal', fetch)
+        with self.assertRaisesRegex(release.Refusal, 'Unexpected'):
+            launcher.latest_migration(url, lambda *_: {'results': [{'rows': [["x'; --", '1']]}]})
+
+    def test_launcher_refuses_a_database_behind_its_release(self):
+        entries = self.journal(3)
+        manifest = {'migrations': {'entries': entries}}
+        log = MagicMock()
+        with self.assertRaisesRegex(release.Refusal, 'lacks migrations'):
+            launcher.require_migrated(manifest, 'url', log, read=lambda _: (entries[0]['sha256'], '1000'))
+        self.assertIn('lacks 2 migration(s) of this release (0001_step, 0002_step)', log.write.call_args.args[0])
+        launcher.require_migrated(manifest, 'url', log, read=lambda _: (entries[2]['sha256'], '1002'))
+        log.reset_mock()
+        launcher.require_migrated(manifest, 'url', log, read=lambda _: ('f' * 64, '5000'))
+        self.assertIn('ahead of this release', log.write.call_args.args[0])
+        for read in (lambda _: ('f' * 64, '1001'), lambda _: (_ for _ in ()).throw(OSError('unreachable'))):
+            with self.assertRaisesRegex(release.Refusal, 'check failed'):
+                launcher.require_migrated(manifest, 'url', log, read=read)
+
+    def test_a_database_behind_the_release_never_spawns_the_server(self):
+        root, manifest = self.make_release(journal=self.journal(2))
+        config = self.config(root); config['python']['path'] = str(Path(sys.executable).resolve())
+        path = self.root / 'behind.json'; release.private_json(path, config)
+        env = {'DATABASE_URL': 'postgresql://o:p@ep-a-pooler.eu-central-1.aws.neon.tech/durtal'}
+        with patch.object(launcher, 'verify_release', return_value=manifest), \
+             patch.object(launcher, 'node_identity', return_value=self.node), \
+             patch.object(launcher, 'executable', return_value=config['python']), \
+             patch.object(launcher, 'load_helper'), patch.object(launcher, 'load_environment', return_value=(env, {})), \
+             patch.object(launcher, 'BoundedLog'), \
+             patch.object(launcher, 'latest_migration', return_value=(manifest['migrations']['entries'][0]['sha256'], '1000')), \
+             patch.object(launcher.subprocess, 'Popen') as spawn:
+            with self.assertRaisesRegex(release.Refusal, 'lacks migrations'):
+                launcher.launch(path, release.file_hash(path))
+        spawn.assert_not_called()
+
+    def service(self, name, commit):
+        root, _ = self.make_release(name, commit)
+        config = self.config(root); config['logDirectory'] = str(self.root / ('logs-' + name))
+        config_path = self.root / (name + '.json'); release.private_json(config_path, config)
+        plist = self.root / (name + '.plist')
+        with patch.object(release, 'node_identity', return_value=self.node), patch.object(release, 'executable', return_value=config['python']):
+            release.launchd_plan(config_path, plist)
+        return str(root), str(plist)
+
+    def switching(self, healthy, stops=True, serving=None):
+        """Fake launchd: one loaded plan, serving when its release is in `healthy`."""
+        current, target = self.service('one', COMMIT), self.service('two', '2' * 40)
+        state = {'loaded': current[0]}
+        calls = []
+        def launchctl(*args):
+            calls.append(args[0])
+            if args[0] == 'bootout':
+                if stops: state['loaded'] = None
+            else:
+                state['loaded'] = {current[1]: current[0], target[1]: target[0]}[args[2]]
+            return True
+        now = [0.0]
+        receipts = self.root / 'receipts'; receipts.mkdir(mode=0o700)
+        serves = serving or (lambda port: state['loaded'] if state['loaded'] in healthy(current, target) else None)
+        run = lambda: release.switch(current[1], target[1], receipts, serving=serves,
+                                     launchctl=launchctl, port_free=lambda port: state['loaded'] is None,
+                                     clock=lambda: now[0], sleep=lambda s: now.__setitem__(0, now[0] + s))
+        return current, target, state, calls, run, receipts
+
+    def receipt(self, receipts):
+        return json.loads(sorted(receipts.glob('switch-*.json'))[-1].read_text())
+
+    def test_switch_loads_the_target_when_it_serves_in_time(self):
+        with patch.object(release, 'VOLATILE', ()):
+            current, target, state, calls, run, receipts = self.switching(lambda c, t: {c[0], t[0]})
+            result = run()
+        self.assertEqual(result['status'], 'SWITCHED'); self.assertEqual(state['loaded'], target[0])
+        self.assertEqual(calls, ['bootout', 'bootstrap'])
+        self.assertEqual(self.receipt(receipts)['status'], 'SWITCHED')
+
+    def test_switch_needs_the_current_release_serving_first(self):
+        with patch.object(release, 'VOLATILE', ()):
+            current, target, state, calls, run, receipts = self.switching(lambda c, t: set())
+            with self.assertRaisesRegex(release.Refusal, 'not the one serving'):
+                run()
+        self.assertEqual(calls, [])
+
+    def test_switch_falls_back_to_the_previous_plan_when_the_target_fails(self):
+        with patch.object(release, 'VOLATILE', ()):
+            current, target, state, calls, run, receipts = self.switching(lambda c, t: {c[0]})
+            with self.assertRaisesRegex(release.Refusal, 'previous release is serving again'):
+                run()
+        self.assertEqual(calls, ['bootout', 'bootstrap', 'bootout', 'bootstrap'])
+        self.assertEqual(state['loaded'], current[0])
+        receipt = self.receipt(receipts)
+        self.assertEqual(receipt['status'], 'ROLLED_BACK')
+        self.assertEqual([step['serving'] for step in receipt['steps'] if 'bootstrap' in step], [False, True])
+
+    def test_switch_names_the_way_back_when_neither_release_serves(self):
+        checks = iter([True])
+        with patch.object(release, 'VOLATILE', ()):
+            # The current release answers the precheck, then nothing serves
+            holder = {}
+            current, target, state, calls, run, receipts = self.switching(
+                lambda c, t: set(), serving=lambda port: holder['current'] if next(checks, False) else None)
+            holder['current'] = current[0]
+            with self.assertRaisesRegex(release.Refusal, 'load %s by hand' % current[1]):
+                run()
+        self.assertEqual(calls, ['bootout', 'bootstrap', 'bootout', 'bootstrap'])
+        self.assertEqual(self.receipt(receipts)['status'], 'ROLLBACK_FAILED')
+
+    def test_switch_stops_before_loading_when_the_old_release_will_not_stop(self):
+        with patch.object(release, 'VOLATILE', ()):
+            current, target, state, calls, run, receipts = self.switching(lambda c, t: {c[0]}, stops=False)
+            with self.assertRaisesRegex(release.Refusal, 'did not stop; nothing was switched'):
+                run()
+        self.assertEqual(calls, ['bootout']); self.assertEqual(self.receipt(receipts)['status'], 'OLD_RELEASE_DID_NOT_STOP')
+
+    def test_switch_refuses_plans_in_volatile_folders_and_foreign_plists(self):
+        with patch.object(release, 'VOLATILE', ()):
+            current, target, state, calls, run, receipts = self.switching(lambda c, t: set())
+        with patch.object(release, 'VOLATILE', (self.root,)):
+            with self.assertRaisesRegex(release.Refusal, 'outside /tmp'):
+                release.service_plan(current[1])
+        with patch.object(release, 'VOLATILE', ()):
+            other = self.root / 'other.plist'
+            with other.open('wb') as f:
+                plistlib.dump({'Label': 'com.example.other', 'ProgramArguments': []}, f)
+            other.chmod(0o600)
+            with self.assertRaisesRegex(release.Refusal, 'Not a Durtal service plan'):
+                release.service_plan(other)
+            config = Path(plistlib.loads(Path(target[1]).read_bytes())['ProgramArguments'][3])
+            data = json.loads(config.read_text()); data['port'] = 3111; config.unlink(); release.private_json(config, data)
+            with self.assertRaisesRegex(release.Refusal, 'differs from its plan'):
+                release.service_plan(target[1])
 
     def test_rewrapped_rsa2048_short_pem_lines_redact_across_fragmented_reads(self):
         # Synthetic fixture generated only when root runs this test. The

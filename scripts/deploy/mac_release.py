@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 """SLN-509: isolated release preparation/packaging and read-only operation plans.
 
-This tool never installs a service, imports secrets, migrates, switches a running
-release or configures Tailscale. Build needs its own explicit --allow-build.
+This tool never installs a service, imports secrets, migrates or configures
+Tailscale. Build needs its own explicit --allow-build. The one step that
+changes the running service is `switch` (SLN-1319): it swaps the launchd job
+from the current plan to the target and, when the target fails readiness,
+loads the current plan again.
 """
 import argparse
 import hashlib
@@ -13,9 +16,12 @@ from pathlib import Path
 import plistlib
 import re
 import shutil
+import socket
 import stat
 import subprocess
 import tarfile
+import time
+import urllib.request
 
 ACCOUNT = '608240934043'
 SHA = re.compile(r'[a-f0-9]{40}')
@@ -30,6 +36,10 @@ SECRET_NAMES = frozenset(('DATABASE_URL', 'AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCES
     'ELEVENLABS_API_KEY'))
 REQUIRED_NAMES = frozenset(('DATABASE_URL', 'AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY'))
 MANIFEST = 'release.json'
+LABEL = 'com.durtal.production'
+# macOS empties these at boot and cleans them daily
+VOLATILE = (Path('/tmp'), Path('/private/tmp'))
+STOP_SECONDS, READY_SECONDS = 60, 180
 
 
 class Refusal(RuntimeError):
@@ -66,6 +76,15 @@ def owned_path(path):
     existing = next((p for p in (path, *path.parents) if p.exists()), None)
     if existing is None or existing.stat().st_uid != os.getuid():
         raise Refusal('Operation paths must be owned by the current user')
+    return path
+
+
+def durable(path):
+    """Rollback plans, dumps and receipts must outlive a reboot."""
+    path = owned_path(path)
+    resolved = path.resolve()
+    if any(resolved == root or resolved.is_relative_to(root) for root in VOLATILE):
+        raise Refusal('Keep plists, dumps and receipts outside /tmp and /private/tmp, which macOS empties')
     return path
 
 
@@ -288,6 +307,27 @@ def migrations(source):
     return {'entries': entries, 'sha256': digest(canonical(entries))}
 
 
+def migration_state(entries, latest):
+    """Where a database's ledger stands against a build's journal (SLN-1318).
+
+    Drizzle's own rule: the pending migrations are the journal entries newer
+    than the ledger's newest `created_at`; older ledger rows are not compared.
+    `latest` is that newest row as (hash, created_at), or None for an empty
+    ledger. Returns ('current' | 'behind' | 'ahead', pending entries). The
+    newest applied row must be one of this journal's entries, with its hash.
+    """
+    if latest is None:
+        return ('behind' if entries else 'current'), list(entries)
+    applied, when = latest[0], int(latest[1])
+    if entries and when > entries[-1]['when']:
+        return 'ahead', []
+    match = next((entry for entry in entries if entry['when'] == when), None)
+    if match is None or match['sha256'] != applied:
+        raise Refusal("The database's latest migration is not one of this build's migration files")
+    pending = [entry for entry in entries if entry['when'] > when]
+    return ('behind' if pending else 'current'), pending
+
+
 def package(directory, destination, retained=None):
     state, source, _ = verify_preparation(directory, production=True)
     proof = read_json(Path(directory) / 'build.json')
@@ -297,7 +337,7 @@ def package(directory, destination, retained=None):
         if snapshot(source / folder, mutable_cache=key == 'standaloneFiles') != proof[key]:
             raise Refusal('Built output changed before packaging')
     tooling = Path(__file__).resolve().parent
-    tooling_files = {name: file_hash(tooling / name) for name in ('mac_release.py', 'runtime_launcher.py', 'phone_secrets.py', 'macos-secrets.py')}
+    tooling_files = {name: file_hash(tooling / name) for name in ('mac_release.py', 'runtime_launcher.py', 'live_migrate.py', 'phone_secrets.py', 'macos-secrets.py')}
     destination = owned_path(destination)
     if destination.exists() or destination.is_relative_to(Path(directory)):
         raise Refusal('Package destination must be a new directory outside the preparation')
@@ -459,6 +499,117 @@ def transition_plan(current_dir, target_dir, compatibility=None, live_migrations
             'mutations': False, 'migrate': False, 'restoreDatabase': False, 'resetTailscale': False}
 
 
+def service_plan(plist_path):
+    """A plist launchd-plan wrote, with its config and release verified again."""
+    path = durable(plist_path)
+    if path.stat().st_mode & 0o077:
+        raise Refusal('Service plist must be private to its owner')
+    with path.open('rb') as f:
+        plist = plistlib.load(f)
+    args = plist.get('ProgramArguments', [])
+    if plist.get('Label') != LABEL or len(args) != 6 or args[2] != '--config' or args[4] != '--config-sha256':
+        raise Refusal('Not a Durtal service plan from launchd-plan')
+    config_path = durable(args[3])
+    if config_path.stat().st_mode & 0o077 or file_hash(config_path) != args[5]:
+        raise Refusal('Service config differs from its plan')
+    config = checked_config(read_json(config_path))
+    manifest = verify_release(config['release'])
+    if args[1] != str(Path(config['release']) / 'deploy/runtime_launcher.py') or plist.get('WorkingDirectory') != config['release']:
+        raise Refusal('Service plan does not launch its own release')
+    return {'plist': str(path), 'release': config['release'], 'port': config['port'], 'commit': manifest['commit']}
+
+
+def health(port):
+    # Never inherit ambient HTTP proxies for a loopback check
+    with urllib.request.build_opener(urllib.request.ProxyHandler({})).open('http://127.0.0.1:%d/api/health' % port, timeout=3) as response:
+        return json.loads(response.read(8192)) if response.status == 200 else {}
+
+
+def serving_release(port, fetch=health):
+    """The release answering on the port: a healthy Durtal whose listener runs in it, or None."""
+    try:
+        data = fetch(port)
+        if data.get('status') != 'ok' or data.get('service') != 'durtal':
+            return None
+        pids = [line[1:] for line in run(['/usr/sbin/lsof', '-nP', '-iTCP:%d' % port, '-sTCP:LISTEN', '-Fp'], timeout=5).decode().splitlines() if line.startswith('p')]
+        if len(set(pids)) != 1:
+            return None
+        cwd = [line[1:] for line in run(['/usr/sbin/lsof', '-a', '-p', pids[0], '-d', 'cwd', '-Fn'], timeout=5).decode().splitlines() if line.startswith('n')]
+        return cwd[0] if len(cwd) == 1 else None
+    except Exception:
+        return None
+
+
+def port_free(port):
+    with socket.socket() as probe:
+        try:
+            probe.bind(('127.0.0.1', port))
+        except OSError:
+            return False
+    return True
+
+
+def launchctl(*args):
+    return subprocess.run(['/bin/launchctl', *args], capture_output=True, timeout=60).returncode == 0
+
+
+def switch(current_plist, target_plist, receipts, serving=serving_release, launchctl=launchctl, port_free=port_free,
+           clock=time.monotonic, sleep=time.sleep):
+    """Stop the current job, load the target, and load the current again if the target is not serving in time.
+
+    The previous release runs on the migrated schema, which is safe while
+    migrations are additive. The plists are loaded from where they are, as
+    the manual step did.
+    """
+    current, target = service_plan(current_plist), service_plan(target_plist)
+    receipts = durable(receipts)
+    if not receipts.is_dir() or receipts.stat().st_mode & 0o077:
+        raise Refusal('The receipts folder must exist and be private to its owner')
+    if current['port'] != target['port']:
+        raise Refusal('Both releases must serve the same port')
+    if current['release'] == target['release']:
+        raise Refusal('The target is already the current release')
+    if serving(current['port']) != current['release']:
+        raise Refusal('The current release is not the one serving; recover by hand before a switch')
+    service = 'gui/%d/%s' % (os.getuid(), LABEL)
+    record = {'version': 1, 'from': current, 'to': target, 'status': 'STARTED', 'steps': []}
+
+    def wait(ready, seconds):
+        deadline = clock() + seconds
+        while clock() < deadline:
+            if ready():
+                return True
+            sleep(1)
+        return ready()
+
+    def stop(plan):
+        record['steps'].append({'bootout': plan['commit'], 'ok': launchctl('bootout', service)})
+        stopped = wait(lambda: port_free(plan['port']), STOP_SECONDS)
+        record['steps'].append({'portFree': stopped})
+        return stopped
+
+    def start(plan):
+        loaded = launchctl('bootstrap', 'gui/%d' % os.getuid(), plan['plist'])
+        ready = loaded and wait(lambda: serving(plan['port']) == plan['release'], READY_SECONDS)
+        record['steps'].append({'bootstrap': plan['commit'], 'loaded': loaded, 'serving': ready})
+        return ready
+
+    try:
+        if not stop(current):
+            record['status'] = 'OLD_RELEASE_DID_NOT_STOP'
+            raise Refusal('The current release did not stop; nothing was switched')
+        if start(target):
+            record['status'] = 'SWITCHED'
+            return record
+        if stop(target) and start(current):
+            record['status'] = 'ROLLED_BACK'
+            raise Refusal('The new release failed readiness; the previous release is serving again')
+        record['status'] = 'ROLLBACK_FAILED'
+        raise Refusal('The new release failed and the previous one is not serving: load %s by hand' % current['plist'])
+    finally:
+        private_json(receipts / ('switch-%s-%s.json' % (time.strftime('%Y%m%dT%H%M%SZ', time.gmtime()), os.urandom(3).hex())), record)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     subs = parser.add_subparsers(dest='mode', required=True)
@@ -470,6 +621,7 @@ def main():
     p = subs.add_parser('verify'); p.add_argument('--release', required=True)
     p = subs.add_parser('launchd-plan'); p.add_argument('--config', required=True); p.add_argument('--output', required=True)
     p = subs.add_parser('transition-plan'); p.add_argument('--current', required=True); p.add_argument('--target', required=True); p.add_argument('--compatibility', required=True); p.add_argument('--live-migrations', required=True)
+    p = subs.add_parser('switch'); p.add_argument('--current-plist', required=True); p.add_argument('--target-plist', required=True); p.add_argument('--receipts', required=True)
     args = parser.parse_args()
     if args.mode == 'prepare':
         result = prepare(args.repo, args.commit, args.destination, args.node, args.pnpm, read_json(args.public_inputs))
@@ -482,6 +634,9 @@ def main():
         result = verify_release(args.release)
         result = {k: result[k] for k in ('commit', 'buildId', 'artifactSha256')}
     elif args.mode == 'launchd-plan': result = launchd_plan(args.config, args.output)
+    elif args.mode == 'switch':
+        result = switch(args.current_plist, args.target_plist, args.receipts)
+        result = {'status': result['status'], 'commit': result['to']['commit']}
     else: result = transition_plan(args.current, args.target, read_json(args.compatibility), read_json(args.live_migrations))
     print(json.dumps(result, sort_keys=True))
 
