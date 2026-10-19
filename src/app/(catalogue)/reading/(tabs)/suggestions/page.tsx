@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ChevronLeft, ChevronRight, Sparkles } from "lucide-react";
 import { buttonClass } from "@/components/ui/button";
+import { pagerControl } from "@/components/shared/pager-control";
 import { PageHeader } from "@/components/layout/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SectionHeading } from "@/components/shared/section-heading";
@@ -22,9 +23,6 @@ import { candidates, hiddenByFeedback, pausedAuthors, suggestTop } from "@/lib/r
 import { pickRow, suggestionRow } from "@/lib/reading/suggest/view";
 import { languageName } from "@/lib/utils/language";
 
-/** Previous and Next as the list pager draws them (components/shared/pagination.tsx): outlined, with a chevron (SLN-1195) */
-const pager =
-  "inline-flex h-8 items-center gap-1 rounded-sm border border-glass-border px-2 text-xs text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary pointer-coarse:h-11";
 
 export const metadata = { title: "Suggestions" };
 
@@ -104,7 +102,7 @@ export default async function SuggestionsPage({ searchParams }: { searchParams: 
       <div className="mb-6 space-y-1 text-xs text-fg-secondary">
         {unreadRated > 0 && (
           <p data-suggestions-rated="">
-            <Link href="/library?reading=unread&rating=0.5" className="underline-offset-2 hover:text-fg-primary hover:underline">
+            <Link href="/library?reading=unread&rating=0.5" className="text-command">
               {n(unreadRated)} rated {unreadRated === 1 ? "book has" : "books have"} no reading
             </Link>
             : mark them read to use their ratings.
@@ -126,7 +124,7 @@ export default async function SuggestionsPage({ searchParams }: { searchParams: 
               {pages > 1 && (
                 <nav aria-label="Pages" className="mt-4 flex items-center justify-between text-sm" data-suggestions-pages="">
                   {page > 1 ? (
-                    <Link href={pageHref(page - 1)} className={pager}>
+                    <Link href={pageHref(page - 1)} className={pagerControl}>
                       <ChevronLeft className="h-4 w-4" strokeWidth={1.5} aria-hidden />
                       Previous
                     </Link>
@@ -137,7 +135,7 @@ export default async function SuggestionsPage({ searchParams }: { searchParams: 
                     Page {page} of {pages}
                   </span>
                   {page < pages ? (
-                    <Link href={pageHref(page + 1)} className={pager}>
+                    <Link href={pageHref(page + 1)} className={pagerControl}>
                       Next
                       <ChevronRight className="h-4 w-4" strokeWidth={1.5} aria-hidden />
                     </Link>

@@ -12,9 +12,8 @@
  *   box, border, underline or icon, and it is in a text colour (fg-heading,
  *   fg-primary, fg-secondary or fg-muted) or within 1.25:1 of the text beside
  *   it (or of its row's text when alone), so only hover would tell it apart. A link inside a sentence of running text, tabs
- *   and menu items, cover and card links (an image or a heading inside, a
- *   title that is a link, or a card's title link marked `data-card-title`,
- *   whose card is the cue) and a button beside a boxed button (a dialog's
+ *   and menu items, cover and card links (an image or a heading inside, or a
+ *   title that is a link) and a button beside a boxed button (a dialog's
  *   Cancel beside Save) are skipped.
  * - drift: in a card, a block whose ink (its first line's text or icon, or
  *   the box of a boxed element such as a badge or field) starts between 0.5
@@ -126,7 +125,7 @@
     // The page or step in view reads as a state, not a command
     if (["page", "step", "location"].includes(el.getAttribute("aria-current"))) continue;
     // An icon, a cover or a heading inside, or a title that is a link: its role shows
-    if (el.querySelector("svg, img, picture, video, canvas, h1, h2, h3, h4, [data-decorative]") || el.closest("h1, h2, h3, h4, h5, h6") || el.matches("[data-card-title]")) continue;
+    if (el.querySelector("svg, img, picture, video, canvas, h1, h2, h3, h4, [data-decorative]") || el.closest("h1, h2, h3, h4, h5, h6")) continue;
     const s = css(el);
     if (boxed(el) || s.textDecorationLine.includes("underline") || s.borderBottomStyle !== "none" && parseFloat(s.borderBottomWidth) > 0) continue;
     if ([...el.querySelectorAll("*")].some((c) => boxed(c) || css(c).textDecorationLine.includes("underline"))) continue;

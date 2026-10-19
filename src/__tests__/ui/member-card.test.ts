@@ -26,7 +26,7 @@ describe("MemberCard", () => {
     expect(host.innerHTML).not.toMatch(/min-h-\[\d?lh\]/);
     expect(host.querySelectorAll("p")).toHaveLength(0);
     // One line is 29px: on touch the title link grows to 44px
-    expect(host.querySelector("a.type-item-title")!.className).toContain("touch-hit");
+    expect(host.querySelector("h3.type-item-title > a")!.className).toContain("touch-hit");
     const full = render({ byline: "Marguerite Yourcenar", facts: "Gallimard · 1968", note: "Book" });
     expect([...full.querySelectorAll("p")].map((p) => p.textContent)).toEqual(["Marguerite Yourcenar", "Gallimard · 1968", "Book"]);
     // The note is body text, as the facts above it (SLN-1059)

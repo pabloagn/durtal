@@ -52,6 +52,10 @@ describe("Stats years", () => {
     // Clearly chosen, but not the tabs' selection fill (SLN-821)
     expect(chosen).toMatch(/\bbg-bg-tertiary\b/);
     expect(chosen).not.toMatch(/\bbg-selection-bg/);
+    // A year hovered never looks chosen: the fill is the chosen year's alone (SLN-1195)
+    const other = html.match(/<a (?![^>]*aria-current)[^>]*class="([^"]*)"/)?.[1] ?? "";
+    expect(other).toMatch(/\bborder\b/);
+    expect(other).not.toMatch(/\bbg-bg-tertiary\b/);
     expect(tabs).toMatch(/\btext-sm\b/);
   });
 });

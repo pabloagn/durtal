@@ -195,7 +195,7 @@ export function TaxonomyItemRow({
               startRename();
             }}
             // The text command's colour and underline (SLN-1195), without its touch growth: the row gives the 44px
-            className="block whitespace-normal break-words text-sm leading-5 text-accent-primary underline decoration-current/45 decoration-1 underline-offset-[0.2em] transition-colors hover:text-fg-primary hover:decoration-current pointer-coarse:min-h-11 pointer-coarse:min-w-11 pointer-coarse:py-3"
+            className="block whitespace-normal break-words text-sm leading-5 text-command-ink pointer-coarse:min-h-11 pointer-coarse:min-w-11 pointer-coarse:py-3"
           >
             {item.name}
           </Link>

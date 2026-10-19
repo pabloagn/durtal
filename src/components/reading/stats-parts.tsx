@@ -80,8 +80,9 @@ export function RankList({ title, items, tone = "sage" }: { title?: string; item
             <div className="flex items-baseline justify-between gap-3 text-sm">
               {item.href ? (
                 // The label cuts off inside the link: the link's touch area is not clipped
-                // A text command (SLN-1195): in the text colour it read as a plain label
-                <Link href={item.href} className="min-w-0 text-command touch-hit">
+                // A text command (SLN-1195): in the text colour it read as a plain label.
+                // Its ink only: the rows' 44px pitch gives the press area
+                <Link href={item.href} className="min-w-0 text-command-ink touch-hit">
                   <span className="lines-1">{item.label}</span>
                 </Link>
               ) : (
@@ -115,7 +116,7 @@ export function NameList({ people, max = 24 }: { people: { authorId: string; nam
       {people.slice(0, max).map((a, i) => (
         <span key={a.authorId}>
           {i > 0 && ", "}
-          <Link href={`/people/${a.slug}`} className="text-fg-primary transition-colors hover:text-accent-primary">
+          <Link href={`/people/${a.slug}`} className="text-command">
             {a.name}
           </Link>
         </span>
