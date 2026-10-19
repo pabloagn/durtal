@@ -151,10 +151,13 @@ export function HarmonizeWorkspace({
     ]),
   ].sort();
 
-  /** Rescans with the current filters. Only the latest request updates the page. */
-  async function load(): Promise<Awaited<ReturnType<typeof scanLibrary>>> {
+  /**
+   * Rescans with the current filters, or with `filtering` filters the scan
+   * the page shows (SLN-887). Only the latest request updates the page.
+   */
+  async function load(filtering = false): Promise<Awaited<ReturnType<typeof scanLibrary>>> {
     const id = ++request.current;
-    const result = await scanLibrary(findingQuery);
+    const result = await scanLibrary(filtering && scan ? { ...findingQuery, of: scan.scanId } : findingQuery);
     if (id === request.current) {
       loadedKey.current = queryKey;
       if (result.ok) setScan(result.value);
@@ -165,7 +168,7 @@ export function HarmonizeWorkspace({
     if (view === "history" || queryKey === loadedKey.current) return;
     const timer = setTimeout(
       () =>
-        load()
+        load(true)
           .then((result) => {
             if (!result.ok) setError(result.error);
           })

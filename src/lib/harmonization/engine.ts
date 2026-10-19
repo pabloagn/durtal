@@ -188,12 +188,29 @@ export function scanDataset(data: Dataset): Finding[] {
   // Records that already appear in a duplicate finding.
   const duplicateIds = new Set<string>();
   const editionsOf = rowsBy(data, "editions", "work_id");
+  // Each text is normalized once a scan: names, languages and years repeat
+  // across records and checks (SLN-887)
+  const normalized = new Map<string, string>();
+  const normal = (value: unknown) => {
+    const text = String(value ?? "");
+    let result = normalized.get(text);
+    if (result === undefined) normalized.set(text, (result = normalize(text)));
+    return result;
+  };
+  const identities = new Map<string, string>();
+  const identity = (value: unknown, person = false) => {
+    const key = `${person ? 1 : 0}${String(value ?? "")}`;
+    let result = identities.get(key);
+    if (result === undefined)
+      identities.set(key, (result = identityName(value, person)));
+    return result;
+  };
   const authors = new Map((data.authors || []).map((a) => [a.id, a]));
   const workAuthorNames = new Map<string, string[]>();
   for (const link of data.work_authors || []) {
     const list = workAuthorNames.get(String(link.work_id)) || [];
     const author = authors.get(String(link.author_id));
-    if (author) list.push(identityName(author.name, true));
+    if (author) list.push(identity(author.name, true));
     workAuthorNames.set(String(link.work_id), list);
   }
   function add(
@@ -223,12 +240,9 @@ export function scanDataset(data: Dataset): Finding[] {
       ];
     }
     const records = rows.map((r) => recordRef(entity, r, data));
-    const fingerprint = createHash("sha256")
-      .update(stableStringify({ rule, evidence, records, resolution }))
-      .digest("hex");
     if (category === "duplicates")
       for (const r of records) duplicateIds.add(r.id);
-    findings.push({
+    const finding: Finding = {
       key,
       rule,
       entity: entity.key,
@@ -241,18 +255,37 @@ export function scanDataset(data: Dataset): Finding[] {
       evidence,
       records,
       resolution,
-      fingerprint,
+      fingerprint: "",
       ...(rows.length > 1
         ? { recommendedId: preferredRecord(entity, rows).id }
         : {}),
+    };
+    // A hash of the finding as a reader sees it, read only for the findings a
+    // page shows or a decision names: worked out on first read (SLN-887)
+    Object.defineProperty(finding, "fingerprint", {
+      configurable: true,
+      enumerable: true,
+      get() {
+        const fingerprint = createHash("sha256")
+          .update(stableStringify({ rule, evidence, records, resolution }))
+          .digest("hex");
+        Object.defineProperty(finding, "fingerprint", {
+          configurable: true,
+          enumerable: true,
+          writable: true,
+          value: fingerprint,
+        });
+        return fingerprint;
+      },
     });
+    findings.push(finding);
   }
   for (const entity of ENTITIES) {
     const rows = data[entity.table] || [];
     const byId = new Map(rows.map((r) => [r.id, r]));
     if (entity.duplicate) {
       const names = new Map(
-        rows.map((r) => [r.id, identityName(r[entity.name], entity.person)]),
+        rows.map((r) => [r.id, identity(r[entity.name], entity.person)]),
       );
       const nameForms = new Map(
         rows.map((r) => [
@@ -272,7 +305,7 @@ export function scanDataset(data: Dataset): Finding[] {
                   : []),
               ]
                 .filter((v) => !isBlank(v))
-                .map((v) => identityName(v, entity.person)),
+                .map((v) => identity(v, entity.person)),
             ),
           ],
         ]),
@@ -306,10 +339,11 @@ export function scanDataset(data: Dataset): Finding[] {
       const scopeOf = new Map(
         rows.map((r) => [
           r.id,
-          (entity.scope || []).map((key) => normalize(r[key])),
+          (entity.scope || []).map((key) => normal(r[key])),
         ]),
       );
-      const buckets = new Map<string, Row[]>();
+      // Keyed by group, then by key: no long joined string per key (SLN-887)
+      const buckets = new Map<string, Map<string, Row[]>>();
       // Deletion neighborhoods find single-character insertions, deletions and substitutions.
       // This avoids comparing every record to every other record in the catalogue.
       // A bucket holds only records of one scope and one number signature,
@@ -320,20 +354,22 @@ export function scanDataset(data: Dataset): Finding[] {
         const name = names.get(row.id)!;
         if (!name) continue;
         const group = JSON.stringify([signatureOf.get(row.id), scopeOf.get(row.id)]);
-        const keys = new Set([...nameForms.get(row.id)!, ...identifiers(row)]);
+        let inGroup = buckets.get(group);
+        if (!inGroup) buckets.set(group, (inGroup = new Map()));
+        const keys = new Set([...nameForms.get(row.id)!, ...idsOf.get(row.id)!]);
         for (const form of nameForms.get(row.id)!)
           if (entity.fuzzy && form.length >= 7)
             for (let i = 0; i < form.length; i++)
               keys.add(form.slice(0, i) + form.slice(i + 1));
         for (const key of keys) {
-          const bucketKey = `${group}\u0000${key}`;
-          const bucket = buckets.get(bucketKey) || [];
-          bucket.push(row);
-          buckets.set(bucketKey, bucket);
+          const bucket = inGroup.get(key);
+          if (bucket) bucket.push(row);
+          else inGroup.set(key, [row]);
         }
       }
       const pairs = new Set<string>();
-      for (const bucket of buckets.values()) {
+      for (const inGroup of buckets.values())
+      for (const bucket of inGroup.values()) {
         for (let i = 0; i < bucket.length; i++)
           for (let j = i + 1; j < bucket.length; j++) {
             const a = bucket[i],
@@ -761,7 +797,7 @@ export function scanDataset(data: Dataset): Finding[] {
           );
         if (row.series_name && !row.series_id) {
           const matches = (data.series || []).filter(
-            (s) => normalize(s.title) === normalize(row.series_name),
+            (s) => normal(s.title) === normal(row.series_name),
           );
           add(
             entity,
