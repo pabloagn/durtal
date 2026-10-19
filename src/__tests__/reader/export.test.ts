@@ -31,6 +31,20 @@ describe("offline pure annotation exports", () => {
       "# Là-bas\n\nJ.-K. Huysmans\n\nExported 2026-10-09T12:00:00.000000Z\n\n## The Black Mass\n\n> The quiet glass.\n\np. 212\n\nMy thought\n\n### Bookmarks\n\n- p. 212 · one two three four five six seven eight\n",
     );
   });
+  it("keeps marks in book order, a heading over each run under one chapter (SLN-1001)", () => {
+    const at = (n: number, sectionIndex: number, chapter: string | null, text: string) =>
+      annotation({ id: id(20 + n), chapter, text, note: null,
+        locator: { ...locator, sectionIndex, progression: 0.5, cfi: undefined, pageLabel: undefined, totalProgression: n / 10, tocLabel: undefined } });
+    const markdown = annotationsToMarkdown({
+      ...input,
+      // Given out of order: two chapterless marks fall on either side of Chapter Two
+      annotations: [at(5, 5, null, "Late, unnamed"), at(3, 3, "Chapter Two", "In two"), at(1, 1, null, "Early, unnamed"),
+        at(4, 4, "Chapter Two", "Still in two")],
+    });
+    const lines = markdown.split("\n").filter((line) => line.startsWith("## ") || line.startsWith("> "));
+    expect(lines).toEqual(["## No chapter", "> Early, unnamed", "## Chapter Two", "> In two", "> Still in two",
+      "## No chapter", "> Late, unnamed"]);
+  });
   it("preserves orphaned text and notes and labels approximations honestly", () => {
     const markdown = annotationsToMarkdown({
       ...input,

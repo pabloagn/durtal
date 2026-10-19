@@ -22,7 +22,8 @@ function markPlace(mark: HighlightMark): string {
 
 /**
  * One e-book's marks on /ebooks/highlights (SLN-500): the cover, title,
- * authors and count, then its newest marks, each opening the reader at it.
+ * authors and count, then its first marks in book order, each opening the
+ * reader at it.
  */
 export function HighlightGroup({
   book,

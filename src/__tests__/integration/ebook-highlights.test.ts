@@ -48,11 +48,12 @@ describe.skipIf(!url)("the all-highlights queries", () => {
   type Book = Awaited<ReturnType<typeof book>>;
   const mark = async (
     target: Book,
-    fields: { text?: string; note?: string; color?: string; progression?: number; bookmark?: boolean } = {},
+    fields: { text?: string; note?: string; color?: string; progression?: number; bookmark?: boolean; section?: number; cfi?: string } = {},
   ) => {
     const progression = fields.progression ?? 0.1;
     const locator = {
-      v: 1, fileHash: target.sha256, href: "chapter-1.xhtml", sectionIndex: 0, progression, totalProgression: progression,
+      v: 1, fileHash: target.sha256, href: "chapter-1.xhtml", sectionIndex: fields.section ?? 0, progression, totalProgression: progression,
+      ...(fields.cfi ? { cfi: fields.cfi } : {}),
       ...(fields.bookmark ? {} : { text: { highlight: fields.text ?? "the gothic dusk" } }),
     };
     const kind = fields.bookmark ? "bookmark" : "highlight";
@@ -87,13 +88,13 @@ describe.skipIf(!url)("the all-highlights queries", () => {
     await client?.end();
   });
 
-  it("groups live marks by book, the most recently marked book first, its newest marks first", async () => {
+  it("groups live marks by book, the most recently marked book first, its marks in book order", async () => {
     const result = await groups();
     expect(result.map((group) => group.ebook.title)).toEqual(["La Cathédrale", "À rebours", "Là-bas"]);
     const reboursGroup = result[1];
     expect(reboursGroup.total).toBe(MARKS_PER_GROUP + 3);
     expect(reboursGroup.marks).toHaveLength(MARKS_PER_GROUP);
-    expect(reboursGroup.marks[0]).toMatchObject({ text: "Des Esseintes", note: "Décadence, again", color: "sage", kind: "highlight" });
+    expect(reboursGroup.marks[0]).toMatchObject({ text: "the tortoise 0", kind: "highlight" });
     // The deleted mark neither shows nor counts
     expect(result[2].total).toBe(1);
     expect(result[2].marks.map((item) => item.id)).not.toContain(deleted);
@@ -108,6 +109,28 @@ describe.skipIf(!url)("the all-highlights queries", () => {
     const [second] = await getHighlightGroups({ ...params, perPage: 3, page: 2, offset: 3 }, database!);
     expect(second.total).toBe(MARKS_PER_GROUP + 3);
     expect(second.marks.map((item) => item.id)).toEqual(only.marks.slice(3, 6).map((item) => item.id));
+  });
+
+  it("lists a book's marks in book order, whatever was edited last (SLN-1000)", async () => {
+    const huysmans = await book("En route");
+    // Made out of order, then the first one edited last. Two marks a page
+    // apart can carry reversed progressions; their CFIs order them
+    const late = await mark(huysmans, { text: "the Trappist dawn", section: 3, progression: 0.7, cfi: "epubcfi(/6/8!/4/2/1:4)" });
+    const second = await mark(huysmans, { text: "plainchant", section: 1, progression: 0.31, cfi: "epubcfi(/6/4!/4/10/1:0)" });
+    const first = await mark(huysmans, { text: "Durtal at Saint-Sulpice", section: 1, progression: 0.32, cfi: "epubcfi(/6/4!/4/2[p1]/1:30)" });
+    const bookmark = await mark(huysmans, { bookmark: true, section: 2, progression: 0.5, cfi: "epubcfi(/6/6!/4/2,/1:0,/1:9)" });
+    await c`update ebook_annotations set note = 'Edited last', updated_at = now() + interval '1 minute' where id = ${first}`;
+    const order = [first, second, bookmark, late];
+    const [only] = await groups({ ebook: huysmans.id });
+    expect(only.marks.map((item) => item.id)).toEqual(order);
+    const params = parseHighlightParams({ ebook: huysmans.id });
+    const [paged] = await getHighlightGroups({ ...params, perPage: 2, page: 2, offset: 2 }, database!);
+    expect(paged.marks.map((item) => item.id)).toEqual(order.slice(2));
+    // Unfiltered, the book comes first as the newest edited, with the same order
+    const [newest] = await groups();
+    expect(newest.ebook.id).toBe(huysmans.id);
+    expect(newest.marks.map((item) => item.id)).toEqual(order);
+    await c`update ebook_annotations set deleted_at = updated_at where ebook_id = ${huysmans.id}`;
   });
 
   it("cuts long text and notes by characters, never inside one", async () => {

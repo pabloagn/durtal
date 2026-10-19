@@ -91,7 +91,8 @@ async function HighlightResults({ search }: { search: ListSearchParams }) {
 
 /**
  * /ebooks/highlights (SLN-500): every live highlight, note and bookmark of
- * every e-book, grouped by e-book with the newest marks first.
+ * every e-book, grouped by e-book, the most recently marked book first and
+ * each book's marks in book order (SLN-1000).
  */
 export default async function HighlightsPage({ searchParams }: { searchParams: Promise<ListSearchParams> }) {
   const search = await searchParams;
