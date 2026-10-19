@@ -1,7 +1,8 @@
 import { Gem } from "lucide-react";
 import type { HuntAssessment } from "@/lib/constants/hunting";
 import { MARKS } from "@/lib/constants/marks";
-import { COVER_CHIP, COVER_CHIP_ICON, COVER_CHIP_STROKE, COVER_CHIP_TONE } from "./cover-chip";
+import { COVER_CHIP, COVER_CHIP_TONE } from "./cover-chip";
+import { CoverMark } from "./cover-mark";
 
 export function HuntBadge({
   isRare,
@@ -19,13 +20,11 @@ export function HuntBadge({
       role="img"
       aria-label={label}
     >
-      <Gem
-        className={cover ? COVER_CHIP_ICON : "h-3.5 w-3.5"}
-        strokeWidth={cover ? COVER_CHIP_STROKE : 1.5}
-        fill="currentColor"
-        fillOpacity={0.18}
-        aria-hidden="true"
-      />
+      {cover ? (
+        <CoverMark name="gem" filled />
+      ) : (
+        <Gem className="h-3.5 w-3.5" strokeWidth={1.5} fill="currentColor" fillOpacity={0.18} aria-hidden="true" />
+      )}
     </span>
   );
 }

@@ -72,12 +72,18 @@ With --seed-review (after --ebooks M), the synthetic pending e-books are
 spread over the review queue's sections, with candidates
 (scripts/qa/seed-review.sql), for the /ebooks/review page-weight row.
 
+With --seed-heavy-book, a well-used book is added
+(scripts/qa/seed-heavy-book.sql): /library/survey-heavy-book, with a full
+shelf of each kind, 12 editions, 16 copies and 40 quotes. Its weight is
+checked apart from the gated routes, with
+PAGE_WEIGHT_CONFIG=scripts/qa/page-weight-heavy.json (SLN-1163).
+
 With --api-token, the app gets a random DURTAL_API_TOKEN for this run only,
 printed once at start, so the phone's /api/readings routes can be checked
 with curl. It is never the live token. Without it the variable stays unset
 and those routes answer 503.
 
-    python3 scripts/qa/preview-local.py [--port 3410] [--from-dump FILE] [--start] [--seed-large N] [--log-sql FILE] [--s3-dir DIR [--seed-reader [--reader-large DIR]] [--ebooks M] [--seed-highlights N] [--seed-places N] [--seed-review]] [--api-token]
+    python3 scripts/qa/preview-local.py [--port 3410] [--from-dump FILE] [--start] [--seed-large N] [--log-sql FILE] [--s3-dir DIR [--seed-reader [--reader-large DIR]] [--ebooks M] [--seed-highlights N] [--seed-places N] [--seed-review]] [--seed-heavy-book] [--api-token]
 """
 
 import argparse
@@ -318,6 +324,8 @@ def main():
                         help="give the first e-book N saved places (scripts/qa/seed-places.sql)")
     parser.add_argument("--seed-review", action="store_true",
                         help="spread the synthetic pending e-books over the review queue (scripts/qa/seed-review.sql)")
+    parser.add_argument("--seed-heavy-book", action="store_true",
+                        help="add a well-used book for page-weight-heavy.json (scripts/qa/seed-heavy-book.sql)")
     parser.add_argument("--reader-large", type=Path, metavar="DIR",
                         help="with --seed-reader, also the large fixtures make-ebook-fixtures.mjs --large wrote to DIR")
     parser.add_argument("--api-token", action="store_true",
@@ -432,6 +440,8 @@ def main():
             print(psql(f"\\set n {args.seed_places}\n{seed}"), flush=True)
         if args.seed_review:
             print(psql((Path(__file__).parent / "seed-review.sql").read_text()), flush=True)
+        if args.seed_heavy_book:
+            print(psql((Path(__file__).parent / "seed-heavy-book.sql").read_text()), flush=True)
         # Statistics, as a long-lived database has them. Without them the
         # planner overestimates the freshly seeded tables, and queries far
         # below Postgres's JIT threshold cross it until autovacuum catches
