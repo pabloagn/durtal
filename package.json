@@ -24,6 +24,7 @@
     "ebooks:import-existing": "tsx --tsconfig tsconfig.json scripts/ebooks/import-existing.ts",
     "ebooks:reading-import": "tsx --tsconfig tsconfig.json scripts/ebooks/reading-import.ts",
     "ebooks:upload-service": "tsx --tsconfig tsconfig.json scripts/ebooks/upload-service.ts",
+    "ebooks:check-inspector": "tsx --tsconfig tsconfig.json scripts/ebooks/check-inspector.ts",
     "test": "vitest run",
     "test:local": "python3 scripts/qa/test-local.py",
     "test:watch": "vitest"
