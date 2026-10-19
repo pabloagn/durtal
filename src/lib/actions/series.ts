@@ -497,33 +497,40 @@ export async function getSeriesSuggestionScope() {
 export async function searchWorksForSeries(query: string) {
   const q = z.string().max(200).parse(query).trim();
   if (!q) return [];
-  const titleHaystack = sql`search_normalize(${works.title} || ' ' || coalesce((select string_agg(a.name, ' ') from work_authors wa join authors a on a.id = wa.author_id where wa.work_id = "works"."id"), ''))`;
-  return db
-    .select({
-      id: works.id,
-      title: works.title,
-      seriesId: works.seriesId,
-      seriesTitle: sql<
-        string | null
-      >`(select s.title from series s where s.id = "works"."series_id")`,
-      authors: sql<
-        string | null
-      >`(select string_agg(a.name, ' & ' order by wa.sort_order) from work_authors wa join authors a on a.id = wa.author_id where wa.work_id = "works"."id")`,
-      // The poster, else the first edition cover, as on the series pages
-      cover: sql<
-        string | null
-      >`coalesce(
-        (select coalesce(m.thumbnail_s3_key, m.s3_key) from media m where m.work_id = "works"."id" and m.type = 'poster' and m.is_active order by m.sort_order limit 1),
-        (select coalesce(e.thumbnail_s3_key, e.cover_s3_key) from editions e where e.work_id = "works"."id" and coalesce(e.thumbnail_s3_key, e.cover_s3_key) is not null order by e.created_at, e.id limit 1)
-      )`,
-    })
-    .from(works)
-    .where(and(bookCondition, textSearchCondition(titleHaystack, q)))
-    .orderBy(
-      desc(textSearchRank(titleHaystack, sql`${works.title}`, q)),
-      asc(works.title),
-    )
-    .limit(30);
+  // The search text is built once per book (a materialized step: every query
+  // word and the rank read it), as the quick search does (SLN-1362)
+  const hay = sql`h.hay`;
+  const match = textSearchCondition(hay, q);
+  if (!match) return [];
+  return rows<{
+    id: string;
+    title: string;
+    seriesId: string | null;
+    seriesTitle: string | null;
+    authors: string | null;
+    cover: string | null;
+  }>(
+    await db.execute(sql`with h as materialized (
+        select w.id, search_normalize(w.title || ' ' || coalesce((select string_agg(a.name, ' ') from work_authors wa join authors a on a.id = wa.author_id where wa.work_id = w.id), '')) as hay
+        from works w where w.kind = 'book'
+      ), found as (
+        select w.id, w.title, w.series_id, ${textSearchRank(hay, sql`w.title`, q)} as rank
+        from h join works w on w.id = h.id
+        where ${match}
+        order by rank desc, w.title
+        limit 30
+      )
+      select f.id, f.title, f.series_id as "seriesId",
+        (select s.title from series s where s.id = f.series_id) as "seriesTitle",
+        (select string_agg(a.name, ' & ' order by wa.sort_order) from work_authors wa join authors a on a.id = wa.author_id where wa.work_id = f.id) as authors,
+        -- The poster, else the first edition cover, as on the series pages
+        coalesce(
+          (select coalesce(m.thumbnail_s3_key, m.s3_key) from media m where m.work_id = f.id and m.type = 'poster' and m.is_active order by m.sort_order limit 1),
+          (select coalesce(e.thumbnail_s3_key, e.cover_s3_key) from editions e where e.work_id = f.id and coalesce(e.thumbnail_s3_key, e.cover_s3_key) is not null order by e.created_at, e.id limit 1)
+        ) as cover
+      from found f
+      order by f.rank desc, f.title`),
+  );
 }
 
 /**

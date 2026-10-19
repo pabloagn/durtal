@@ -411,7 +411,13 @@ export async function searchWorksForCollection(search: string, kind: WorkKind, l
     (select string_agg(a.search_text, ' ') from work_authors wa join authors a on a.id=wa.author_id where wa.work_id=w.id),
     (select string_agg(coalesce(a.search_text, search_normalize(c.credited_as)), ' ') from work_credits c left join authors a on a.id=c.person_id
       where c.work_id=w.id and c.role_id in ('film.director','perfume.perfumer','painting.painter')))`;
-  const match = value ? textSearchCondition(searchText, value) : undefined;
+  const match = value ? textSearchCondition(sql`h.hay`, value) : undefined;
+  // The search text is built once per work (a materialized step: every query
+  // word reads it, some twice), as the quick search does (SLN-1362)
+  const found = match
+    ? sql`with h as materialized (select w.id, ${searchText} as hay from works w where w.kind=${k})
+      select w.* from h join works w on w.id=h.id where ${match}`
+    : sql`select w.* from works w where w.kind=${k}`;
   return rows<{
     workId: string;
     kind: WorkKind;
@@ -426,8 +432,8 @@ export async function searchWorksForCollection(search: string, kind: WorkKind, l
           where c.work_id=w.id and c.role_id in ('film.director','perfume.perfumer','painting.painter') and coalesce(a.name, c.credited_as) is not null)
       ) as creators,
       (select coalesce(m.thumbnail_s3_key, m.s3_key) from media m where m.work_id=w.id and m.type='poster' and m.is_active order by m.id limit 1) as "imageS3Key"
-      from works w where w.kind=${k} ${match ? sql`and ${match}` : sql``}
-      order by lower(w.title), w.id limit ${size}`),
+      from (${found} order by lower(w.title), w.id limit ${size}) w
+      order by lower(w.title), w.id`),
   );
 }
 
