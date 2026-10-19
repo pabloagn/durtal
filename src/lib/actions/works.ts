@@ -25,6 +25,7 @@ import {
   activityEvents,
   galleryLayouts,
   media,
+  instanceStatusHistory,
 } from "@/lib/db/schema";
 import {
   sql,
@@ -266,6 +267,11 @@ const workDetailWith = {
         with: {
           location: true,
           subLocation: true,
+          // The loans that ended, for the copy's loan history (SLN-1125)
+          statusHistory: {
+            columns: { fromStatus: true, toStatus: true, changedAt: true, notes: true },
+            where: eq(instanceStatusHistory.fromStatus, "lent_out"),
+          },
         },
       },
       contributors: {

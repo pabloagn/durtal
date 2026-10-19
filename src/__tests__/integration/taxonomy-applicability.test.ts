@@ -1,5 +1,5 @@
 import { redirectMergedRecord } from "@/lib/harmonization/redirect";
-import { getTaxonomyBrowsePage, getTaxonomyBookPage, getTaxonomyBookCards, getTaxonomyTerm, getTaxonomyEditorChoices } from "@/lib/actions/taxonomy-browse";
+import { getTaxonomyBrowsePage, getTaxonomyBookPage, getTaxonomyBookCards, getTaxonomyTerm, getTaxonomyEditorChoices, getTaxonomyItemDescription } from "@/lib/actions/taxonomy-browse";
 import { compareWorks } from "@/lib/utils/title-order";
 import { deleteTaxonomyItem as deleteItemUi, mergeTaxonomyItems as mergeItemsUi } from "@/lib/actions/taxonomy-ui";
 import { requireDisposableDatabaseUrl, resetDisposableDatabase } from "./helpers/disposable-database";
@@ -622,5 +622,46 @@ describe.skipIf(!url)("domain and level-aware taxonomy", () => {
     expect(mood.direct).toBe(2);
     expect(mood.kinds).toEqual(["book", "film"]);
     expect((await getTaxonomyItems(moods.slug))[0].entityCount).toBe(2);
+  });
+  it("moves an item under another parent, refuses loops and cross-branch reorders, and keeps descriptions only where stored (SLN-1158)", async () => {
+    const f = await createTaxonomyFamily({ name: "Forms", hierarchical: true, scopes: [{ kind: "book", level: "work" }] });
+    const fiction = await createTaxonomyItem(f.slug, { name: "Fiction" });
+    const story = await createTaxonomyItem(f.slug, { name: "Short story", parentId: fiction.id });
+    const novel = await createTaxonomyItem(f.slug, { name: "Novel", parentId: fiction.id });
+    const nonfiction = await createTaxonomyItem(f.slug, { name: "Nonfiction" });
+    const essay = await createTaxonomyItem(f.slug, { name: "Essay", parentId: nonfiction.id });
+    const order = async () =>
+      Object.fromEntries((await c`select name,sort_order from custom_taxonomy_items where family_id=${f.id}`).map((r) => [r.name as string, r.sort_order as number]));
+    const before = await order();
+    // A drag across branches is refused and renumbers nothing
+    await expect(reorderTaxonomyItems(f.slug, [essay.id, story.id])).rejects.toThrow(/^Items are reordered among their siblings/);
+    expect(await order()).toEqual(before);
+    // Among siblings it reorders
+    await reorderTaxonomyItems(f.slug, [novel.id, story.id]);
+    const after = await order();
+    expect(after.Novel).toBeLessThan(after["Short story"]);
+    expect(after.Essay).toBe(before.Essay);
+    // Move to…: under another parent, to the top level, never under itself
+    await moveTaxonomyItem(f.slug, essay.id, fiction.id);
+    expect((await getTaxonomyTerm(f.slug, essay.slug))?.parents.map((p) => p.id)).toEqual([fiction.id]);
+    await expect(updateTaxonomyItem(f.slug, fiction.id, { parentId: story.id })).rejects.toThrow();
+    expect((await c`select parent_id from custom_taxonomy_items where id=${fiction.id}`)[0].parent_id).toBeNull();
+    await updateTaxonomyItem(f.slug, essay.id, { parentId: null });
+    expect((await c`select parent_id from custom_taxonomy_items where id=${essay.id}`)[0].parent_id).toBeNull();
+    // A moved item goes last, as a new one does; saving the same parent keeps its place
+    expect((await order())["Short story"]).toBeLessThan((await order()).Nonfiction);
+    await moveTaxonomyItem(f.slug, story.id, nonfiction.id);
+    const moved = await order();
+    expect(moved["Short story"]).toBeGreaterThan(Math.max(...Object.entries(moved).filter(([n]) => n !== "Short story").map(([, v]) => v)));
+    await updateTaxonomyItem(f.slug, novel.id, { parentId: fiction.id });
+    expect((await order()).Novel).toBe(moved.Novel);
+    // A description is kept where the family stores one, refused where it doesn't
+    await updateTaxonomyItem(f.slug, novel.id, { description: "Long prose fiction" });
+    expect(await getTaxonomyItemDescription(f.slug, novel.id)).toBe("Long prose fiction");
+    await expect(createTaxonomyItem("themes", { name: "Described theme", description: "Lost words" })).rejects.toThrow(/^Themes keep no description$/);
+    expect(await c`select id from themes where name='Described theme'`).toHaveLength(0);
+    const theme = await createTaxonomyItem("themes", { name: "Plain theme", description: null });
+    await expect(updateTaxonomyItem("themes", theme.id, { description: "Lost words" })).rejects.toThrow(/keep no description/);
+    expect(await getTaxonomyItemDescription("themes", theme.id)).toBeNull();
   });
 });

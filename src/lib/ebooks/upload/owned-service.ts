@@ -10,6 +10,7 @@ import { UploadDispatcher } from "./dispatcher";
 import { UploadHostBridge, type UploadBridgeConfig } from "./host-bridge";
 import { supervisorBindingSha256, requireSha256, requireUuid, type InspectorBuildEvidence, type InspectorRuntimeConfig } from "./runtime-contract";
 import type { UploadJobCoreAdapter } from "./job-contract";
+import type { UploadItemFailed } from "./job-failure";
 
 export interface OwnedUploadServiceConfig {
   volumeId: string; hostId: string; ownershipPort: number;
@@ -28,7 +29,8 @@ export class OwnedUploadService {
   private constructor(private readonly runner: UploadSupervisorRunner, private readonly dispatcher: UploadDispatcher,
     private readonly bridge: UploadHostBridge) {}
 
-  static async compose(config: OwnedUploadServiceConfig, core: UploadJobCoreAdapter, onFailure: (error: unknown) => void, executor?: UploadSqlExecutor): Promise<OwnedUploadService> {
+  static async compose(config: OwnedUploadServiceConfig, core: UploadJobCoreAdapter, onFailure: (error: unknown) => void, executor?: UploadSqlExecutor,
+    onItemFailure?: (error: UploadItemFailed) => void): Promise<OwnedUploadService> {
     config = Object.freeze({ ...config, runtime: Object.freeze({ ...config.runtime }), build: Object.freeze({ ...config.build }), bridge: Object.freeze({ ...config.bridge }) });
     requireUuid(config.volumeId); requireUuid(config.hostId); requireSha256(config.bridge.targetFingerprint);
     const binding = supervisorBindingSha256({ volumeId: config.volumeId, hostId: config.hostId,
@@ -55,7 +57,7 @@ export class OwnedUploadService {
     const broker = new UploadBroker({ supervisor, store, spool, core, targetFingerprint: config.bridge.targetFingerprint, bindingSha256: binding });
     const bridge = new UploadHostBridge(config.bridge, broker, hostLock);
     const dispatcher = new UploadDispatcher({ supervisor, store, spool, core,
-      context: { channel: 'ui', targetFingerprint: config.bridge.targetFingerprint, bindingSha256: binding }, onFailure: fail });
+      context: { channel: 'ui', targetFingerprint: config.bridge.targetFingerprint, bindingSha256: binding }, onFailure: fail, onItemFailure });
     const runner = new UploadSupervisorRunner(supervisor, fail);
     const service = new OwnedUploadService(runner, dispatcher, bridge); return service;
   }

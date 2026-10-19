@@ -222,4 +222,48 @@ describe.skipIf(!url)("book copies and their locations with PostgreSQL", () => {
       expect(await place(copy.id)).toEqual({ locationId: home, subLocationId: null });
     });
   });
+
+  describe("loans (SLN-1125)", () => {
+    const history = (id: string) =>
+      db
+        .select({ from: schema.instanceStatusHistory.fromStatus, to: schema.instanceStatusHistory.toStatus, notes: schema.instanceStatusHistory.notes })
+        .from(schema.instanceStatusHistory)
+        .where(eq(schema.instanceStatusHistory.instanceId, id))
+        .orderBy(schema.instanceStatusHistory.changedAt);
+    const loan = async (id: string) => {
+      const [row] = await db
+        .select({ status: schema.instances.status, lentTo: schema.instances.lentTo, lentDate: schema.instances.lentDate })
+        .from(schema.instances)
+        .where(eq(schema.instances.id, id));
+      return row;
+    };
+
+    it("lend, return and deaccession leave three history rows, the borrower kept", async () => {
+      const copy = await createInstance({ editionId, locationId: home });
+      await updateInstance(copy.id, { status: "lent_out", lentTo: "Léon Bloy", lentDate: "2026-10-18" });
+      expect(await loan(copy.id)).toEqual({ status: "lent_out", lentTo: "Léon Bloy", lentDate: "2026-10-18" });
+      // An edit that keeps the status writes no row
+      await updateInstance(copy.id, { status: "lent_out", lentTo: "Léon Bloy" });
+      await updateInstance(copy.id, { status: "available" });
+      expect(await loan(copy.id)).toEqual({ status: "available", lentTo: null, lentDate: null });
+      await updateInstance(copy.id, { status: "deaccessioned", dispositionDate: "2026-11-02" });
+      expect(await history(copy.id)).toEqual([
+        { from: "available", to: "lent_out", notes: "Lent to Léon Bloy from 2026-10-18" },
+        { from: "lent_out", to: "available", notes: "Lent to Léon Bloy from 2026-10-18" },
+        { from: "available", to: "deaccessioned", notes: null },
+      ]);
+    });
+
+    it("notes a loan with no name or date, and keeps an edit without a status out of the history", async () => {
+      const copy = await createInstance({ editionId, locationId: home });
+      await updateInstance(copy.id, { notes: "Foxed" });
+      await updateInstance(copy.id, { status: "lent_out", lentTo: "  ", lentDate: null });
+      await updateInstance(copy.id, { status: "missing" });
+      expect(await loan(copy.id)).toEqual({ status: "missing", lentTo: null, lentDate: null });
+      expect(await history(copy.id)).toEqual([
+        { from: "available", to: "lent_out", notes: "Lent" },
+        { from: "lent_out", to: "missing", notes: "Lent" },
+      ]);
+    });
+  });
 });

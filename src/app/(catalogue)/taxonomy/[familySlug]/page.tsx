@@ -8,7 +8,10 @@ import {
   pageHref,
   type ListSearchParams,
 } from "@/lib/utils/pagination";
-import { taxonomyStorage } from "@/lib/catalogue/taxonomy-storage";
+import {
+  storesDescription,
+  taxonomyStorage,
+} from "@/lib/catalogue/taxonomy-storage";
 import { TaxonomySkeleton } from "@/components/taxonomy/taxonomy-skeleton";
 import { TaxonomyFamilyShell } from "./taxonomy-family-shell";
 
@@ -32,6 +35,7 @@ async function FamilyContent({
       family={{
         ...family,
         manualOrdering: taxonomyStorage(family).columns.has("sort_order"),
+        describable: storesDescription(taxonomyStorage(family)),
       }}
       items={browse.items.map((i) => ({ ...i, slug: i.slug ?? i.id }))}
       browse={browse}

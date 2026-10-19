@@ -6,7 +6,7 @@ import { FadeImage } from "@/components/shared/fade-image";
 import { CoverFan, Monogram } from "@/components/shared/no-photo";
 import { PersonRoles } from "@/components/people/person-roles";
 import { coverToneStyle } from "@/lib/utils/media-style";
-import { displayYear } from "@/lib/utils/years";
+import { lifeDates } from "@/lib/utils/format";
 import type { PersonRole } from "@/lib/catalogue/person-roles";
 import { mediaUrl } from "@/lib/s3/media-url";
 import { PhonePairGrid } from "@/components/shared/phone-pair-grid";
@@ -31,6 +31,8 @@ export function RecentPeopleGrid({
     nationality: string | null;
     birthYear: number | null;
     deathYear: number | null;
+    birthYearIsApproximate: boolean | null;
+    deathYearIsApproximate: boolean | null;
     worksCount: number;
   }[];
   covers: Record<string, string[]>;
@@ -70,11 +72,7 @@ export function RecentPeopleGrid({
             <CardHeading title={author.name} subtitle={author.nationality} />
             <PersonRoles roles={roles[author.id]} className="mt-1" />
             <div className="mt-2.5 flex min-h-5 flex-wrap items-center gap-2 font-mono text-micro text-fg-secondary">
-              {author.birthYear && (
-                <span>
-                  {`${displayYear(author.birthYear)}–${author.deathYear ? displayYear(author.deathYear) : ""}`}
-                </span>
-              )}
+              {lifeDates(author) && <span>{lifeDates(author)}</span>}
               {author.worksCount > 0 && (
                 <span className="ml-auto shrink-0">
                   {author.worksCount} {author.worksCount === 1 ? "book" : "books"}

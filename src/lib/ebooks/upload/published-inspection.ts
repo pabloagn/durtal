@@ -6,6 +6,7 @@ import { boundedJsonBytes } from "./bounded-json";
 import { sameFence } from "./lifecycle";
 import { UPLOAD_LIMITS } from "./limits";
 import { validateInspectorIdentity, type InspectorIdentity } from "./runtime-contract";
+import { UploadItemRefusal, uploadJobFailureSchema } from "./job-failure";
 
 const text = z.string().max(UPLOAD_LIMITS.reportBytes).nullable();
 const count = z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER).nullable();
@@ -32,6 +33,15 @@ const preparedSchema = z.object({
 const reportSchema = z.object({ identity: z.unknown(), sourceSha256: sha, prepared: preparedSchema,
   derived: z.array(z.object({ name: z.enum(names), bytes: z.number().int().positive().max(UPLOAD_LIMITS.reportBytes),
     sha256: sha, base64: z.string().max(UPLOAD_LIMITS.reportBytes) }).strict()).min(1).max(4) }).strict();
+const refusalSchema = z.object({ identity: z.unknown(), sourceSha256: sha,
+  refusal: z.object({ reason: z.literal("not_an_ebook"), what: uploadJobFailureSchema.shape.what }).strict() }).strict();
+
+function requireBinding(raw: { identity: unknown; sourceSha256: string }, expected: { identity: InspectorIdentity; sha256: string }): void {
+  const identity = raw.identity as InspectorIdentity;
+  validateInspectorIdentity(identity);
+  if (identity.volumeId !== expected.identity.volumeId || identity.bindingSha256 !== expected.identity.bindingSha256
+    || !sameFence(identity.fence, expected.identity.fence) || raw.sourceSha256 !== expected.sha256) throw new Error("Inspector result binding differs");
+}
 
 /** Revalidate the bounded worker wire, including source/generation binding and
  * every decoded artifact, before handing it to the real stage-first publisher.
@@ -40,12 +50,15 @@ export function decodePublishedInspection(output: string, expected: { identity: 
   if (Buffer.byteLength(output) > UPLOAD_LIMITS.reportBytes) throw new Error("Inspector result exceeds its bound");
   const raw: unknown = JSON.parse(output);
   boundedJsonBytes(raw, UPLOAD_LIMITS.reportBytes);
+  // The worker read this source and refused it: only this item fails (SLN-1388)
+  if (raw && typeof raw === "object" && "refusal" in raw) {
+    const refused = refusalSchema.parse(raw);
+    requireBinding(refused, expected);
+    throw new UploadItemRefusal(refused.refusal.what);
+  }
   const report = reportSchema.parse(raw);
-  const identity = report.identity as InspectorIdentity;
-  validateInspectorIdentity(identity);
-  if (identity.volumeId !== expected.identity.volumeId || identity.bindingSha256 !== expected.identity.bindingSha256
-    || !sameFence(identity.fence, expected.identity.fence) || report.sourceSha256 !== expected.sha256
-    || report.prepared.sha256 !== expected.sha256 || report.prepared.size !== expected.bytes
+  requireBinding(report, expected);
+  if (report.prepared.sha256 !== expected.sha256 || report.prepared.size !== expected.bytes
     || report.prepared.contentType !== contentTypeFor(report.prepared.format)) throw new Error("Inspector result binding differs");
   const prepared = report.prepared as PreparedFile;
   const validation = validationFor(prepared.format, prepared.problem, prepared.drm, prepared.validation.integrity === "verified" || prepared.validation.drm === "clear");

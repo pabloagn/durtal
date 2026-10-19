@@ -16,7 +16,7 @@ export function makeNonce(): string {
 }
 
 /** The CDN's origin, or null when it is not set or not a URL */
-function cdnOrigin(cdnUrl: string | undefined): string | null {
+export function cdnOrigin(cdnUrl: string | undefined): string | null {
   if (!cdnUrl) return null;
   try {
     const url = new URL(cdnUrl);

@@ -40,7 +40,17 @@ const nextConfig: NextConfig = {
       // Only Durtal's own pages may frame a page, as the reader's policy
       // already says (frame-ancestors 'self'): a page on another site cannot
       // lay decoys over one (SLN-897)
-      { source: "/:path*", headers: [{ key: "X-Frame-Options", value: "SAMEORIGIN" }] },
+      // No answer is read as another type than it says, and a request to
+      // another site names only Durtal's origin, never a page's address: a
+      // Mapbox token restricted to Durtal's URL checks it (SLN-1240)
+      {
+        source: "/:path*",
+        headers: [
+          { key: "X-Frame-Options", value: "SAMEORIGIN" },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+        ],
+      },
       { source: "/fonts/reader/:file*", headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }] },
       { source: `/vendor/pdfjs/${PDFJS_VERSION}/:asset*`, headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }] },
       { source: `/vendor/pdfjs/${PDFJS_VERSION}/pdf.worker.min.mjs`, headers: [{ key: "Content-Security-Policy", value: PDF_WORKER_CSP }] },

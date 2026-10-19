@@ -1,14 +1,15 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { calendarBlocks, calendarCells, dayLabel, minutesLabel, MONTHS_SHORT, shade, WEEKDAYS } from "@/lib/reading/charts";
+import { calendarBlocks, calendarCells, dayLabel, dayShade, minutesLabel, MONTHS_SHORT, WEEKDAYS } from "@/lib/reading/charts";
 import { CAP_HALF } from "./bar-chart";
 import { ChartFrame } from "./chart-frame";
 
 /*
  * The reading days of a year (SLN-456): week rows starting on the reading
  * week's first day, in four blocks side by side, shaded by minutes read (or
- * pages when nothing was timed). Up and Down move a week, Left and Right a
+ * pages when nothing was timed); a day read with neither, a finish only,
+ * takes the first shade. Up and Down move a week, Left and Right a
  * day. Under 600px it scrolls inside its own box, never the page.
  */
 
@@ -57,7 +58,7 @@ export function CalendarHeatmap({
       height={height + 12}
       table={{ columns: ["Day", "Minutes", "Pages"], rows: days.map((d) => [dayLabel(d.day), Math.round(d.minutes), d.pages]) }}
     >
-      {(_, focus) => <Grid cells={cells} blocks={blocks} width={width} height={height} focus={focus} summary={summary} amount={amount} max={max} text={text} order={order} blockWidth={blockWidth} />}
+      {(_, focus) => <Grid cells={cells} blocks={blocks} width={width} height={height} focus={focus} summary={summary} amount={amount} isRead={(day) => byDay.has(day)} max={max} text={text} order={order} blockWidth={blockWidth} />}
     </ChartFrame>
   );
 }
@@ -70,6 +71,7 @@ function Grid({
   focus,
   summary,
   amount,
+  isRead,
   max,
   text,
   order,
@@ -82,6 +84,7 @@ function Grid({
   focus: number | null;
   summary: string;
   amount: (day: string) => number;
+  isRead: (day: string) => boolean;
   max: number;
   text: (day: string) => string;
   order: number[];
@@ -125,7 +128,7 @@ function Grid({
                 width={CELL}
                 height={CELL}
                 rx={2}
-                className={SHADES[shade(amount(c.day), max)]}
+                className={SHADES[dayShade(isRead(c.day), amount(c.day), max)]}
                 stroke={focus === c.index ? "var(--color-accent-primary)" : first ? "var(--color-fg-muted)" : "none"}
                 strokeWidth={focus === c.index ? 2 : first ? 0.5 : 0}
                 data-tooltip={text(c.day)}

@@ -7,7 +7,7 @@ import { FadeImage } from "@/components/shared/fade-image";
 import { CoverFan, Monogram } from "@/components/shared/no-photo";
 import { CardHeading } from "@/components/shared/card-heading";
 import { FavouriteToggle } from "@/components/shared/favourite-toggle";
-import { displayYear } from "@/lib/utils/years";
+import { lifeDates } from "@/lib/utils/format";
 import { PersonRoles, WorkCounts } from "@/components/people/person-roles";
 import type { PersonRole } from "@/lib/catalogue/person-roles";
 import type { WorkKind } from "@/lib/catalogue/kinds";
@@ -23,6 +23,8 @@ interface AuthorCardProps {
   nationality?: string | null;
   birthYear?: number | null;
   deathYear?: number | null;
+  birthYearIsApproximate?: boolean | null;
+  deathYearIsApproximate?: boolean | null;
   photoUrl?: string | null;
   posterCrop?: PosterCrop | null;
   /** The portrait's main color: the frame shows it while the photo loads */
@@ -53,6 +55,8 @@ export function AuthorCard({
   nationality,
   birthYear,
   deathYear,
+  birthYearIsApproximate,
+  deathYearIsApproximate,
   photoUrl,
   posterCrop,
   photoTone,
@@ -66,9 +70,7 @@ export function AuthorCard({
   isSelected = false,
   onSelect,
 }: AuthorCardProps) {
-  const years = birthYear
-    ? `${displayYear(birthYear)}–${deathYear ? displayYear(deathYear) : ""}`
-    : null;
+  const years = lifeDates({ birthYear, deathYear, birthYearIsApproximate, deathYearIsApproximate });
 
 
   const href = `/people/${slug}`;

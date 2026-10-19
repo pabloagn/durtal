@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { ebooksAvailableText } from "@/lib/utils/format";
+import { ebooksAvailableText, lifeDates, lifeEvent } from "@/lib/utils/format";
 import { catalogueAvailability } from "@/lib/ebooks/catalogue-availability";
 import { getAuthorEbookSuggestionCount } from "@/lib/ebooks/review-queue/suggestions";
 import { EbookSuggestionLine } from "@/components/ebooks/ebook-suggestion-line";
@@ -43,7 +43,6 @@ import {
 } from "@/components/shared/detail-layout";
 import { Prose } from "@/components/shared/prose";
 import { sanitizeDescriptionHtml } from "@/lib/utils/sanitize";
-import { displayYear } from "@/lib/utils/years";
 import { formatRating } from "@/lib/utils/rating";
 import { formatReadingDate } from "@/lib/reading/dates";
 import { cardReadingOf } from "@/lib/reading/card";
@@ -162,18 +161,19 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
     ? mediaUrl(bgMedia.s3Key)
     : null;
 
-  // Life dates display
-  const lifeDates = (() => {
-    if (!author.birthYear) return null;
-    const birth = `${author.birthYearIsApproximate ? "c. " : ""}${displayYear(author.birthYear)}`;
-    const death = author.deathYear
-      ? `${author.deathYearIsApproximate ? "c. " : ""}${displayYear(author.deathYear)}`
-      : "";
-    return `${birth} - ${death}`;
-  })();
-
-  // Metadata fields for the detail grid
+  // Metadata fields for the detail grid: first the birth and death, as
+  // precise as they are known, with their places (SLN-1006)
   const metadataFields: { label: string; value: string }[] = [];
+  const born = lifeEvent({
+    year: author.birthYear, month: author.birthMonth, day: author.birthDay,
+    approximate: author.birthYearIsApproximate, place: author.birthPlace?.name,
+  });
+  const died = lifeEvent({
+    year: author.deathYear, month: author.deathMonth, day: author.deathDay,
+    approximate: author.deathYearIsApproximate, place: author.deathPlace?.name,
+  });
+  if (born) metadataFields.push({ label: "Born", value: born });
+  if (died) metadataFields.push({ label: "Died", value: died });
   if (author.sortName)
     metadataFields.push({ label: "Sort name", value: author.sortName });
   if (author.firstName)
@@ -263,7 +263,7 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
             countryName={countryDisplayName(author.country)}
             countryOfficialName={author.country?.name}
             countryCode={author.country?.alpha2}
-            lifeDates={lifeDates}
+            lifeDates={lifeDates(author)}
             posterUrl={posterUrl}
             posterCrop={posterCrop}
             workCount={works.length}
@@ -373,8 +373,9 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
                   </div>
                 )}
                 <PaginatedSection {...paging} noun="books">
-                {/* Two cards a row on a phone, as every other cover grid */}
-                <PhonePairGrid>
+                {/* Two cards a row on a phone, as every other cover grid;
+                    every book shows, as the pager counts them (SLN-1019) */}
+                <PhonePairGrid endOnFullRow={false}>
                   {bookCards.map((work) => {
                     // The active poster, else the first edition's cover, as in the library
                     const workActivePoster = work.media[0];
@@ -432,10 +433,12 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
             {otherCollections.map((group) => (
               <section key={group.kind} className="mb-8">
                 <SectionHeading title={group.label} count={group.cards.length} />
-                <PhonePairGrid>
+                <PhonePairGrid endOnFullRow={false}>
                   {group.cards.map(({ id, card }) => (
-                    <div key={id}>
-                      {card}
+                    // The card fills the cell above its caption, so the
+                    // caption stays in the cell, not over the next row (SLN-1019)
+                    <div key={id} className="grid h-full grid-rows-[1fr_auto]">
+                      <div className="min-h-0">{card}</div>
                       {/* The person's roles on it, as a related row's caption */}
                       <p className="mt-1.5 lines-2 text-micro text-fg-secondary">
                         {creditRoles.get(id)?.join(", ")}

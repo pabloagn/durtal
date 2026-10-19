@@ -26,6 +26,7 @@ import {
   COPY_FORMAT_LABELS,
 } from "@/lib/constants/catalogue";
 import { enumLabel } from "@/lib/utils/labels";
+import { todayLocal } from "@/lib/utils/date";
 
 export interface InstanceDraft {
   locationId: string;
@@ -314,7 +315,15 @@ export function InstanceForm({
           label="Status"
           id={`inst-${index}-status`}
           value={value.status}
-          onChange={(e) => update("status", e.target.value)}
+          onChange={(e) => {
+            const status = e.target.value;
+            // Lent out starts today, as the status menu's Lend does (SLN-1125)
+            onChange({
+              ...value,
+              status,
+              ...(status === "lent_out" && !value.lentDate && { lentDate: todayLocal() }),
+            });
+          }}
           options={INSTANCE_STATUSES.map((s) => ({
             value: s,
             label: enumLabel(s),

@@ -56,6 +56,10 @@ export function taxonomyStorage(family: Family) {
   };
 }
 export type TaxonomyStorage = ReturnType<typeof taxonomyStorage>;
+/** Whether the family's items keep a description (Themes, Genres, Tags, Keywords and Art movements don't) */
+export function storesDescription(storage: TaxonomyStorage) {
+  return storage.columns.has("description") || storage.columns.has("scope_notes");
+}
 export function familyItemCondition(
   storage: TaxonomyStorage,
   familyId: string,

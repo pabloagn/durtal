@@ -20,7 +20,7 @@ export const CATALOGUE_STATUSES = catalogueStatusEnum.enumValues;
 export const READING_FILTER_VALUES = [...WORK_READING_STATES, "queued"] as const;
 export type ReadingFilterValue = WorkReadingState | "queued";
 
-export const HOLDINGS = ["owned", "not_owned"] as const;
+export const HOLDINGS = ["owned", "not_owned", "lent_out"] as const;
 export type Holding = (typeof HOLDINGS)[number];
 
 /** The library page's sorts; the API takes the first six (API_SORTS) */
@@ -36,7 +36,7 @@ export interface ReadingFilterParams {
   readTo?: number;
   /** Two finished readings or more */
   reread?: boolean;
-  /** Exactly one of owned and not owned; both, or neither, is no holding filter */
+  /** Exactly one of owned, not owned and lent out (a copy is out on loan); more, or none, is no holding filter */
   holding?: Holding;
   /** The catalogue status, checked against the enum */
   catalogueStatus?: CatalogueStatus[];

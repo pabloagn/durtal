@@ -6,6 +6,7 @@ import { requireInspectorBuild, requireUuid, requireSha256, supervisorBindingSha
 import type { InspectorContainerState } from "./container-runtime";
 import type { SpoolInventory } from "./private-spool";
 import type { SupervisorHostLock } from "./host-lock";
+import { UploadItemFailed, uploadJobFailureOf, type UploadJobFailure } from "./job-failure";
 
 export interface SupervisorOwner {
   volumeId: string;
@@ -44,8 +45,9 @@ export interface UploadSupervisorPersistence {
   assertOperation(owner: SupervisorOwner, fence: OperationFence, now: number): Promise<void>;
   /** Operational failure only, under the live job fence. Preserve committed
    * inspection receipts/canceled rows and all original byte reservations.
+   * The failure's reason is what the item's row says (SLN-1388).
    */
-  recordJobFailure(owner: SupervisorOwner, fence: OperationFence): Promise<void>;
+  recordJobFailure(owner: SupervisorOwner, fence: OperationFence, failure: UploadJobFailure): Promise<void>;
   /** Renew owner + active worker lease atomically or reject; never just trust a clock. */
   heartbeat(owner: SupervisorOwner, fence: OperationFence | null, now: number, signal?: AbortSignal): Promise<SupervisorOwner>;
 }
@@ -79,7 +81,7 @@ export interface UploadJobScope {
 export class UploadSupervisor {
   private owner: SupervisorOwner | null = null;
   private state: SupervisorReadiness["state"] = "stopped";
-  private active: { identity: InspectorIdentity; abort: AbortController; settled: Promise<void> } | null = null;
+  private active: { identity: InspectorIdentity; abort: AbortController; settled: Promise<void>; canceled: boolean } | null = null;
   private lastHeartbeatAt = 0;
   private heartbeatPending = false;
   private stopPending: Promise<void> | null = null;
@@ -246,7 +248,7 @@ export class UploadSupervisor {
    */
   cancelJob(operationId: string, reason = "Upload canceled"): void {
     requireUuid(operationId);
-    if (this.active?.identity.fence.operationId === operationId) this.active.abort.abort(new Error(reason));
+    if (this.active?.identity.fence.operationId === operationId) { this.active.canceled = true; this.active.abort.abort(new Error(reason)); }
   }
 
   /** Keep the same worker lease through request creation, inspection, stage-first
@@ -264,7 +266,8 @@ export class UploadSupervisor {
     const abort = new AbortController();
     let settle!: () => void;
     const settled = new Promise<void>((resolve) => { settle = resolve; });
-    this.active = { identity, abort, settled };
+    const active = { identity, abort, settled, canceled: false };
+    this.active = active;
     const expire = (reason: string) => {
       const error = new Error(reason); this.io.quiesce(error); this.state = "quiescing"; abort.abort(error);
       // The runner observes readiness loss and durably fences effects. Renewal
@@ -305,12 +308,18 @@ export class UploadSupervisor {
       // fire-and-forget effect. Its response may be lost; originals stay held.
       return result;
     } catch (error) {
-      this.io.quiesce(error); this.state = "quiescing";
+      // A failure of this job alone (a refusal, a crashed inspector, a failed
+      // publication, a cancel) fails only this item when the finally below
+      // proves the inspector's exit and cleanup; the service stays ready. Lost
+      // ownership, an expired deadline or a stop still quiesce the service (SLN-1388).
+      const local = (!abort.signal.aborted || active.canceled) && this.readiness().state === "ready";
+      if (!local) { this.io.quiesce(error); this.state = "quiescing"; }
+      const failure = uploadJobFailureOf(error);
       // This transport-owned failure CAS cannot overwrite a committed receipt
       // or cancellation. It leaves the lease live until actual cleanup proof,
       // so a later explicit core retry can use the retained original bytes.
-      await this.dependencies.persistence.recordJobFailure(this.owner!, fence);
-      throw error;
+      await this.dependencies.persistence.recordJobFailure(this.owner!, fence, failure);
+      throw local ? new UploadItemFailed(failure, { cause: error }) : error;
     } finally {
       clearTimeout(deadline); clearTimeout(inspectionDeadline);
       try {
