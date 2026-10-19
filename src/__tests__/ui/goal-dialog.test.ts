@@ -77,4 +77,15 @@ describe("GoalDialogButton", () => {
     expect(actions.setReadingGoal).toHaveBeenCalledWith({ year: 2026, metric: "books", target: 30, countRereads: true, excludedWorkTypeIds: [] });
     expect(actions.removeReadingGoal).not.toHaveBeenCalled();
   });
+
+  it("a ghost button carries its pencil, so it reads as a command at rest (SLN-1047)", async () => {
+    await act(async () => root.render(createElement("main", null,
+      createElement(GoalDialogButton, { label: "Edit goals", variant: "ghost", size: "sm" }),
+      createElement(GoalDialogButton))));
+    const [ghost, boxed] = [...host.querySelectorAll("[data-goal-open]")];
+    expect(ghost.textContent).toBe("Edit goals");
+    expect(ghost.querySelector("svg")).not.toBeNull();
+    // A boxed button is a command already
+    expect(boxed.querySelector("svg")).toBeNull();
+  });
 });
