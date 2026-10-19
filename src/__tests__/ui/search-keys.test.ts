@@ -187,6 +187,9 @@ describe("S opens the search", () => {
     press("g");
     press("s");
     expect(nav.push).toHaveBeenCalledWith("/series");
+    // A pause, as a person makes: a fast key after a pick is dropped (SLN-1190)
+    const later = performance.now() + 1000;
+    vi.spyOn(performance, "now").mockReturnValue(later);
     press("r");
     press("s");
     expect(startReading).toHaveBeenCalledTimes(1);

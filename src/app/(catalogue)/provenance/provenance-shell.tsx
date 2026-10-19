@@ -13,7 +13,6 @@ import {
   type DragEndEvent,
 } from "@dnd-kit/core";
 import { Badge } from "@/components/ui/badge";
-import { updateOrderStatus } from "@/lib/actions/orders";
 import { todayLocal } from "@/lib/utils/date";
 import { useRouter } from "next/navigation";
 import { toast } from "@/lib/notifications/toast";
@@ -37,6 +36,7 @@ import {
   type ProvenanceStats,
 } from "./order-model";
 import { StatCard, PipelineOrderCard, PipelineColumn } from "./pipeline";
+import { updateOrderStatus } from "@/lib/actions/catalogue-client";
 
 export type { OrderItem, ProvenanceStats } from "./order-model";
 

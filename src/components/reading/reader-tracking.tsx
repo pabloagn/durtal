@@ -23,7 +23,7 @@ import { useReadingDialogs } from "./reading-dialogs-provider";
 import { browserZone } from "./reading-client";
 import { hoursWords } from "@/lib/reading/pace";
 import { formatPercent } from "@/lib/reader/place-label";
-import { loggedPlaceAhead, loggedPlaceLabel, loggedPlaceWhere } from "@/lib/reading/logged-place";
+import { keepStayedAt, loggedPlaceAhead, loggedPlaceLabel, loggedPlaceWhere, stayedAt } from "@/lib/reading/logged-place";
 import { saveQuoteWithRefresh } from "@/lib/reader/annotation-server-changes";
 import { onActivityRefresh } from "@/lib/activity/refresh-event";
 
@@ -63,7 +63,10 @@ function ActiveReaderTracking({ data: initial }: { data: ReaderTrackingData }) {
   const [endPrompt, setEndPrompt] = useState(false);
   const [quoteChoice, setQuoteChoice] = useState<QuoteChoice | null>(null);
   // The logged place the jump was dismissed at, or reached: a later log offers it again
-  const [jumpDoneAt, setJumpDoneAt] = useState<number | null>(null);
+  const [jumpDoneAt, setJumpDoneAt] = useState<number | null>(() => {
+    const id = initial.linked?.reading?.id;
+    return id ? stayedAt(id) : null;
+  });
   const controller = useRef<Controller | null>(null);
   const queue = useRef<Queue | null>(null);
   const live = useRef(false);
@@ -194,6 +197,14 @@ function ActiveReaderTracking({ data: initial }: { data: ReaderTrackingData }) {
     }).catch(showFailure);
   }), [initial.ebookId]);
 
+  // Another reading has its own dismissal, kept in this tab or none
+  const readingId = data.linked?.reading?.id ?? null;
+  const stayedFor = useRef(readingId);
+  useEffect(() => {
+    if (stayedFor.current === readingId) return;
+    stayedFor.current = readingId;
+    setJumpDoneAt(readingId ? stayedAt(readingId) : null);
+  }, [readingId]);
   const loggedPercent = data.linked?.reading?.percent ?? null;
   const behind = loggedPlaceAhead(data.linked?.reading, context.percent);
   // Once the reader reaches or passes the logged place, the jump goes
@@ -311,6 +322,7 @@ function ActiveReaderTracking({ data: initial }: { data: ReaderTrackingData }) {
   // The jump and its dismiss leave the bar, so the focus goes to the tracking control in their place
   const jumpDone = (at: number | null) => {
     setJumpDoneAt(at);
+    if (reading && at !== null) keepStayedAt(reading.id, at);
     requestAnimationFrame(() => statusRef.current?.querySelector<HTMLElement>("button")?.focus());
   };
   const status = timerOwns ? "Manual timer active" : snapshot?.held ? "Starting tracking" : reading?.status === "paused" ? "Paused" : "Tracking";

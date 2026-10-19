@@ -1,5 +1,6 @@
 "use client";
 
+import { RequiredNameHint } from "@/components/shared/required-name-hint";
 import { NameDuplicateNotice } from "@/components/shared/name-duplicate-notice";
 
 import { useId, useState } from "react";
@@ -11,12 +12,13 @@ import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { addOrganization, updateOrganizationProfile } from "@/lib/actions/organization-directory";
 import {
   ORGANIZATION_ROLE_LABELS,
   type DirectoryRole,
   type NON_PUBLISHING_ROLES,
 } from "@/lib/catalogue/organizations";
+import { addOrganization, updateOrganizationProfile } from "@/lib/actions/catalogue-client";
+import { refusalMessage } from "@/lib/actions/refusal";
 
 type Role = (typeof NON_PUBLISHING_ROLES)[number];
 
@@ -139,7 +141,7 @@ function OrganizationForm({
         if (created) router.push(`/organizations/${created.slug}`);
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not save the organization");
+      setError(refusalMessage(e, "Could not save the organization"));
     } finally {
       setSaving(false);
     }
@@ -160,7 +162,7 @@ function OrganizationForm({
       defaultValue={organization?.name ?? ""}
       onChange={(e) => setTypedName(e.target.value)}
       maxLength={200}
-      required
+      aria-required="true"
       disabled={saving}
     /><NameDuplicateNotice kind="organization" name={typedName} enabled={!organization} /></div>
     <fieldset className="space-y-3" disabled={saving}>
@@ -242,10 +244,12 @@ function OrganizationForm({
           {error}
         </p>
       )}
+      {/* The house's line beside Save, not the browser's "Please fill out this field" bubble (SLN-945) */}
+      <RequiredNameHint value={typedName} message="Give the organization a name" />
       <Button data-dismiss="" type="button" size="sm" onClick={close} disabled={saving}>
         Cancel
       </Button>
-      <Button type="submit" form={formId} variant="primary" size="sm" data-shortcut="save" busy={saving}>
+      <Button type="submit" form={formId} variant="primary" size="sm" data-shortcut="save" busy={saving} disabled={!typedName.trim()}>
         {organization ? "Save" : "Add"}
       </Button>
     </DialogFooter>

@@ -1,4 +1,5 @@
 import { toast as sonner, type ExternalToast } from "sonner";
+import { CONNECTION_SAVE_ERROR, isConnectionFailure } from "./connection";
 
 /**
  * The app's toasts (SLN-732): Sonner's `toast`, with the house rules applied
@@ -55,10 +56,9 @@ function showing(kind: Kind, message: Message): Id | null {
   return onScreen.find((t) => t.type === kind && t.title === message)?.id ?? null;
 }
 
-export const CONNECTION_SAVE_ERROR = "Not saved: Durtal could not be reached. Check the connection and try again.";
-const NETWORK_FAILURES = new Set(["Failed to fetch", "NetworkError when attempting to fetch resource.", "Load failed"]);
+export { CONNECTION_SAVE_ERROR };
 function errorMessage(message: Message): Message {
-  return typeof message === "string" && NETWORK_FAILURES.has(message.trim()) ? CONNECTION_SAVE_ERROR : message;
+  return typeof message === "string" && isConnectionFailure(message) ? CONNECTION_SAVE_ERROR : message;
 }
 
 function show(kind: Kind, message: Message, data?: ExternalToast): Id {

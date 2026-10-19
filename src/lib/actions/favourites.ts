@@ -1,5 +1,6 @@
 "use server";
 
+import { ExpectedActionError } from "@/lib/actions/expected-error";
 import { z } from "zod";
 import { and, eq, inArray, ne, type SQL } from "drizzle-orm";
 import { db } from "@/lib/db";
@@ -122,7 +123,7 @@ export async function setFavourite(
       and(eq(target.id, id), scopeOf(entity))!,
       favourite,
     );
-    if (!found.length) throw new Error(`${FAVOURITE_ENTITY_LABELS[entity]} not found`);
+    if (!found.length) throw new ExpectedActionError(`${FAVOURITE_ENTITY_LABELS[entity]} not found`);
   }
   return result;
 }

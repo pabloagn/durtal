@@ -11,6 +11,7 @@ import { AuthorMergeDialog } from "./author-merge-dialog";
 import { MediaManagerDialog } from "@/components/media/media-manager-dialog";
 import { CoarseImageSource } from "@/components/shared/coarse-image-source";
 import { FadeImage } from "@/components/shared/fade-image";
+import { Monogram } from "@/components/shared/no-photo";
 import { ImageLightbox } from "@/components/shared/image-lightbox";
 import { EntityActionMenu } from "@/components/shared/entity-action-menu";
 import { useEditActions } from "@/components/shortcuts/shortcuts-provider";
@@ -19,9 +20,10 @@ import { exportActionItems } from "@/components/shared/export-menu";
 import { DetailControls, DetailEditButton, DetailTitleRow } from "@/components/shared/detail-layout";
 import { ProtectedImageWrapper } from "@/components/shared/protected-image";
 import { DeleteConfirmDialog } from "@/app/(catalogue)/library/[slug]/delete-confirm-dialog";
-import { deleteAuthor } from "@/lib/actions/authors";
 import { nationalityFilterHref } from "@/lib/utils/nationality-param";
 import { mediaImageStyle, type MediaCrop } from "@/lib/utils/media-style";
+import { deleteAuthor } from "@/lib/actions/catalogue-client";
+import { refusalMessage } from "@/lib/actions/refusal";
 
 type PosterCrop = MediaCrop;
 
@@ -60,7 +62,8 @@ export function AuthorDetailHeader({
   const router = useRouter();
   const [editOpen, setEditOpen] = useState(false);
   const [mediaOpen, setMediaOpen] = useState(false);
-  // A portrait that fails shows what none does: the name's letter
+  // A portrait that fails shows what none does: the initials on the
+  // person's tint, as their card does
   const [failedPortrait, setFailedPortrait] = useState<string | null>(null);
   const [mergeOpen, setMergeOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -87,8 +90,8 @@ export function AuthorDetailHeader({
       await deleteAuthor(authorId);
       toast.success("Person deleted");
       router.push("/people");
-    } catch {
-      toast.error("Could not delete the person");
+    } catch (error) {
+      toast.error(refusalMessage(error, "Could not delete the person"));
     }
   }
 
@@ -157,10 +160,8 @@ export function AuthorDetailHeader({
             </div>
           </ProtectedImageWrapper>
         ) : (
-          <div className="flex h-64 w-48 flex-shrink-0 items-center justify-center rounded-sm bg-bg-tertiary">
-            <span aria-hidden="true" data-decorative className="font-serif text-4xl text-fg-muted/20">
-              {name[0]}
-            </span>
+          <div className="relative h-64 w-48 flex-shrink-0 overflow-hidden rounded-sm bg-bg-tertiary">
+            <Monogram name={name} />
           </div>
         )}
 

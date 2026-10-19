@@ -69,13 +69,15 @@ createWork(input: CreateWorkInput): Promise<Work>
 
 Validated against `createWorkSchema` (Zod). Gives the book its id and slug first (`{title}-by-{author}`, numbered when taken), then writes the work, its `work_authors` (minimum 1 author, through `bookAuthorQueries`), `work_subjects` and recommendations (through the shared `curationQueries`) in one transaction (`atomic`): a failure leaves no half-created book. Returns the stored work.
 
-### `updateWork(id, input)`
+### `updateWork(id, input, fingerprint?)`
 
 ```typescript
-updateWork(id: string, input: Partial<CreateWorkInput>): Promise<Work>
+updateWork(id: string, input: Partial<CreateWorkInput>, fingerprint?: string): Promise<Work>
 ```
 
 Updates work metadata in one transaction: the work row, its personal curation (`rating`, 0.5 to 5 in half steps through `RATING_SCHEMA` in `src/lib/validations/helpers.ts`, as in `createWorkSchema` and `curationPatchSchema`; `notes`, `recommenderIds` through the shared `curationQueries`, which every domain uses), `authorIds` (through `bookAuthorQueries`, which keeps credit ids) and `subjectIds`. A failure in any part changes nothing. A repeated recommender is stored once. Returns `{ id }`, plus `slug` when a new title or primary author changed the book's address; the book page goes to that address.
+
+`fingerprint` (SLN-1243) is `bookEditFingerprint` (`src/lib/catalogue/book-fingerprint.ts`): md5 of every field the Edit work dialog shows, its authors and its recommenders, which the book page reads and the dialog keeps from the moment it opens; the quick edit of a card reads it with `getBookEditFingerprint(id)` just before the work. When given, the write locks the work and asserts it in the same atomic; a stale one is refused with "This book changed in another tab or window. Reload to see it, then save again." and the dialog stays open with its values. Callers that change a few fields from a fresh read (bulk edits, e-book differences) send none.
 
 ### `deleteWork(id)`
 

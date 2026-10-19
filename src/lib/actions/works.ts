@@ -1,5 +1,7 @@
 "use server";
 
+import { ExpectedActionError } from "@/lib/actions/expected-error";
+
 import {
   bookCondition,
   requireBookWork,
@@ -33,7 +35,6 @@ import {
   count,
   and,
   inArray,
-  ne,
 } from "drizzle-orm";
 import { z } from "zod";
 import {
@@ -52,8 +53,8 @@ import { alphabeticalWorkIds } from "@/lib/actions/utils/alphabetical-works";
 import { compareWorks } from "@/lib/utils/title-order";
 import { posterTone, readingExtras, workCardExtras, workCardWith } from "@/lib/actions/utils/work-card-query";
 import { libraryStatsReads } from "@/lib/actions/utils/library-stats";
-import { markColumn } from "@/lib/actions/utils/work-marks";
-import { WORK_MARKS, type WorkMarkKey } from "@/lib/constants/marks";
+import { markedWorkCards, markedWorkIds } from "@/lib/catalogue/marked-works";
+import type { WorkMarkKey } from "@/lib/constants/marks";
 import { normalizeSearchText } from "@/lib/utils/search-text";
 import type { SQL } from "drizzle-orm";
 import { readingFilterConditions } from "@/lib/reading/filter-conditions";
@@ -64,8 +65,10 @@ import { lastReadAtSql } from "@/lib/reading/summary";
 import type { ReadingFilterParams } from "@/lib/reading/filter-params";
 import { queueNewBookEnrichment } from "@/lib/enrichment/queue";
 import { assertSql } from "@/lib/harmonization/store";
+import { bookEditFingerprint, STALE_BOOK } from "@/lib/catalogue/book-fingerprint";
+import { readFingerprint } from "@/lib/catalogue/work-store";
+import { fingerprintSchema } from "@/lib/validations/records";
 import { KEPT_ORDER_STATUSES, keptOrderRefusalFor, workDeleteSummary } from "@/lib/catalogue/delete-summary";
-import { ExpectedActionError } from "./expected-error";
 
 export type WorkFilters = ReadingFilterParams &
   BookFilterParams & {
@@ -311,6 +314,11 @@ export async function getWork(id: string) {
   return bookResult(result);
 }
 
+/** What a book's Edit work dialog sends back with its save (SLN-1243) */
+export async function getBookEditFingerprint(id: string) {
+  return readFingerprint(bookEditFingerprint(z.string().uuid().parse(id)));
+}
+
 export async function getWorkBySlug(slug: string) {
   const result = await db.query.works.findFirst({
     where: and(bookCondition, eq(works.slug, slug)),
@@ -411,8 +419,13 @@ export async function createWork(input: CreateWorkInput) {
   return (await db.query.works.findFirst({ where: eq(works.id, plan.id) }))!;
 }
 
-export async function updateWork(id: string, input: UpdateWorkInput) {
+/**
+ * `fingerprint`: what Edit work read with the page (`bookEditFingerprint`).
+ * Given, a save over a change made since then is refused (SLN-1243).
+ */
+export async function updateWork(id: string, input: UpdateWorkInput, fingerprint?: string) {
   parseId(id);
+  const expected = fingerprint === undefined ? null : fingerprintSchema.parse(fingerprint);
   const {
     authorIds,
     subjectIds,
@@ -460,13 +473,21 @@ export async function updateWork(id: string, input: UpdateWorkInput) {
     },
   });
 
-  if (!prev) throw new Error("Work not found");
+  if (!prev) throw new ExpectedActionError("Work not found");
+  if (expected && (await readFingerprint(bookEditFingerprint(id))) !== expected)
+    throw new ExpectedActionError(STALE_BOOK);
 
   // One transaction: the work's fields, its curation, authors and subjects
   // are all saved, or none is.
   let updateAt = -1;
   const results = await atomic((d) => {
     const queries: unknown[] = [];
+    // Checked again with the work locked: two saves of one view never both land
+    if (expected)
+      queries.push(
+        d.execute(sql`select id from works where id=${id}::uuid for update`),
+        d.execute(assertSql(sql`coalesce(${bookEditFingerprint(id)}=${expected},false)`, STALE_BOOK)),
+      );
     if (Object.keys(workData).length > 0) {
       queries.push(...seriesPlan.queries(d));
       updateAt = queries.length;
@@ -683,20 +704,7 @@ export async function getWorksWithMark(
   excludeWorkId: string,
   limit = 12,
 ) {
-  const key = z.enum(WORK_MARKS.map((m) => m.key)).parse(mark);
-  const id = z.uuid().parse(excludeWorkId);
-  z.number().int().min(1).max(50).parse(limit);
-  const ids = await alphabeticalWorkIds(
-    and(eq(markColumn(key), true), ne(works.id, id)),
-    limit,
-  );
-  if (!ids.length) return [];
-  const results = await db.query.works.findMany({
-    where: inArray(works.id, ids),
-    extras: workCardExtras,
-    with: workCardWith,
-  });
-  return results.sort(compareWorks);
+  return markedWorkCards(await markedWorkIds(mark, excludeWorkId, limit));
 }
 
 /** Dashboard stats; `shelf` is how many books each shelf takes (the API keeps 8) */

@@ -11,7 +11,6 @@ import { Plus, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "@/lib/notifications/toast";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
-import { createOrder, createOrderForNewBook } from "@/lib/actions/orders";
 import type { AcquisitionMethod, OrderStatus } from "@/lib/constants/orders";
 import { useAppSettings } from "@/lib/hooks/use-app-settings";
 import {
@@ -23,6 +22,8 @@ import {
   type WorkResult,
   type DetailsForm,
 } from "./order-create-steps";
+import { createOrder, createOrderForNewBook } from "@/lib/actions/catalogue-client";
+import { refusalMessage } from "@/lib/actions/refusal";
 
 const STEP_LABELS = ["Work", "Method", "Details", "Notes"];
 
@@ -142,7 +143,7 @@ export function OrderCreateDialog({
         router.refresh();
       } catch (err) {
         toast.error(
-          err instanceof Error ? err.message : "Failed to create order",
+          refusalMessage(err, "Failed to create order"),
         );
       }
     });
@@ -224,7 +225,7 @@ export function OrderCreateDialog({
         )}
 
         {/* Footer navigation */}
-        <div className="mt-5 flex items-center justify-between border-t border-glass-border pt-4">
+        <div className="mt-5 flex items-center justify-between gap-2 border-t border-glass-border pt-4">
           <Button data-dismiss=""
             variant="ghost"
             size="sm"
@@ -241,6 +242,8 @@ export function OrderCreateDialog({
             )}
           </Button>
 
+          {step === 0 && !selectedWork && <p className="ml-auto text-xs text-fg-secondary">Choose a book</p>}
+          {step === 2 && !details.orderDate && <p className="ml-auto text-xs text-fg-secondary">Add the order date</p>}
           {step < STEP_LABELS.length - 1 ? (
             <Button
               variant="primary"

@@ -4,11 +4,12 @@ import { useCallback } from "react";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { CatalogueDateField } from "@/components/shared/catalogue-date-field";
-import { createVenue, searchVenues } from "@/lib/actions/venues";
+import { searchVenues } from "@/lib/actions/venues";
 import type { CatalogueDateInput } from "@/lib/catalogue/dates";
 import type { VenueType } from "@/lib/catalogue/venues";
 import { SingleChoiceField, useOrganizationSearch } from "./record-fields";
 import type { PickerChoice } from "./search-picker";
+import { createVenue } from "@/lib/actions/catalogue-client";
 
 /*
  * The parts of a personal copy that every collection shares: where it is

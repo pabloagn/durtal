@@ -6,12 +6,14 @@ import { toast } from "@/lib/notifications/toast";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { addWorksToSeries, searchWorksForSeries } from "@/lib/actions/series";
+import { searchWorksForSeries } from "@/lib/actions/series";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
 import { mediaUrl } from "@/lib/s3/media-url";
 import { CapAligned } from "@/components/shared/cap-aligned";
 import { COVER_BLANK, CoverLetter } from "@/components/books/cover-letter";
 import { FadeImage } from "@/components/shared/fade-image";
+import { addWorksToSeries } from "@/lib/actions/catalogue-client";
+import { refusalMessage } from "@/lib/actions/refusal";
 
 type Work = Awaited<ReturnType<typeof searchWorksForSeries>>[number];
 
@@ -80,8 +82,8 @@ export function AddSeriesBooksDialog({
       router.refresh();
       triggerActivityRefresh();
       onClose();
-    } catch {
-      toast.error("Could not add these books. Your selection is still here.");
+    } catch (error) {
+      toast.error(refusalMessage(error, "Could not add these books. Your selection is still here."));
     } finally {
       setSaving(false);
     }
@@ -187,7 +189,8 @@ export function AddSeriesBooksDialog({
             from another series. A book belongs to one series.
           </p>
         )}
-        <div className="flex justify-end gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          {!chosen.length && <p className="mr-auto text-xs text-fg-secondary">Choose a book to add</p>}
           <Button data-dismiss="" type="button" disabled={saving} onClick={onClose}>
             Cancel
           </Button>

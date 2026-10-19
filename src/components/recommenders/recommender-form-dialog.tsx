@@ -1,5 +1,6 @@
 "use client";
 
+import { RequiredNameHint } from "@/components/shared/required-name-hint";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
@@ -7,11 +8,9 @@ import { toast } from "@/lib/notifications/toast";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import {
-  createRecommender,
-  updateRecommender,
-} from "@/lib/actions/recommenders";
 import { parseWebsite } from "@/lib/utils/website";
+import { createRecommender, updateRecommender } from "@/lib/actions/catalogue-client";
+import { refusalMessage } from "@/lib/actions/refusal";
 
 interface Existing {
   id: string;
@@ -84,8 +83,8 @@ export function RecommenderFormDialog({
         close();
         if (isEdit) router.refresh();
         else router.push(`/recommenders/${result.recommender.id}`);
-      } catch {
-        toast.error("Could not save the recommender. Try again.");
+      } catch (error) {
+        toast.error(refusalMessage(error, "Could not save the recommender. Try again."));
       }
     });
   }
@@ -136,7 +135,8 @@ export function RecommenderFormDialog({
             autoComplete="off"
             spellCheck={false}
           />
-          <div className="flex justify-end gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <RequiredNameHint value={name} message="Give the recommender a name" />
             <Button data-dismiss="" type="button" disabled={pending} onClick={close}>
               Cancel
             </Button>

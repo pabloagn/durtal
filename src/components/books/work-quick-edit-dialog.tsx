@@ -5,8 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "@/lib/notifications/toast";
 import { Dialog } from "@/components/ui/dialog";
 import { Spinner } from "@/components/ui/spinner";
-import { updateWork } from "@/lib/actions/works";
-import { getWork } from "@/lib/actions/works";
+import { getBookEditFingerprint, getWork } from "@/lib/actions/works";
 import { getSeries } from "@/lib/actions/series";
 import { getWorkTypes } from "@/lib/actions/taxonomy";
 import { getRecommenders } from "@/lib/actions/recommenders";
@@ -16,6 +15,8 @@ import {
   workFormValues,
   workPayload,
 } from "@/components/books/work-form";
+import { updateWork } from "@/lib/actions/catalogue-client";
+import { refusalMessage } from "@/lib/actions/refusal";
 
 interface WorkQuickEditDialogProps {
   open: boolean;
@@ -44,13 +45,16 @@ export function WorkQuickEditDialog({
     { id: string; name: string }[]
   >([]);
   const [values, setValues] = useState(EMPTY_WORK_FORM);
+  // Read before the work, so a save landing between the two reads makes
+  // this one refused rather than let older values through (SLN-1243)
+  const [fingerprint, setFingerprint] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [work, seriesData, workTypesData, recommendersData] =
+      const [[basis, work], seriesData, workTypesData, recommendersData] =
         await Promise.all([
-          getWork(workId),
+          getBookEditFingerprint(workId).then(async (fp) => [fp, await getWork(workId)] as const),
           getSeries(),
           getWorkTypes(),
           getRecommenders(),
@@ -69,6 +73,7 @@ export function WorkQuickEditDialog({
       setAllRecommenders(
         recommendersData.map((r) => ({ id: r.id, name: r.name })),
       );
+      setFingerprint(basis);
       setValues(
         workFormValues(
           work,
@@ -112,13 +117,13 @@ export function WorkQuickEditDialog({
 
     startTransition(async () => {
       try {
-        await updateWork(workId, payload.input);
+        await updateWork(workId, payload.input, fingerprint ?? undefined);
         toast.success("Work updated");
         onClose();
         router.refresh();
       } catch (err) {
         toast.error(
-          err instanceof Error ? err.message : "Failed to update work",
+          refusalMessage(err, "Failed to update work"),
         );
       }
     });

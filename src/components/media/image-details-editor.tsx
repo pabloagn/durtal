@@ -5,8 +5,9 @@ import { toast } from "@/lib/notifications/toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { updateMediaDetails } from "@/lib/actions/media";
 import type { DraftSave } from "@/components/media/image-adjustment-editor";
+import { updateMediaDetails } from "@/lib/actions/catalogue-client";
+import { refusalMessage } from "@/lib/actions/refusal";
 
 /** What an image shows and whose it is, as stored on the media row. */
 export interface ImageDetails {
@@ -89,8 +90,8 @@ export function ImageDetailsEditor({
       onSaved?.();
       if (fromButton) setRefocus(true);
       return true;
-    } catch {
-      toast.error("Could not save the image details");
+    } catch (error) {
+      toast.error(refusalMessage(error, "Could not save the image details"));
       return false;
     } finally {
       setSaving(false);

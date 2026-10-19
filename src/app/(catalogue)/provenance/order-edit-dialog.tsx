@@ -13,7 +13,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
 import { Dialog } from "@/components/ui/dialog";
 import { DatePicker } from "@/components/ui/date-picker";
-import { updateOrder } from "@/lib/actions/orders";
 import {
   CURRENCY_SELECT_OPTIONS,
   currencySymbol,
@@ -21,6 +20,8 @@ import {
 } from "@/lib/constants/currencies";
 import { useAppSettings } from "@/lib/hooks/use-app-settings";
 import type { OrderStatus, AcquisitionMethod } from "@/lib/constants/orders";
+import { updateOrder } from "@/lib/actions/catalogue-client";
+import { refusalMessage } from "@/lib/actions/refusal";
 
 interface OrderData {
   id: string;
@@ -160,7 +161,7 @@ export function OrderEditDialog({
         router.refresh();
       } catch (err) {
         toast.error(
-          err instanceof Error ? err.message : "Failed to update order",
+          refusalMessage(err, "Failed to update order"),
         );
       }
     });

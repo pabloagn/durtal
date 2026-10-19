@@ -19,8 +19,7 @@ import { CapAlignedControls } from "@/components/shared/cap-aligned";
 import { EntityActionMenu } from "@/components/shared/entity-action-menu";
 import { ConfirmDeleteDialog } from "@/components/catalogue/confirm-delete-dialog";
 import type { StorageLocation } from "@/components/catalogue/holding-fields";
-import { deleteArtObject } from "@/lib/actions/catalogue-client";
-import { deleteWhereabouts, verifyWhereabouts } from "@/lib/actions/whereabouts";
+import { deleteArtObject, deleteWhereabouts, verifyWhereabouts } from "@/lib/actions/catalogue-client";
 import type { ArtObjectKind } from "@/lib/catalogue/painting-labels";
 import {
   ArtObjectDialog,
@@ -32,6 +31,7 @@ import {
   type EditableWhereabouts,
   type WhereaboutsMode,
 } from "./whereabouts-dialog";
+import { refusalMessage } from "@/lib/actions/refusal";
 
 /** One location record as the history lists it; the page writes its lines */
 export interface HistoryView {
@@ -275,7 +275,7 @@ export function ArtObjectsSection({
       toast.success("Marked as checked today");
       router.refresh();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not save the check");
+      toast.error(refusalMessage(err, "Could not save the check"));
     }
   }
 
@@ -379,7 +379,7 @@ export function ArtObjectsSection({
             close();
             router.refresh();
           } catch (err) {
-            toast.error(err instanceof Error ? err.message : "Could not delete the object");
+            toast.error(refusalMessage(err, "Could not delete the object"));
           }
         }}
       />
@@ -397,7 +397,7 @@ export function ArtObjectsSection({
             close();
             router.refresh();
           } catch (err) {
-            toast.error(err instanceof Error ? err.message : "Could not delete the location");
+            toast.error(refusalMessage(err, "Could not delete the location"));
           }
         }}
       />

@@ -32,15 +32,15 @@ import { EditionAddDialog } from "./edition-add-dialog";
 import { DeleteConfirmDialog } from "./delete-confirm-dialog";
 import { WorkRelationDialog } from "@/components/catalogue/work-relations";
 import { getWorkDeleteSummary } from "@/lib/actions/works";
-import { deleteWork } from "@/lib/actions/catalogue-client";
 const LinkEbookDialog = dynamic(() => import("@/components/ebooks/link-ebook-dialog").then((module) => module.LinkEbookDialog), { ssr: false });
 const WorkReviewDialog = dynamic(() => import("@/components/ebooks/work-review-dialog").then((module) => module.WorkReviewDialog), { ssr: false });
 import type { WorkReviewOutcome } from "@/lib/ebooks/review/work-service";
 import { workDeleteCascade } from "@/lib/catalogue/delete-cascade";
 import { useDeleteSummary } from "@/components/books/use-delete-summary";
-import { ActionRefusal } from "@/lib/actions/action-refusal";
 import { preloadEditOptions } from "@/hooks/use-edit-options";
 import { EDIT_OPTION_GROUPS, type EditOption, type TaxonomyGroup } from "@/lib/catalogue/edit-options";
+import { deleteWork } from "@/lib/actions/catalogue-client";
+import { refusalMessage } from "@/lib/actions/refusal";
 
 /* ── Prop types (mirrors the server component's data shapes) ─────────────── */
 
@@ -63,6 +63,8 @@ interface WorkData {
   goodreadsUrl: string | null;
   storygraphUrl: string | null;
   recommenderIds: string[];
+  /** What Edit work saves against (SLN-1243) */
+  fingerprint: string | null;
 }
 
 interface WorkAuthorRow {
@@ -133,10 +135,10 @@ export function WorkActionsMenu({
   async function handleDelete() {
     try {
       await deleteWork(work.id);
-      toast.success("Work deleted");
+      toast.success("Book deleted");
       router.push("/library");
     } catch (error) {
-      toast.error(error instanceof ActionRefusal ? error.message : "Could not delete the book. Try again.");
+      toast.error(refusalMessage(error, "Could not delete the book. Try again."));
     }
   }
 
@@ -222,7 +224,8 @@ export function WorkActionsMenu({
           onPointerEnter={() => preloadEditOptions(EDIT_OPTION_GROUPS)}
           onFocus={() => preloadEditOptions(EDIT_OPTION_GROUPS)}
         >
-          <EntityActionMenu items={actionItems} />
+          {/* It holds Link a work: the focus comes here once the last link goes */}
+          <EntityActionMenu items={actionItems} focusEmpty="relations" />
         </div>
       </div>
 

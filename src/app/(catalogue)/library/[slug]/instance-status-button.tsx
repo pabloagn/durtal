@@ -4,11 +4,12 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "@/lib/notifications/toast";
 import { ChevronDown } from "lucide-react";
-import { updateInstance } from "@/lib/actions/instances";
 import { todayLocal } from "@/lib/utils/date";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
 import { DISPOSITION_TYPES, INSTANCE_STATUSES } from "@/lib/types/index";
 import { enumLabel } from "@/lib/utils/labels";
+import { updateInstance } from "@/lib/actions/catalogue-client";
+import { refusalMessage } from "@/lib/actions/refusal";
 import { DropdownMenu, DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -59,8 +60,8 @@ export function InstanceStatusButton({
       toast.success(returning ? "Marked as returned" : `Status: ${enumLabel(next)}`);
       router.refresh();
       triggerActivityRefresh();
-    } catch {
-      toast.error("Could not update the status");
+    } catch (error) {
+      toast.error(refusalMessage(error, "Could not update the status"));
     } finally {
       setBusy(false);
     }

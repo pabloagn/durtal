@@ -8,10 +8,11 @@ import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { MultiSelectSection } from "@/components/shared/multi-select-section";
 import { OptionsNotice } from "@/components/shared/options-notice";
-import { updateWorkTaxonomy } from "@/lib/actions/taxonomy";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
 import { useEditOptions } from "@/hooks/use-edit-options";
 import { TAXONOMY_GROUPS, withChosen, type EditOption, type TaxonomyGroup } from "@/lib/catalogue/edit-options";
+import { updateWorkTaxonomy } from "@/lib/actions/catalogue-client";
+import { refusalMessage } from "@/lib/actions/refusal";
 
 /** The dialog's sections, in order, each with its field in the save */
 const SECTIONS = [
@@ -77,8 +78,8 @@ export function WorkTaxonomyEditDialog({
         setOpen(false);
         router.refresh();
         triggerActivityRefresh();
-      } catch {
-        toast.error("Failed to update taxonomy");
+      } catch (error) {
+        toast.error(refusalMessage(error, "Failed to update taxonomy"));
       }
     });
   }

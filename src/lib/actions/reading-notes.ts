@@ -1,5 +1,6 @@
 "use server";
 
+import { ExpectedActionError } from "@/lib/actions/expected-error";
 import { randomUUID } from "node:crypto";
 import { eq, getTableColumns, sql } from "drizzle-orm";
 import { z } from "zod/v4";
@@ -105,8 +106,16 @@ const BOOK_COLUMN = sql`(select jsonb_build_object('id', w.id, 'title', w.title,
     'author', (select a.name from work_authors wa join authors a on a.id = wa.author_id where wa.work_id = w.id order by wa.sort_order, a.name limit 1))
   from works w where w.id = n.work_id) as book`;
 
+/**
+ * Rows of NOTE_COLUMNS with each thought sanitized again on the way out, so
+ * a row stored before every write sanitized it can't carry script (SLN-1239)
+ */
+function noteRows<T extends NoteItem>(result: unknown): T[] {
+  return resultRows<T>(result).map((n) => (n.commentHtml ? { ...n, commentHtml: sanitizeCommentHtml(n.commentHtml) } : n));
+}
+
 async function loadNote(id: string): Promise<NoteItem | null> {
-  const [row] = resultRows<NoteItem>(await db.execute(sql`select ${NOTE_COLUMNS} from reading_notes n where n.id = ${id}::uuid`));
+  const [row] = noteRows<NoteItem>(await db.execute(sql`select ${NOTE_COLUMNS} from reading_notes n where n.id = ${id}::uuid`));
   return row ?? null;
 }
 
@@ -114,7 +123,7 @@ async function noteOrThrow(id: string) {
   const [row] = await db.select({ ...getTableColumns(readingNotes),
     fingerprint: sql<string>`md5(to_jsonb(${readingNotes})::text)`,
   }).from(readingNotes).where(eq(readingNotes.id, id));
-  if (!row) throw new Error("This note no longer exists");
+  if (!row) throw new ExpectedActionError("This note no longer exists");
   return row;
 }
 
@@ -134,8 +143,8 @@ async function references(workId: string, readingId: string | null | undefined, 
       .select({ id: readings.id, workId: readings.workId, editionId: readings.editionId, totalPages: readings.totalPages })
       .from(readings)
       .where(eq(readings.id, readingId));
-    if (!row) throw new Error("This reading no longer exists");
-    if (row.workId !== workId) throw new Error("This reading belongs to another book");
+    if (!row) throw new ExpectedActionError("This reading no longer exists");
+    if (row.workId !== workId) throw new ExpectedActionError("This reading belongs to another book");
     reading = row;
   }
   // A note on a reading is on its edition unless it names another
@@ -143,8 +152,8 @@ async function references(workId: string, readingId: string | null | undefined, 
   let pageCount: number | null = null;
   if (edition) {
     const [row] = await db.select({ workId: editions.workId, pageCount: editions.pageCount }).from(editions).where(eq(editions.id, edition));
-    if (!row) throw new Error("This edition no longer exists");
-    if (row.workId !== workId) throw new Error("This edition belongs to another book");
+    if (!row) throw new ExpectedActionError("This edition no longer exists");
+    if (row.workId !== workId) throw new ExpectedActionError("This edition belongs to another book");
     pageCount = row.pageCount;
   }
   // A page's total (SLN-480): the reading's when the reading is on the note's own edition, else the edition's page count
@@ -160,7 +169,7 @@ function pagePercent(page: number | null, pageRoman: boolean, totalPages: number
 /** His thought, sanitized; an empty editor is no thought */
 function thought(kind: NoteKind, html: string | null | undefined, json: unknown) {
   if (html == null && json == null) return { commentHtml: null, commentJson: null };
-  if (kind !== "quote") throw new Error("Only a quote carries a thought");
+  if (kind !== "quote") throw new ExpectedActionError("Only a quote carries a thought");
   const clean = html ? sanitizeCommentHtml(html) : "";
   if (!stripHtmlToText(clean).trim()) return { commentHtml: null, commentJson: null };
   return { commentHtml: clean, commentJson: json ?? null };
@@ -254,8 +263,8 @@ async function updateNote(input: z.input<typeof updateReadingNoteSchema>): Promi
     pageRoman: patch.pageRoman !== undefined ? patch.pageRoman : page == null ? false : note.pageRoman,
   };
   const placeError = pagePlaceError(place);
-  if (placeError) throw new Error(placeError);
-  if (patch.percent != null && page != null) throw new Error(PAGE_AND_PERCENT);
+  if (placeError) throw new ExpectedActionError(placeError);
+  if (patch.percent != null && page != null) throw new ExpectedActionError(PAGE_AND_PERCENT);
   Object.assign(values, place);
   // The percent is a snapshot: worked out again only when the page, the edition or the reading changes
   const moved =
@@ -337,7 +346,7 @@ async function restoreNote(input: z.input<typeof noteSnapshotSchema>): Promise<N
           'The highlight or book changed, or Undo expired. Nothing was restored.') from restored`),
     ]));
     const restored = await loadNote(snap.id);
-    if (!restored) throw new Error("This quote no longer exists");
+    if (!restored) throw new ExpectedActionError("This quote no longer exists");
     changed();
     return restored;
   }
@@ -357,8 +366,7 @@ async function restoreNote(input: z.input<typeof noteSnapshotSchema>): Promise<N
         readingId: reading?.id ?? null,
         editionId: edition?.id ?? null,
         importId: imported?.id ?? null,
-        commentHtml: snap.kind === "quote" ? snap.commentHtml : null,
-        commentJson: snap.kind === "quote" ? (snap.commentJson ?? null) : null,
+        ...(snap.kind === "quote" ? thought("quote", snap.commentHtml, snap.commentJson) : { commentHtml: null, commentJson: null }),
       }),
     ]),
   );
@@ -377,7 +385,7 @@ const IN_GROUP_ORDER = sql`(case when n.page is not null and n.page_roman then 0
 /** A book's quotes and notes in their edition group's order (the page groups them); each with its reading's number */
 export async function getNotesForWork(workId: string): Promise<NoteItem[]> {
   const id = z.uuid().parse(workId);
-  return resultRows<NoteItem>(await db.execute(sql`select ${NOTE_COLUMNS} from reading_notes n where n.work_id = ${id}::uuid order by ${IN_GROUP_ORDER}`));
+  return noteRows<NoteItem>(await db.execute(sql`select ${NOTE_COLUMNS} from reading_notes n where n.work_id = ${id}::uuid order by ${IN_GROUP_ORDER}`));
 }
 
 /**
@@ -410,7 +418,7 @@ async function noteEditionsFor(editionIds: (string | null)[]): Promise<Record<st
 /** One quote or note with its book and its edition's summary (the notes routes, SLN-480); null when it no longer exists */
 export async function getReadingNote(noteId: string): Promise<{ note: NoteWithBook; edition: NoteEdition | null } | null> {
   const id = z.uuid().parse(noteId);
-  const [note] = resultRows<NoteWithBook>(await db.execute(sql`select ${NOTE_COLUMNS}, ${BOOK_COLUMN} from reading_notes n where n.id = ${id}::uuid`));
+  const [note] = noteRows<NoteWithBook>(await db.execute(sql`select ${NOTE_COLUMNS}, ${BOOK_COLUMN} from reading_notes n where n.id = ${id}::uuid`));
   if (!note) return null;
   const editionsUsed = await noteEditionsFor([note.editionId]);
   return { note, edition: note.editionId ? (editionsUsed[note.editionId] ?? null) : null };
@@ -436,7 +444,7 @@ export async function searchNotes(input: z.input<typeof searchNotesSchema>) {
         ? sql`${textSearchRank(haystack, sql`left(n.body, 300)`, query.q!)} desc, n.created_at desc, n.id asc`
         : sql`n.created_at ${direction}, n.id asc`;
   const offset = (query.page - 1) * query.perPage;
-  const rows = resultRows<NoteWithBook & { total: number }>(
+  const rows = noteRows<NoteWithBook & { total: number }>(
     await db.execute(sql`select ${NOTE_COLUMNS}, ${BOOK_COLUMN}, count(*) over ()::int as total
       from reading_notes n join works w on w.id = n.work_id left join editions ne on ne.id = n.edition_id ${where}
       order by ${order} limit ${query.perPage} offset ${offset}`),
@@ -509,7 +517,7 @@ export async function getPassageOfTheDay(
     .where(eq(readingNotes.kind, "quote"));
   const chosen = choosePassage(quotes, day, offset ?? 0);
   if (!chosen) return null;
-  const [note] = resultRows<NoteWithBook>(
+  const [note] = noteRows<NoteWithBook>(
     await db.execute(sql`select ${NOTE_COLUMNS}, ${BOOK_COLUMN} from reading_notes n where n.id = ${chosen.id}::uuid`),
   );
   if (!note) return null;

@@ -1,5 +1,6 @@
 "use client";
 
+import { RequiredNameHint } from "@/components/shared/required-name-hint";
 import { useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { X, Plus, Loader2 } from "lucide-react";
 import { toast } from "@/lib/notifications/toast";
@@ -12,7 +13,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
 import { RatingInput } from "@/components/shared/rating";
 import { CapAligned } from "@/components/shared/cap-aligned";
-import { findOrCreateAuthor } from "@/lib/actions/authors";
+import { findOrCreateAuthor } from "@/lib/actions/catalogue-client";
+import { refusalMessage } from "@/lib/actions/refusal";
 import { LANGUAGES } from "@/lib/constants/languages";
 import { normalizeSearchText } from "@/lib/utils/search-text";
 import { seriesPositionSchema } from "@/lib/validations/series";
@@ -276,8 +278,8 @@ export function WorkForm({
           { id: created.id, name: created.name, role: "author" },
         ]);
       }
-    } catch {
-      toast.error("Failed to add author");
+    } catch (error) {
+      toast.error(refusalMessage(error, "Failed to add author"));
     } finally {
       setIsAddingAuthor(false);
       setAuthorSearch("");
@@ -607,6 +609,7 @@ export function WorkForm({
 
       <DialogFooter>
         {notice && <div className="mr-auto min-w-0">{notice}</div>}
+        <RequiredNameHint value={values.title} message="Give the book a title" />
         <Button data-dismiss="" variant="secondary" size="sm" onClick={onCancel} disabled={pending}>
           Cancel
         </Button>

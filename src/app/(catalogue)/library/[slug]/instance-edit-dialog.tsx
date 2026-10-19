@@ -7,7 +7,6 @@ import { Pencil } from "lucide-react";
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { InstanceForm, instancePayload, type InstanceDraft } from "@/components/books/instance-form";
-import { updateInstance } from "@/lib/actions/instances";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
 import type { Instance, Location, SubLocation } from "@/lib/types/index";
 import { EbookPicker } from "@/components/ebooks/ebook-picker";
@@ -19,6 +18,8 @@ import { existingCopyDraft, existingCopyChanges, sameExistingCopyStamp, COPY_RES
   type ReviewExistingCopyContext } from "@/lib/ebooks/review-queue/existing-copy";
 import { notifyReviewOutcome } from "@/lib/ebooks/review-queue/feedback";
 import type { ReviewQueueRow } from "@/lib/ebooks/review-queue/types";
+import { updateInstance } from "@/lib/actions/catalogue-client";
+import { refusalMessage } from "@/lib/actions/refusal";
 
 type InstanceWithLocation = Instance & {
   location: Location;
@@ -173,12 +174,12 @@ export function InstanceEditDialog({
     writeLock.current = true; setIsPending(true);
     try {
       await updateInstance(instance.id, instancePayload(draft));
-      toast.success("Instance updated");
+      toast.success("Copy updated");
       setOpen(false);
       router.refresh();
       triggerActivityRefresh();
-    } catch {
-      toast.error("Failed to update instance");
+    } catch (error) {
+      toast.error(refusalMessage(error, "Could not update the copy"));
     } finally {
       writeLock.current = false; setIsPending(false);
     }

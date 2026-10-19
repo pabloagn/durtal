@@ -1,4 +1,4 @@
-import { getTableName, sql, type SQL } from "drizzle-orm";
+import { getTableName, sql, type AnyColumn, type SQL } from "drizzle-orm";
 import { getTableConfig } from "drizzle-orm/pg-core";
 import {
   getSystemRegistry,
@@ -56,6 +56,10 @@ export function taxonomyStorage(family: Family) {
   };
 }
 export type TaxonomyStorage = ReturnType<typeof taxonomyStorage>;
+/** Whether the family's items keep a description (Themes, Genres, Tags, Keywords and Art movements don't) */
+export function storesDescription(storage: TaxonomyStorage) {
+  return storage.columns.has("description") || storage.columns.has("scope_notes");
+}
 export function familyItemCondition(
   storage: TaxonomyStorage,
   familyId: string,
@@ -125,4 +129,24 @@ export function linkedEntities(
   return sql`select distinct l.owner_id as id, l.level
     from (${linkRows(storage, [kind])}) l join ${sql.identifier(storage.table)} i on i.id=l.item_id
     where ${familyItemCondition(storage, familyId)} ${itemId ? sql`and i.id=${itemId}::uuid` : sql``}`;
+}
+
+/**
+ * SQL: the work holds the item, or one under it, in a built-in family stored
+ * on works (Subjects, Themes, Keywords, Art types…), whatever its kind. The
+ * film, perfume and painting lists filter by these as by their own families
+ * (SLN-1157).
+ */
+export function systemWorkTaxonomyMatch(workId: SQL | AnyColumn, itemId: string) {
+  const matches = SYSTEM_FAMILY_SLUGS.map(getSystemRegistry)
+    .filter((reg) => reg.junctionEntityCol.name === "work_id")
+    .map((reg) => {
+      const table = getTableName(reg.table);
+      const hierarchical = getTableConfig(reg.table).columns.some((c) => c.name === "parent_id");
+      const items = hierarchical
+        ? sql`(with recursive narrower(id) as (select ${itemId}::uuid union select i.id from ${sql.identifier(table)} i join narrower n on i.parent_id=n.id) select id from narrower)`
+        : sql`(${itemId}::uuid)`;
+      return sql`exists(select 1 from ${sql.identifier(getTableName(reg.junction))} j where j.work_id=${workId} and j.${sql.identifier(reg.junctionItemCol.name)} in ${items})`;
+    });
+  return sql`(${sql.join(matches, sql` or `)})`;
 }

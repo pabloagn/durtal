@@ -21,6 +21,15 @@ import tempfile
 import time
 
 ROOT = Path(__file__).resolve().parents[2]
+# Migrated once per run; each suite's reset copies it (SLN-1196)
+TEMPLATE = "sln0_template"
+MIGRATE_TEMPLATE = """
+import postgres from "postgres";
+import { drizzle } from "drizzle-orm/postgres-js";
+import { migrate } from "drizzle-orm/postgres-js/migrator";
+const client = postgres(process.env.TEMPLATE_URL, { max: 1, prepare: false, onnotice: () => {} });
+try { await migrate(drizzle(client), { migrationsFolder: "src/lib/db/migrations" }); } finally { await client.end({ timeout: 5 }); }
+"""
 
 
 def run(*args, **kwargs):
@@ -43,6 +52,8 @@ def database_manifest():
     for key in ("variable", "database"):
         if len({entry[key] for entry in manifest}) != len(manifest):
             raise RuntimeError(f"Integration suites must not share {key}")
+    if any(entry["database"] == TEMPLATE for entry in manifest):
+        raise RuntimeError(f"No suite may own the template database {TEMPLATE}")
     return manifest
 
 
@@ -83,9 +94,11 @@ def main():
     print(f"Reports: {report_dir}", flush=True)
     try:
         docker_env = {**os.environ, "POSTGRES_PASSWORD": password}
+        # Suites run side by side: dropping and migrating a schema in several
+        # at once takes more locks than the default 64 per transaction allow
         run("docker", "run", "--detach", "--pull", "never", "--name", container,
             "--publish", "127.0.0.1::5432", "--env", "POSTGRES_USER=durtal_test",
-            "--env", "POSTGRES_PASSWORD", "postgres:16", env=docker_env)
+            "--env", "POSTGRES_PASSWORD", "postgres:16", "-c", "max_locks_per_transaction=256", env=docker_env)
         for _ in range(60):
             # The image's temporary bootstrap server accepts only Unix sockets.
             # Wait for TCP so createdb cannot race with its shutdown.
@@ -105,10 +118,17 @@ def main():
         for entry in manifest:
             run("docker", "exec", container, "createdb", "-U", "durtal_test", entry["database"])
             env[entry["variable"]] = f"postgresql://durtal_test:{password}@127.0.0.1:{port}/{entry['database']}"
-        print(f"Running tests with {len(manifest)} isolated databases.", flush=True)
+        # The template: the genuine migration chain, applied once
+        run("docker", "exec", container, "createdb", "-U", "durtal_test", TEMPLATE)
+        run("node", "--input-type=module", "-e", MIGRATE_TEMPLATE, cwd=ROOT,
+            env={**env, "TEMPLATE_URL": f"postgresql://durtal_test:{password}@127.0.0.1:{port}/{TEMPLATE}"})
+        env["DURTAL_TEST_TEMPLATE_DATABASE"] = TEMPLATE
+        print(f"Running tests with {len(manifest)} isolated databases, reset from a migrated template.", flush=True)
         with (report_dir / "vitest.log").open("w") as log:
             child = subprocess.Popen(
-                ["node", "node_modules/vitest/vitest.mjs", "run", "--no-file-parallelism",
+                # Side by side, a template copy can wait behind others' copies:
+                # a reset in a hook gets 60 s, not the default 10 s
+                ["node", "node_modules/vitest/vitest.mjs", "run", "--hookTimeout=60000",
                  "--reporter=default", "--reporter=json", f"--outputFile.json={report_dir / 'vitest.json'}", *args.filters],
                 cwd=ROOT, env=env, stdout=log, stderr=subprocess.STDOUT)
             code = child.wait()

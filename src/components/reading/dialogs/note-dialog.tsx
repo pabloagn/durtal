@@ -9,7 +9,6 @@ import { Select } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import type { RichValue } from "@/components/shared/tiptap-editor";
-import { createReadingNote, updateReadingNote } from "@/lib/actions/reading-notes";
 import { NOTE_MAX, type NoteKind } from "@/lib/reading/constants";
 import type { ReadingChoice } from "@/lib/reading/overview-types";
 import { ReadingChoiceField } from "./reading-choice-field";
@@ -20,6 +19,7 @@ import type { ReadingDialogProps } from "../reading-provider";
 import { DialogFooter } from "./fields";
 import { readNumber } from "./start-reading-dialog";
 import { countLabel } from "@/lib/utils/format";
+import { createReadingNote, updateReadingNote } from "@/lib/actions/catalogue-client";
 
 // The editor loads only once the dialog shows a quote
 const loadEditor = () => import("@/components/shared/tiptap-editor").then((m) => m.TiptapEditor);
@@ -294,7 +294,14 @@ export function NoteDialog({ data, request, home, onClose, changed, open }: Read
             Favourite
           </label>
         </div>
-        <DialogFooter form={formId} onCancel={close} saving={saving} saveLabel={editing ? "Save" : "Add"} disabled={!body.trim() || !!positionError} />
+        <DialogFooter
+          form={formId}
+          onCancel={close}
+          saving={saving}
+          saveLabel={editing ? "Save" : "Add"}
+          disabled={!body.trim() || !!positionError}
+          hint={body.trim() ? null : kind === "quote" ? "Write the passage to save" : "Write the note to save"}
+        />
       </form>
     </Dialog>
   );

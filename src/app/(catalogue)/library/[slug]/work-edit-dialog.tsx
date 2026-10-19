@@ -7,7 +7,6 @@ import { toast } from "@/lib/notifications/toast";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { OptionsNotice } from "@/components/shared/options-notice";
-import { updateWork } from "@/lib/actions/works";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
 import {
   WorkForm,
@@ -17,6 +16,8 @@ import {
 } from "@/components/books/work-form";
 import { useEditOptions } from "@/hooks/use-edit-options";
 import { WORK_EDIT_GROUPS, withChosen, type EditOption } from "@/lib/catalogue/edit-options";
+import { updateWork } from "@/lib/actions/catalogue-client";
+import { refusalMessage } from "@/lib/actions/refusal";
 
 interface WorkEditDialogProps {
   work: {
@@ -38,6 +39,8 @@ interface WorkEditDialogProps {
     goodreadsUrl: string | null;
     storygraphUrl: string | null;
     recommenderIds: string[];
+    /** The work as the page read it: a save over a later change is refused (SLN-1243) */
+    fingerprint: string | null;
   };
   authors: WorkAuthorRow[];
   /** The work's own series, type and recommenders; the full lists load when the dialog opens (SLN-510) */
@@ -67,10 +70,14 @@ export function WorkEditDialog({
   const lists = useEditOptions(WORK_EDIT_GROUPS, open);
   const current = () => workFormValues(work, work.recommenderIds, initialAuthors);
   const [values, setValues] = useState(current);
+  // The fingerprint of the work the form's values came from, so a refresh
+  // while the dialog is open can't vouch for older values (SLN-1243)
+  const [basis, setBasis] = useState(work.fingerprint);
 
   function openDialog() {
     // Every opening starts from the work as it is now
     setValues(current());
+    setBasis(work.fingerprint);
     setOpen(true);
   }
 
@@ -84,7 +91,10 @@ export function WorkEditDialog({
   const [wasOpen, setWasOpen] = useState(open);
   if (open !== wasOpen) {
     setWasOpen(open);
-    if (isControlled && open) setValues(current());
+    if (isControlled && open) {
+      setValues(current());
+      setBasis(work.fingerprint);
+    }
   }
 
   function handleSubmit() {
@@ -96,7 +106,7 @@ export function WorkEditDialog({
 
     startTransition(async () => {
       try {
-        const result = await updateWork(work.id, payload.input);
+        const result = await updateWork(work.id, payload.input, basis ?? undefined);
         toast.success("Work updated");
         setOpen(false);
         // A new title or primary author gives the book a new address; the old
@@ -106,7 +116,7 @@ export function WorkEditDialog({
         triggerActivityRefresh();
       } catch (err) {
         toast.error(
-          err instanceof Error ? err.message : "Failed to update work",
+          refusalMessage(err, "Failed to update work"),
         );
       }
     });

@@ -81,6 +81,32 @@ describe("batchedRows", () => {
     expect(rows).toHaveLength(2);
   });
 
+  // SLN-1309: the reading stats compile nothing; the setting rides each request's own transaction
+  it("heads each request of a wave with set local jit = off when its reads ask for it", async () => {
+    conn.execute.mockImplementation(lazy);
+    conn.batch!.mockImplementation(async (queries: { query: unknown }[]) => queries.map((q) => ({ rows: [{ q: q.query }] })));
+    const queries = Array.from({ length: 10 }, (_, i) => sql`select ${i}`);
+    const rows = await Promise.all(queries.map((query) => batchedRows(query, { jit: false })));
+    const text = (q: unknown) => (q as { queryChunks: { value: string[] }[] }).queryChunks.map((c) => c.value?.join("") ?? "").join("");
+    expect(conn.batch!.mock.calls.map((call) => call[0].length)).toEqual([6, 6]);
+    for (const call of conn.batch!.mock.calls) expect(text(call[0][0].query)).toBe("set local jit = off");
+    expect(rows).toEqual(queries.map((q) => [{ q }]));
+  });
+
+  it("sends a lone read without JIT in a batch, so the setting holds for it", async () => {
+    conn.execute.mockImplementation(lazy);
+    conn.batch!.mockImplementation(async (queries: unknown[]) => queries.map((_, i) => ({ rows: [{ n: i }] })));
+    expect(await batchedRows(sql`select 1`, { jit: false })).toEqual([{ n: 1 }]);
+    expect(conn.batch!.mock.calls[0][0]).toHaveLength(2);
+  });
+
+  it("leaves JIT alone for reads that don't ask", async () => {
+    conn.execute.mockImplementation(lazy);
+    conn.batch!.mockImplementation(async (queries: unknown[]) => queries.map(() => ({ rows: [] })));
+    await Promise.all([batchedRows(sql`select 1`), batchedRows(sql`select 2`)]);
+    expect(conn.batch!.mock.calls[0][0]).toHaveLength(2);
+  });
+
   it("fails every read of a batch that fails", async () => {
     conn.execute.mockImplementation(lazy);
     conn.batch!.mockRejectedValue(new Error("connection lost"));

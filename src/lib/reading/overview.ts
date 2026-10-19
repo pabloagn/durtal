@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 import { resultRows } from "@/lib/harmonization/store";
 import { ExpectedActionError } from "@/lib/actions/expected-error";
 import { readingOrdinalSql } from "./summary";
-import type { Reading } from "./service";
+import { cleanReview, type Reading } from "./service";
 import { BOOK_HISTORY_LIMIT, READING_CHOICE_PAGE_SIZE, type BookReadingSummary, type ReadingStartDefaults, type ReadingChoicePage, type ReadingChoice } from "./overview-types";
 
 /** A complete mutation row, enriched only after the bounded IDs are chosen. */
@@ -52,7 +52,7 @@ function camelReading(raw: Record<string, unknown>): Reading {
   const row: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(raw)) row[key.replace(/_([a-z])/g, (_, c: string) => c.toUpperCase())] = value;
   for (const key of ["lastReadAt", "createdAt", "updatedAt"]) if (row[key]) row[key] = new Date(row[key] as string);
-  return row as Reading;
+  return cleanReview(row as Reading);
 }
 
 /** One SQL request: all-history facts, but at most open + four closed + one explicitly requested row are enriched/sent. */

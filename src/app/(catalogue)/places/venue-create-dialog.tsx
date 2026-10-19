@@ -1,5 +1,6 @@
 "use client";
 
+import { RequiredNameHint } from "@/components/shared/required-name-hint";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
@@ -11,8 +12,9 @@ import { Select } from "@/components/ui/select";
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { GooglePlacesSearch } from "@/components/venues/google-places-search";
 import type { GooglePlaceResult } from "@/components/venues/google-places-search";
-import { createVenue, updateVenue } from "@/lib/actions/venues";
 import { VENUE_TYPES, VENUE_TYPE_LABELS, type VenueType } from "@/lib/catalogue/venues";
+import { createVenue, updateVenue } from "@/lib/actions/catalogue-client";
+import { refusalMessage } from "@/lib/actions/refusal";
 import { shortcutProps } from "@/lib/shortcuts/shortcuts";
 
 const VENUE_TYPE_OPTIONS = VENUE_TYPES.map(value => ({ value, label: VENUE_TYPE_LABELS[value] }));
@@ -191,7 +193,7 @@ export function VenueCreateDialog({
         router.refresh();
       } catch (err) {
         toast.error(
-          err instanceof Error ? err.message : venue ? "Could not save the venue" : "Failed to create venue",
+          refusalMessage(err, venue ? "Could not save the venue" : "Failed to create venue"),
         );
       }
     });
@@ -398,6 +400,7 @@ export function VenueCreateDialog({
         </div>
 
         <DialogFooter>
+          <RequiredNameHint value={name} message="Give the place a name" />
           <Button data-dismiss=""
             variant="secondary"
             size="sm"

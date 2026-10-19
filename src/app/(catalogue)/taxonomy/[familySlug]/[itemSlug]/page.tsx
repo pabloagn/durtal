@@ -24,6 +24,11 @@ import { CapAligned } from "@/components/shared/cap-aligned";
 import { titleLength } from "@/components/shared/detail-layout";
 import { cardReadingOf } from "@/lib/reading/card";
 import { mediaUrl } from "@/lib/s3/media-url";
+import {
+  storesDescription,
+  taxonomyStorage,
+} from "@/lib/catalogue/taxonomy-storage";
+import { TermActions } from "./term-actions";
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -37,12 +42,38 @@ const FILTER_KEYS: Record<string, string> = {
   "painting-techniques": "technique",
   "painting-media": "medium",
   "painting-supports": "support",
+  "art-movements": "movement",
 };
 const DEFAULT_KEYS: Partial<Record<WorkKind, string>> = {
   perfume: "family",
   film: "genre",
   painting: "genre",
 };
+/** "films, perfumes and paintings" */
+function wordList(words: string[], last: "and" | "or") {
+  return words.length > 1
+    ? `${words.slice(0, -1).join(", ")} ${last} ${words.at(-1)}`
+    : (words[0] ?? "");
+}
+
+/**
+ * Where nothing is tagged yet: what the family tags, in the catalogue's
+ * words, and where to tag it (SLN-816, SLN-1157). Book genres and tags are
+ * chosen in the edition form; no editor tags an edition with a custom family.
+ */
+function emptyDescription(
+  family: { entityLevel: string; isSystem: boolean },
+  kinds: WorkKind[],
+  name: string,
+) {
+  if (family.entityLevel === "edition")
+    return family.isSystem
+      ? `No book edition is tagged ${name} yet. Choose it under Genres & tags when you edit an edition.`
+      : `No book edition is tagged ${name} yet.`;
+  const nouns = kinds.map((kind) => WORK_DOMAINS[kind].label.toLowerCase());
+  return `No ${wordList(nouns, "or")} is tagged ${name} yet. Tag one from its page.`;
+}
+
 function filteredListHref(kind: WorkKind, familySlug: string, itemId: string) {
   const key = FILTER_KEYS[familySlug] ?? DEFAULT_KEYS[kind] ?? "genre";
   return `${WORK_DOMAINS[kind].basePath}?${key}=${itemId}`;
@@ -85,6 +116,16 @@ async function ItemContent({
     paging.page,
   );
   const entityCount = item.direct;
+  // Books show as cards; every other kind links to its list, filtered
+  const others =
+    family.entityLevel === "work"
+      ? item.kindCounts.filter(({ kind, count }) => kind !== "book" && count > 0)
+      : [];
+  const othersList = wordList(
+    others.map(({ kind }) => WORK_DOMAINS[kind].pluralLabel.toLowerCase()),
+    "and",
+  );
+  const othersTitle = othersList.charAt(0).toUpperCase() + othersList.slice(1);
 
   return (
     <div>
@@ -126,8 +167,9 @@ async function ItemContent({
         </span>
       </nav>
 
-      {/* Item header */}
-      <div className="mb-8">
+      {/* Item header, with Edit on its right as the family page has it */}
+      <div className="mb-8 flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
+        <div className="min-w-0">
         {/* The name steps down on a phone like every record title, its
             colour on the first line's cap height (SLN-877) */}
         <div
@@ -166,6 +208,24 @@ async function ItemContent({
               {new Date(item.createdAt as string | Date).toLocaleDateString()}
             </span>
           )}
+        </div>
+        </div>
+        <div className="shrink-0">
+          <TermActions
+            item={{
+              id: item.id,
+              name: item.name,
+              slug: item.slug,
+              color: item.color,
+              parentId: item.parentId,
+            }}
+            family={{
+              slug: family.slug,
+              name: family.name,
+              hierarchical: family.hierarchical,
+              describable: storesDescription(taxonomyStorage(family)),
+            }}
+          />
         </div>
       </div>
 
@@ -211,10 +271,12 @@ async function ItemContent({
             title={
               family.entityLevel === "edition"
                 ? "Books with associated editions"
-                : "Associated works"
+                : others.length > 0
+                  ? "Books"
+                  : "Associated works"
             }
           />
-          <PaginatedSection {...paging} noun="works" hideSingleSummary>
+          <PaginatedSection {...paging} noun={others.length > 0 ? "books" : "works"} hideSingleSummary>
             <div className="@container">
               <div className="catalogue-grid catalogue-density-compact">
                 {entityWorks.map((work) => {
@@ -278,26 +340,26 @@ async function ItemContent({
         </div>
       )}
 
-      {family.entityLevel === "work" && !books && entityCount > 0 && (
-        <div>
-          <SectionHeading title="Associated works" />
+      {others.length > 0 && (
+        <div className={entityWorks.length > 0 ? "mt-8" : undefined}>
+          <SectionHeading
+            title={entityWorks.length > 0 ? othersTitle : "Associated works"}
+          />
           <ul className="space-y-2 text-sm" data-item-kinds="">
-            {item.kindCounts
-              .filter(({ count }) => count > 0)
-              .map(({ kind, count }) => (
-                <li key={kind}>
-                  <Link
-                    href={filteredListHref(kind, family.slug, item.id)}
-                    className="text-command touch-hit"
-                  >
-                    {count.toLocaleString("en-US")}{" "}
-                    {(count === 1
-                      ? WORK_DOMAINS[kind].label
-                      : WORK_DOMAINS[kind].pluralLabel
-                    ).toLowerCase()}
-                  </Link>
-                </li>
-              ))}
+            {others.map(({ kind, count }) => (
+              <li key={kind}>
+                <Link
+                  href={filteredListHref(kind, family.slug, item.id)}
+                  className="text-command touch-hit"
+                >
+                  {count.toLocaleString("en-US")}{" "}
+                  {(count === 1
+                    ? WORK_DOMAINS[kind].label
+                    : WORK_DOMAINS[kind].pluralLabel
+                  ).toLowerCase()}
+                </Link>
+              </li>
+            ))}
           </ul>
         </div>
       )}
@@ -307,11 +369,7 @@ async function ItemContent({
         <EmptyState
           icon={Tag}
           title="Nothing tagged yet"
-          description={
-            family.entityLevel === "work"
-              ? `No book, film, perfume or painting is tagged ${item.name} yet. Tag one from its page.`
-              : `No edition is tagged ${item.name} yet.`
-          }
+          description={emptyDescription(family, item.kinds, item.name)}
         />
       )}
     </div>

@@ -1,5 +1,6 @@
 "use client";
 
+import { RequiredNameHint } from "@/components/shared/required-name-hint";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ExternalLink, Plus, Trash2 } from "lucide-react";
@@ -10,8 +11,9 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { SectionHeading } from "@/components/shared/section-heading";
 import { CapAligned } from "@/components/shared/cap-aligned";
-import { citeSource, deleteCitedSource } from "@/lib/actions/catalogue-provenance";
 import type { SourceOwner } from "@/lib/catalogue/provenance";
+import { citeSource, deleteCitedSource } from "@/lib/actions/catalogue-client";
+import { refusalMessage } from "@/lib/actions/refusal";
 
 export interface SourceView {
   id: string;
@@ -66,7 +68,7 @@ export function SourcesSection({
         action={
           <div className="flex items-center gap-2">
             {lookup}
-            <Button variant="ghost" size="sm" onClick={() => setAdding(true)}>
+            <Button variant="ghost" size="sm" onClick={() => setAdding(true)} data-focus-empty="sources">
               <Plus className="h-3.5 w-3.5" strokeWidth={1.5} />
               Add source
             </Button>
@@ -76,9 +78,9 @@ export function SourcesSection({
       {sources.length === 0 ? (
         <p className="text-sm text-fg-secondary">No sources recorded</p>
       ) : (
-        <ul className="space-y-1.5">
+        <ul className="space-y-1.5" data-focus-list="sources">
           {sources.map((source) => (
-            <li key={source.id} className="flex items-start gap-3 text-sm">
+            <li key={source.id} data-focus-row="" className="flex items-start gap-3 text-sm">
               <div className="min-w-0 flex-1">
                 <p className="flex items-start gap-1.5 text-fg-primary">
                   {source.url ? (
@@ -106,25 +108,29 @@ export function SourcesSection({
                 </p>
               </div>
               {source.removable ? (
-                <CapAligned height={20}>
+                // 44px on touch, on the same line's center
+                <CapAligned height={20} coarseHeight={44}>
                   <button
                     type="button"
                     aria-label={`Remove ${source.attribution ?? "source"}`}
                     data-tooltip="Remove source"
-                    disabled={removing === source.id}
+                    // Busy, not disabled, so the focus stays on it until its
+                    // row goes (FocusKeeper)
+                    aria-disabled={removing === source.id || undefined}
                     onClick={async () => {
+                      if (removing) return;
                       setRemoving(source.id);
                       try {
                         await deleteCitedSource(source.id);
                         toast.success("Source removed");
                         router.refresh();
                       } catch (err) {
-                        toast.error(err instanceof Error ? err.message : "Could not remove the source");
+                        toast.error(refusalMessage(err, "Could not remove the source"));
                       } finally {
                         setRemoving(null);
                       }
                     }}
-                    className="flex h-5 w-5 items-center justify-center rounded-sm text-fg-muted transition-colors hover:text-accent-red-text"
+                    className="flex h-5 w-5 items-center justify-center rounded-sm text-fg-muted transition-colors hover:text-accent-red-text pointer-coarse:size-11"
                   >
                     <Trash2 className="h-3.5 w-3.5" strokeWidth={1.5} />
                   </button>
@@ -192,7 +198,11 @@ function SourceForm({
         maxLength={2000}
         placeholder={examples.says}
       />
-      <div className="flex justify-end gap-2">
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <RequiredNameHint value={attribution} message="Name the source to save" />
+        {attribution.trim() && validUrl && (!day || day > today()) && (
+          <p className="mr-auto text-xs text-fg-secondary">Give the day you consulted it, today or earlier</p>
+        )}
         <Button data-dismiss="" variant="ghost" onClick={onDone} disabled={saving}>
           Cancel
         </Button>
@@ -216,7 +226,7 @@ function SourceForm({
               onDone();
               router.refresh();
             } catch (err) {
-              toast.error(err instanceof Error ? err.message : "Could not add the source");
+              toast.error(refusalMessage(err, "Could not add the source"));
               setSaving(false);
             }
           }}

@@ -14,5 +14,8 @@ it("a taxonomy item with nothing tagged names what can be tagged, not entities",
   const page = read("taxonomy/[familySlug]/[itemSlug]/page.tsx");
   expect(page).not.toContain("No associated entities");
   expect(page).toContain('title="Nothing tagged yet"');
-  expect(page).toContain("No book, film, perfume or painting is tagged ${item.name} yet. Tag one from its page.");
+  // Only the kinds the family applies to, and where to tag one (SLN-1157)
+  expect(page).not.toContain("No book, film, perfume or painting is tagged");
+  expect(page).toContain("is tagged ${name} yet. Tag one from its page.");
+  expect(page).toContain("Choose it under Genres & tags when you edit an edition.");
 });

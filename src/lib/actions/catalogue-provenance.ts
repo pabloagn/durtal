@@ -1,5 +1,6 @@
 "use server";
 
+import { ExpectedActionError } from "@/lib/actions/expected-error";
 import { createHash, randomUUID } from "node:crypto";
 import { z } from "zod";
 import { and, desc, eq, sql } from "drizzle-orm";
@@ -58,7 +59,7 @@ export async function registerCatalogueIdentifier(
     })
     .returning();
   if (!row)
-    throw new Error(
+    throw new ExpectedActionError(
       "This provider identifier already belongs to another catalogue record",
     );
   return row;
@@ -84,7 +85,7 @@ const observationSchema = z
 function observationPayload(payload: Record<string, unknown>) {
   const json = stableStringify(payload);
   if (Buffer.byteLength(json, "utf8") > 1_000_000)
-    throw new Error("A source observation must be at most 1 MB");
+    throw new ExpectedActionError("A source observation must be at most 1 MB");
   return {
     payload,
     payloadHash: createHash("sha256").update(json).digest("hex"),
@@ -132,7 +133,7 @@ export async function citeSource(input: z.input<typeof citationSchema>) {
   // A user's "today" can be up to 14 hours ahead of UTC
   const now = Date.now();
   if (retrievedAt.getTime() > now + 14 * 3600_000)
-    throw new Error("The day consulted cannot be in the future");
+    throw new ExpectedActionError("The day consulted cannot be in the future");
   const host = v.url
     ? new URL(v.url).hostname.toLowerCase().replace(/^www\./, "")
     : null;
@@ -165,7 +166,7 @@ export async function deleteCitedSource(id: string) {
         .returning({ id: sourceRecords.id }),
     { reference: "A record still cites this source; choose another source there first" },
   );
-  if (!row) throw new Error("Only an unlocked source you cited can be removed");
+  if (!row) throw new ExpectedActionError("Only an unlocked source you cited can be removed");
   return row;
 }
 
@@ -184,7 +185,7 @@ export async function refreshSourceObservation(
   const previous = await db.query.sourceRecords.findFirst({
     where: eq(sourceRecords.id, parsed.id),
   });
-  if (!previous) throw new Error("Source observation not found");
+  if (!previous) throw new ExpectedActionError("Source observation not found");
   const id = randomUUID();
   await atomic((d) => [
     d.execute(
@@ -240,7 +241,7 @@ export async function reviewSourceObservation(
     )
     .returning();
   if (!row)
-    throw new Error(
+    throw new ExpectedActionError(
       "Source observation changed or no longer exists; reload before reviewing",
     );
   return row;
