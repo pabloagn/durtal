@@ -33,6 +33,7 @@ import { LIST_PREFERENCES } from "@/lib/preferences";
 import { enumLabel } from "@/lib/utils/labels";
 import { formatPersonRoles, type PersonRole } from "@/lib/catalogue/person-roles";
 import type { WorkKind } from "@/lib/catalogue/kinds";
+import { lifeDates } from "@/lib/utils/format";
 
 const AuthorsMap = dynamic(
   () =>
@@ -68,6 +69,8 @@ export interface AuthorItem {
   nationality: string | null;
   birthYear: number | null;
   deathYear: number | null;
+  birthYearIsApproximate: boolean | null;
+  deathYearIsApproximate: boolean | null;
   gender: string | null;
   photoUrl: string | null;
   posterCrop: PosterCrop | null;
@@ -142,9 +145,7 @@ function renderAuthorCell(author: AuthorItem, key: string, filteredRoles: string
         "—"
       );
     case "years":
-      return author.birthYear
-        ? `${author.birthYear}–${author.deathYear ?? ""}`
-        : "—";
+      return lifeDates(author) ?? "—";
     case "worksCount":
       return author.worksCount;
     case "roles":
@@ -330,6 +331,8 @@ export function AuthorsShell({
                 nationality={a.nationality}
                 birthYear={a.birthYear}
                 deathYear={a.deathYear}
+                birthYearIsApproximate={a.birthYearIsApproximate}
+                deathYearIsApproximate={a.deathYearIsApproximate}
                 photoUrl={a.photoUrl}
                 posterCrop={a.posterCrop}
                 photoTone={a.photoTone}
@@ -386,6 +389,8 @@ export function AuthorsShell({
               nationality={a.nationality}
               birthYear={a.birthYear}
               deathYear={a.deathYear}
+              birthYearIsApproximate={a.birthYearIsApproximate}
+              deathYearIsApproximate={a.deathYearIsApproximate}
               photoUrl={a.photoUrl}
               posterCrop={a.posterCrop}
               worksCount={a.booksCount}

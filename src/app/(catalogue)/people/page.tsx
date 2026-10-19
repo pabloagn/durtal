@@ -170,6 +170,8 @@ async function AuthorsContent({
       nationality: countryDisplayName(a.country),
       birthYear: a.birthYear,
       deathYear: a.deathYear,
+      birthYearIsApproximate: a.birthYearIsApproximate,
+      deathYearIsApproximate: a.deathYearIsApproximate,
       gender: a.gender,
       photoUrl: photoKey
         ? mediaUrl(photoKey)

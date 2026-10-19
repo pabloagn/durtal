@@ -18,6 +18,8 @@ export interface AuthorMapPoint {
   posterUrl: string | null;
   birthYear: number | null;
   deathYear: number | null;
+  birthYearIsApproximate: boolean | null;
+  deathYearIsApproximate: boolean | null;
   /** ISO 3166-1 alpha-2 code of the author's nationality */
   nationalityCode: string | null;
   nationalityName: string | null;
@@ -86,6 +88,8 @@ export async function getAuthorsForMap(opts?: {
       slug: true,
       birthYear: true,
       deathYear: true,
+      birthYearIsApproximate: true,
+      deathYearIsApproximate: true,
       nationalityId: true,
       birthPlaceId: true,
     },
@@ -140,6 +144,8 @@ export async function getAuthorsForMap(opts?: {
         : null,
       birthYear: row.birthYear ?? null,
       deathYear: row.deathYear ?? null,
+      birthYearIsApproximate: row.birthYearIsApproximate,
+      deathYearIsApproximate: row.deathYearIsApproximate,
       nationalityCode: row.country?.alpha2 ?? null,
       nationalityName: row.country?.name ?? null,
     });

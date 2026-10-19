@@ -2,6 +2,8 @@
  * Display formatting utilities for the Durtal book catalogue.
  */
 
+import { displayYear } from "./years";
+
 /**
  * Format a file size in bytes to a human-readable string.
  * e.g. 2_400_000 -> "2.4 MB"
@@ -96,4 +98,55 @@ export function ebooksAvailableText(count: number): string {
 /** A count and its noun in the right form, thousands grouped: "1 book", "1,107 books", "2 copies" */
 export function countLabel(count: number, one: string, many = `${one}s`): string {
   return `${count.toLocaleString("en")} ${count === 1 ? one : many}`;
+}
+
+/** A person's years, from the authors table: approximate years read "c." */
+export interface LifeYears {
+  birthYear?: number | null;
+  deathYear?: number | null;
+  birthYearIsApproximate?: boolean | null;
+  deathYearIsApproximate?: boolean | null;
+}
+
+const lifeYear = (year: number, approximate?: boolean | null) =>
+  `${approximate ? "c. " : ""}${displayYear(year)}`;
+
+/**
+ * A person's life dates, the same on their page, the cards, the rows, the
+ * map and the timeline (SLN-1006): "1848–1907", "b. 1950" for the living,
+ * "d. 1890" when only the death is known, "c. 1450–1500"; null with neither.
+ */
+export function lifeDates(person: LifeYears): string | null {
+  const { birthYear, deathYear } = person;
+  if (birthYear != null && deathYear != null)
+    return `${lifeYear(birthYear, person.birthYearIsApproximate)}–${lifeYear(deathYear, person.deathYearIsApproximate)}`;
+  if (birthYear != null) return `b. ${lifeYear(birthYear, person.birthYearIsApproximate)}`;
+  if (deathYear != null) return `d. ${lifeYear(deathYear, person.deathYearIsApproximate)}`;
+  return null;
+}
+
+const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+/**
+ * A birth or death as the person page's Born and Died lines say it, as
+ * precise as it is known: "5 February 1848, Paris", "May 1907", "c. 1450",
+ * "Paris"; null when nothing is known.
+ */
+export function lifeEvent(event: {
+  year?: number | null;
+  month?: number | null;
+  day?: number | null;
+  approximate?: boolean | null;
+  place?: string | null;
+}): string | null {
+  let when: string | null = null;
+  if (event.year != null) {
+    const month = event.month && event.month >= 1 && event.month <= 12 ? MONTHS[event.month - 1] : null;
+    // A day or month on an approximate year would claim more than is known
+    when = month && !event.approximate
+      ? `${event.day ? `${event.day} ` : ""}${month} ${displayYear(event.year)}`
+      : lifeYear(event.year, event.approximate);
+  }
+  const parts = [when, event.place?.trim() || null].filter(Boolean);
+  return parts.length ? parts.join(", ") : null;
 }

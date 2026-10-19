@@ -501,6 +501,8 @@ export async function getAuthorBySlug(slug: string) {
     where: eq(authors.slug, slug),
     with: {
       country: { columns: { id: true, name: true, alpha2: true } },
+      birthPlace: { columns: { id: true, name: true } },
+      deathPlace: { columns: { id: true, name: true } },
       editionContributors: {
         with: {
           edition: {

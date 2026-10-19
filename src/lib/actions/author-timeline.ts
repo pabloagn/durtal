@@ -19,6 +19,8 @@ export interface AuthorTimelineItem {
   name: string;
   birthYear: number;
   deathYear: number | null;
+  birthYearIsApproximate: boolean | null;
+  deathYearIsApproximate: boolean | null;
   nationality: string | null;
   posterUrl: string | null;
   posterCrop: MediaCrop | null;
@@ -80,6 +82,8 @@ export async function getAuthorsForTimeline(opts?: {
       slug: true,
       birthYear: true,
       deathYear: true,
+      birthYearIsApproximate: true,
+      deathYearIsApproximate: true,
     },
   });
 
@@ -103,6 +107,8 @@ export async function getAuthorsForTimeline(opts?: {
       name: row.name,
       birthYear,
       deathYear: row.deathYear ?? null,
+      birthYearIsApproximate: row.birthYearIsApproximate,
+      deathYearIsApproximate: row.deathYearIsApproximate,
       nationality: countryDisplayName(row.country),
       posterUrl: photoKey
         ? mediaUrl(photoKey)
