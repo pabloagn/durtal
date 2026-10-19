@@ -31,6 +31,8 @@ export const permanentResetGuards = {
  * the genuine migration chain. Permanent history is never deleted or truncated:
  * each test receives a newly created schema with every production guard enabled.
  * Persistent test pools must use prepare:false across these schema replacements.
+ * Under test-local.py the database is instead replaced by a copy of a template
+ * that run migrated once (SLN-1196); a suite run on its own migrates as before.
  */
 export async function resetDisposableDatabase(
   url: string,
@@ -38,6 +40,25 @@ export async function resetDisposableDatabase(
   options: { emptyLocations?: boolean; activateKinds?: boolean } = {},
 ) {
   requireDisposableDatabaseUrl(url, database);
+  // A migrated template (test-local.py makes it once per run): replace the
+  // database with a copy of it, about 0.1 s instead of the 1.8 s chain.
+  // Open pools reconnect on their next query.
+  const template = process.env.DURTAL_TEST_TEMPLATE_DATABASE;
+  if (template) {
+    if (!/^sln0_[a-z_]+$/.test(template)) throw new Error(`Unexpected template ${template}`);
+    const admin = postgres(Object.assign(new URL(url), { pathname: "/postgres" }).href, {
+      max: 1, prepare: false, onnotice: () => {}, connect_timeout: 5,
+    });
+    try {
+      const [target] = await admin<{ owned: boolean }[]>`
+        select pg_get_userbyid(datdba) = current_user as owned from pg_database where datname = ${database}`;
+      if (!target?.owned) throw new Error(`Refusing reset of a database not owned by this test: ${database}`);
+      await admin.unsafe(`drop database "${database}" with (force)`);
+      await admin.unsafe(`create database "${database}" template "${template}"`);
+    } finally {
+      await admin.end({ timeout: 5 });
+    }
+  }
   // Keep migrations away from bare-SQL/Neon bridge clients' JSON serializers.
   const client = postgres(url, {
     max: 1, prepare: false, onnotice: () => {}, connect_timeout: 5,
@@ -51,12 +72,14 @@ export async function resetDisposableDatabase(
     `;
     if (target?.database !== database || !target.owned)
       throw new Error(`Refusing reset of a database not owned by this test: ${database}`);
-    await client.begin(async (tx) => {
-      await tx.unsafe("DROP SCHEMA IF EXISTS drizzle CASCADE");
-      await tx.unsafe("DROP SCHEMA IF EXISTS public CASCADE");
-      await tx.unsafe("CREATE SCHEMA public");
-    });
-    await migrate(drizzle(client), { migrationsFolder: "src/lib/db/migrations" });
+    if (!template) {
+      await client.begin(async (tx) => {
+        await tx.unsafe("DROP SCHEMA IF EXISTS drizzle CASCADE");
+        await tx.unsafe("DROP SCHEMA IF EXISTS public CASCADE");
+        await tx.unsafe("CREATE SCHEMA public");
+      });
+      await migrate(drizzle(client), { migrationsFolder: "src/lib/db/migrations" });
+    }
     const guards = await client<{ name: string; mode: string }[]>`
       select tgname as name, tgenabled::text as mode from pg_trigger
       join pg_class on pg_class.oid = tgrelid

@@ -1,5 +1,6 @@
 "use client";
 
+import { RequiredNameHint } from "@/components/shared/required-name-hint";
 import { useId, useState, type FormEvent } from "react";
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -73,6 +74,10 @@ export function CreateFamilyDialog({
             <p role="alert" className="basis-full text-xs text-accent-red-text">
               {error}
             </p>
+          )}
+          <RequiredNameHint value={value.name} message="Give the family a name" />
+          {value.name.trim() && !value.scopes.length && (
+            <p className="mr-auto text-xs text-fg-secondary">Choose at least one place this family applies</p>
           )}
           <Button data-dismiss="" type="button" variant="ghost" size="sm" onClick={onClose}>
             Cancel

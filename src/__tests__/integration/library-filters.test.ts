@@ -16,7 +16,7 @@ if (url) {
 // Each query the app sends, while a test listens
 let debugHook: ((query: string) => void) | null = null;
 const client = url
-  ? postgres(url, { prepare: false, max: 4, onnotice: () => {}, debug: (_connection, query) => debugHook?.(query) })
+  ? postgres(url, { prepare: false, max: 4, fetch_types: false, onnotice: () => {}, debug: (_connection, query) => debugHook?.(query) })
   : null;
 const testDb = client ? drizzle(client, { schema }) : null;
 vi.mock("@/lib/db", () => ({

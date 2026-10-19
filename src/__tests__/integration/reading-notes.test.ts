@@ -46,7 +46,7 @@ import {
   toggleNoteFavourite,
   updateReadingNote,
 } from "@/lib/actions/reading-notes";
-import { deleteReading, getReadingCounts, restoreReading, startReading } from "@/lib/actions/reading";
+import { deleteReading, getBookReadingOverview, getReadingCounts, restoreReading, startReading } from "@/lib/actions/reading";
 import { deleteEdition, updateEdition } from "@/lib/actions/editions";
 import { deleteWork } from "@/lib/actions/works";
 import { moveToExistingEdition } from "@/lib/actions/identify";
@@ -221,6 +221,34 @@ describe.skipIf(!url)("quotes and notes with PostgreSQL", () => {
       // An empty thought is no thought
       const empty = await createReadingNote({ workId: a, kind: "quote", body: "Q", commentHtml: "<p></p>", commentJson: { type: "doc" } });
       expect(empty.commentHtml).toBeNull();
+    });
+
+    it("sanitizes a thought or a review that comes back by Undo, and on the way out (SLN-1239)", async () => {
+      const a = await book("Nadja");
+      const unsafe = `<p>Mine<img src="x" onerror="alert(1)"></p>`;
+      const quote = await createReadingNote({ workId: a, kind: "quote", body: "Q", commentHtml: "<p>Mine</p>", commentJson: { type: "doc" } });
+      const snapshot = JSON.parse(JSON.stringify(await deleteReadingNote({ id: quote.id })));
+      const back = await restoreReadingNote({ ...snapshot, commentHtml: unsafe });
+      expect(back.commentHtml).toBe(`<p>Mine<img src="x" /></p>`);
+      expect(await value(`select comment_html from reading_notes where id = $1`, [quote.id])).toBe(`<p>Mine<img src="x" /></p>`);
+
+      const readingId = await finished(a);
+      const deleted = JSON.parse(JSON.stringify(await deleteReading({ readingId, fingerprint: await fp(readingId) })));
+      // A snapshot can't name a column a reading doesn't have, nor a value it never takes
+      await expect(restoreReading({ ...deleted, reading: { ...deleted.reading, status: "burnt" } })).rejects.toThrow();
+      await expect(
+        restoreReading({ ...deleted, history: [{ id: crypto.randomUUID(), readingId: crypto.randomUUID(), fromStatus: null, toStatus: "reading", changedAt: null, notes: null }] }),
+      ).rejects.toThrow("These sessions belong to another reading");
+      await restoreReading({ ...deleted, reading: { ...deleted.reading, reviewHtml: unsafe, fingerprint: "x", searchText: "y" } });
+      expect(await value(`select review_html from readings where id = $1`, [readingId])).toBe(`<p>Mine<img src="x" /></p>`);
+
+      // A row stored before every write sanitized reads back clean
+      await q(`update reading_notes set comment_html = $2 where id = $1`, [quote.id, unsafe]);
+      await q(`update readings set review_html = $2 where id = $1`, [readingId, unsafe]);
+      expect((await getNotesForWork(a)).find((n) => n.id === quote.id)!.commentHtml).toBe(`<p>Mine<img src="x" /></p>`);
+      expect((await loadReading(readingId))!.reviewHtml).toBe(`<p>Mine<img src="x" /></p>`);
+      expect((await getBookReadingOverview(a)).rows[0].reading.reviewHtml).toBe(`<p>Mine<img src="x" /></p>`);
+      expect((await searchNotes({})).items.find((n) => n.id === quote.id)!.commentHtml).toBe(`<p>Mine<img src="x" /></p>`);
     });
 
     it("records one notes event per book per reading day", async () => {
