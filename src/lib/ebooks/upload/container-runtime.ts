@@ -6,6 +6,17 @@ import { INSPECTOR_COMMAND, INSPECTOR_LABEL, INSPECTOR_PROTOCOL, inspectorCreate
   sourcePath, requestPath, validateInspectorIdentity, validateRuntimeConfig, requireUuid, requireSha256, requireInspectorImage, type InspectorIdentity, type InspectorRuntimeConfig } from "./runtime-contract";
 
 export interface CommandResult { stdout: string; stderr: string; exitCode: number }
+
+/**
+ * Why the worker stopped, for the service log: its state, its exit and the
+ * start of what it wrote to stderr, on one line. Control, format and bidi
+ * characters go, so a file being checked cannot shape the log line.
+ */
+export function inspectorFailureDetail(state: { status: string; exitCode: number; oomKilled: boolean }, attach: number, stderr: string): string {
+  const said = stderr.replace(/[\s\p{Cc}\p{Cf}]+/gu, " ").trim().slice(0, 512);
+  const how = [`${state.status}, exit ${state.exitCode}`, ...(state.oomKilled ? ["out of memory"] : []), ...(attach !== 0 ? [`docker ${attach}`] : [])];
+  return ` (${how.join(", ")})${said ? `: ${said}` : ""}`;
+}
 export interface RuntimeCommands {
   run(args: readonly string[], options?: { signal?: AbortSignal; timeoutMs?: number; outputBytes?: number; onStdout?: (chunk: Uint8Array) => void }): Promise<CommandResult>;
 }
@@ -242,7 +253,7 @@ export class OwnedInspectorRuntime {
       combined.throwIfAborted();
       const after = await this.inspect(identity);
       if (response.exitCode !== 0 || after.status !== "exited" || after.exitCode !== 0 || after.oomKilled || response.stderr)
-        throw new Error("Inspector did not complete successfully");
+        throw new Error(`Inspector did not complete successfully${inspectorFailureDetail(after, response.exitCode, response.stderr)}`);
       return protocol.finish();
     } finally { clearTimeout(pdfTimer); }
   }
