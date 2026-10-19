@@ -1174,6 +1174,13 @@ dialog::backdrop {
   pointer-events: none;
 }
 
+/* A cover whose long-press opens its menu, and a control whose long-press
+   shows its tooltip: no iOS link preview beside them (SLN-1150) */
+[data-long-press],
+[data-tooltip] {
+  -webkit-touch-callout: none;
+}
+
 /* ── Tiptap comment editor + rendered content ────────────────────────── */
 .tiptap-content p {
   margin-bottom: 0.5em;

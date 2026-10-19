@@ -25,10 +25,11 @@ export function LibraryHeader({
             href="/library/identify"
             className={`${buttonClass("ghost", "sm")} whitespace-nowrap`}
             aria-label="Identify editions"
+            data-tooltip="Identify editions"
           >
             <ListChecks className="h-3.5 w-3.5" strokeWidth={1.5} />
             {/* On a phone the icon alone, so the title and both actions share a row */}
-            <span className="max-sm:hidden">Identify editions</span>
+            <span className="max-sm:hidden" data-tooltip-label="">Identify editions</span>
           </Link>
           <DomainAddLink kind="book" />
         </>

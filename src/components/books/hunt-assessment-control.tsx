@@ -10,7 +10,7 @@ import {
   type HuntAssessmentInput,
 } from "@/lib/validations/hunting";
 import { MARKS } from "@/lib/constants/marks";
-import { MarkToggle } from "./mark-toggle";
+import { MarkToggle, confirmMarkOnTouch } from "./mark-toggle";
 import { updateHuntAssessment } from "@/lib/actions/catalogue-client";
 import { refusalMessage } from "@/lib/actions/refusal";
 
@@ -31,7 +31,8 @@ export function HuntAssessmentControl({
     setSaved({ isRare, huntAssessedOn });
   }, [isRare, huntAssessedOn]);
 
-  function save(input: HuntAssessmentInput) {
+  /** `toggled`: from the icon, which says what it did on touch */
+  function save(input: HuntAssessmentInput, toggled = false) {
     const parsed = huntAssessmentSchema.safeParse(input);
     if (!parsed.success) {
       toast.error("Choose a valid date");
@@ -39,7 +40,9 @@ export function HuntAssessmentControl({
     }
     startTransition(async () => {
       try {
-        setSaved(await updateHuntAssessment(workId, parsed.data));
+        const next = await updateHuntAssessment(workId, parsed.data);
+        setSaved(next);
+        if (toggled) confirmMarkOnTouch(MARKS.rare, next.isRare);
         router.refresh();
       } catch (error) {
         toast.error(refusalMessage(error, `Could not update the ${MARKS.rare.label} mark. Try again.`));
@@ -59,6 +62,7 @@ export function HuntAssessmentControl({
           saved.isRare
             ? { isRare: false, huntAssessedOn: null }
             : { isRare: true, huntAssessedOn: localToday() },
+          true,
         )
       }
       date={saved.huntAssessedOn}

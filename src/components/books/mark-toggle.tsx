@@ -6,6 +6,7 @@ import { Check } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { WorkMark } from "@/lib/constants/marks";
 import { localToday } from "@/lib/constants/hunting";
+import { toast } from "@/lib/notifications/toast";
 
 const CARD_WIDTH = 248;
 const OPEN_DELAY = 250;
@@ -31,6 +32,17 @@ const MONTHS = [
 export function formatMarkDate(date: string) {
   const [year, month, day] = date.split("-").map(Number);
   return `${day} ${MONTHS[month - 1]} ${year}`;
+}
+
+/**
+ * On touch, where no hover names the icon, a mark toggled from its icon says
+ * what it did: "Marked as rare", "No longer rare" (SLN-1150). A mouse has the
+ * tooltip and the hover card.
+ */
+export function confirmMarkOnTouch(mark: WorkMark, marked: boolean) {
+  if (!window.matchMedia?.("(pointer: coarse)").matches) return;
+  const name = mark.label.toLowerCase();
+  toast.success(marked ? `Marked as ${name}` : `No longer ${name}`);
 }
 
 /**

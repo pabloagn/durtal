@@ -36,6 +36,18 @@ describe("cover menu gestures", () => {
     act(() => { host.firstElementChild!.dispatchEvent(click); });
     expect(open).toHaveBeenCalledOnce(); expect(click.defaultPrevented).toBe(true);
   });
+  it("cancels the lift that ends a long press, so no mousedown closes the menu it opened (SLN-1150)", () => {
+    pointer("pointerdown"); act(() => { vi.advanceTimersByTime(550); }); pointer("pointerup");
+    const end = new Event("touchend", { bubbles: true, cancelable: true });
+    act(() => { host.firstElementChild!.dispatchEvent(end); });
+    expect(end.defaultPrevented).toBe(true);
+    // A plain tap lifts as usual
+    pointer("pointerdown"); pointer("pointerup");
+    const tap = new Event("touchend", { bubbles: true, cancelable: true });
+    act(() => { host.firstElementChild!.dispatchEvent(tap); });
+    expect(tap.defaultPrevented).toBe(false);
+    expect(host.firstElementChild!.hasAttribute("data-long-press")).toBe(true);
+  });
   it.each(["move", "scroll", "up", "cancel"])("cancels long press on %s", (reason) => {
     pointer("pointerdown");
     if (reason === "move") pointer("pointermove", 20, 0);

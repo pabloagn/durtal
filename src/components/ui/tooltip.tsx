@@ -27,6 +27,9 @@ import { noteTooltipKey, resetTooltipKeys, tooltipKeyMovedAt } from "@/lib/ui/to
  * A control whose label hides where room is short (an icon button there)
  * marks the label `data-tooltip-label`: its tooltip shows only while the
  * label is hidden.
+ *
+ * Touch has no hover: a long-press on a control shows its tooltip, and the
+ * lift then does not press the control (SLN-1150). It fades on its own.
  */
 
 type Side = "top" | "bottom" | "right" | "left";
@@ -41,6 +44,9 @@ interface Tip {
 }
 
 const DELAY = 300;
+/** How long a finger rests on a control to show its tooltip, and how long it shows after */
+const LONG_PRESS = 500;
+const PRESS_SHOWS = 1500;
 const GAP = 6;
 const EDGE = 8;
 const SIDES: Side[] = ["top", "bottom", "right", "left"];
@@ -196,11 +202,57 @@ export function TooltipLayer() {
       show(next, shown.current || performance.now() - closedAt < DELAY ? 0 : DELAY);
     };
     const onPointerOut = (e: PointerEvent) => {
+      // A lifted finger leaves the page: a long-press tooltip fades on its own
+      if (e.pointerType === "touch") return;
       if (!e.relatedTarget) hide();
+    };
+    // A long-press on touch: the press waiting for its time, then the
+    // control whose tooltip it showed, until the finger lifts
+    let press: { x: number; y: number; timer: number } | null = null;
+    let pressed: HTMLElement | null = null;
+    let fade = 0;
+    const endPress = () => {
+      if (press) window.clearTimeout(press.timer);
+      press = null;
     };
     const onPointerDown = (e: PointerEvent) => {
       clicked = tipFor(e.target, false)?.anchor ?? null;
       hide();
+      endPress();
+      window.clearTimeout(fade);
+      pressed = null;
+      if (e.pointerType !== "touch" || !e.isPrimary) return;
+      const next = tipFor(e.target, false);
+      // A control's own tooltip only: cut text shows its whole self on a long-press already
+      if (!next || !(e.target as Element).closest("[data-tooltip]")) return;
+      press = {
+        x: e.clientX,
+        y: e.clientY,
+        timer: window.setTimeout(() => {
+          press = null;
+          pressed = next.anchor;
+          clicked = null;
+          show(next, 0);
+        }, LONG_PRESS),
+      };
+    };
+    const onPointerMove = (e: PointerEvent) => {
+      if (press && Math.hypot(e.clientX - press.x, e.clientY - press.y) > 8) endPress();
+    };
+    // The lift after a long-press presses nothing: the browser sends no click
+    const onTouchEnd = (e: TouchEvent) => {
+      endPress();
+      if (!pressed) return;
+      if (e.cancelable) e.preventDefault();
+      const anchor = pressed;
+      pressed = null;
+      fade = window.setTimeout(() => {
+        if (shown.current?.anchor === anchor) hide();
+      }, PRESS_SHOWS);
+    };
+    // Nor does the system's own long-press menu open over it
+    const onContextMenu = (e: Event) => {
+      if (press || pressed) e.preventDefault();
     };
     const onFocusIn = (e: FocusEvent) => {
       const el = e.target;
@@ -244,6 +296,11 @@ export function TooltipLayer() {
     window.addEventListener("pointerover", onPointerOver);
     document.addEventListener("pointerout", onPointerOut);
     window.addEventListener("pointerdown", onPointerDown, true);
+    window.addEventListener("pointermove", onPointerMove, { passive: true });
+    window.addEventListener("pointerup", endPress);
+    window.addEventListener("pointercancel", endPress);
+    window.addEventListener("touchend", onTouchEnd, { capture: true, passive: false });
+    window.addEventListener("contextmenu", onContextMenu, true);
     window.addEventListener("focusin", onFocusIn);
     window.addEventListener("focusout", onFocusOut);
     // A panel opened from the control (the bell's history) closes its
@@ -264,6 +321,13 @@ export function TooltipLayer() {
     window.addEventListener("resize", hide);
     return () => {
       window.clearTimeout(timer);
+      window.clearTimeout(fade);
+      endPress();
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("pointerup", endPress);
+      window.removeEventListener("pointercancel", endPress);
+      window.removeEventListener("touchend", onTouchEnd, { capture: true });
+      window.removeEventListener("contextmenu", onContextMenu, true);
       window.removeEventListener("pointerover", onPointerOver);
       document.removeEventListener("pointerout", onPointerOut);
       window.removeEventListener("pointerdown", onPointerDown, true);

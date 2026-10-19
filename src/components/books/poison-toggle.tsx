@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Skull } from "lucide-react";
 import { toast } from "@/lib/notifications/toast";
 import { MARKS } from "@/lib/constants/marks";
-import { MarkToggle } from "./mark-toggle";
+import { MarkToggle, confirmMarkOnTouch } from "./mark-toggle";
 import { setPoison } from "@/lib/actions/catalogue-client";
 import { refusalMessage } from "@/lib/actions/refusal";
 
@@ -29,7 +29,9 @@ export function PoisonToggle({
     const next = !marked;
     startTransition(async () => {
       try {
-        setMarked((await setPoison(workId, next)).isPoison);
+        const { isPoison } = await setPoison(workId, next);
+        setMarked(isPoison);
+        confirmMarkOnTouch(MARKS.poison, isPoison);
         router.refresh();
       } catch (error) {
         toast.error(refusalMessage(error, `Could not update the ${MARKS.poison.label} mark. Try again.`));

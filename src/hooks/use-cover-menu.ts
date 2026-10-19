@@ -1,8 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useRef, type MouseEvent, type PointerEvent } from "react";
+import { useCallback, useEffect, useRef, type MouseEvent, type PointerEvent, type TouchEvent } from "react";
 
-/** Context/long-press opens the existing menu; moving or scrolling keeps ordinary touch navigation. */
+/**
+ * Context/long-press opens the existing menu; moving or scrolling keeps ordinary touch navigation.
+ * The lift that ends a long-press is cancelled, so the browser sends no mousedown after it: that
+ * mousedown landed outside the menu and closed it as the finger left (SLN-1150). iOS's own link
+ * preview stays off the cover (`data-long-press`, globals.css).
+ */
 export function useCoverMenu(enabled: boolean, open: () => void) {
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const start = useRef<{ x: number; y: number } | null>(null);
@@ -18,6 +23,7 @@ export function useCoverMenu(enabled: boolean, open: () => void) {
     return cancel;
   }, [cancel, enabled]);
   return {
+    "data-long-press": enabled ? "" : undefined,
     onContextMenu(event: MouseEvent) {
       if (!enabled) return;
       cancel();
@@ -38,6 +44,9 @@ export function useCoverMenu(enabled: boolean, open: () => void) {
       if (start.current && Math.hypot(event.clientX - start.current.x, event.clientY - start.current.y) > 8) cancel();
     },
     onPointerUp: cancel,
+    onTouchEnd(event: TouchEvent) {
+      if (suppressClick.current && event.cancelable) event.preventDefault();
+    },
     onPointerCancel() { cancel(); suppressClick.current = false; },
     onPointerLeave: cancel,
     onClickCapture(event: MouseEvent) {
