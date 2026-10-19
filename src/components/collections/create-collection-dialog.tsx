@@ -11,7 +11,8 @@ import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { createCollection } from "@/lib/actions/collections";
+import { createCollection } from "@/lib/actions/catalogue-client";
+import { refusalMessage } from "@/lib/actions/refusal";
 import { shortcutProps } from "@/lib/shortcuts/shortcuts";
 
 /**
@@ -53,10 +54,8 @@ export function CreateCollectionDialog({
       router.push(`/collections/${collection.id}?add=1`);
       router.refresh();
       toast.success("Collection created");
-    } catch {
-      toast.error(
-        "Could not create the collection. Your details are still here.",
-      );
+    } catch (error) {
+      toast.error(refusalMessage(error, "Could not create the collection. Your details are still here."));
     } finally {
       busy.current = false;
       setSaving(false);

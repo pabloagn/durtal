@@ -18,17 +18,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { MediaManagerDialog } from "@/components/media/media-manager-dialog";
 import { useEditActions } from "@/components/shortcuts/shortcuts-provider";
 import { EDIT_KEYS, editTooltipKeys, shortcutProps } from "@/lib/shortcuts/shortcuts";
-import {
-  updateCollection,
-  deleteCollection,
-  moveCollectionMember,
-  removeEditionFromCollection,
-  removeWorksFromCollection,
-} from "@/lib/actions/collections";
 import { AddCollectionBooksDialog } from "./add-books-dialog";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
 import { collectionDeletedMessage } from "@/lib/collections/counts";
 import type { WorkKind } from "@/lib/catalogue/kinds";
+import { updateCollection, deleteCollection, moveCollectionMember, removeEditionFromCollection, removeWorksFromCollection } from "@/lib/actions/catalogue-client";
+import { refusalMessage } from "@/lib/actions/refusal";
 
 const ADD_EVENT = "durtal:collection-add";
 
@@ -150,8 +145,8 @@ export function CollectionControls({
       setEdit(false);
       router.refresh();
       toast.success("Collection updated");
-    } catch {
-      toast.error("Could not update the collection");
+    } catch (error) {
+      toast.error(refusalMessage(error, "Could not update the collection"));
     } finally {
       pending.current = false;
       setBusy(false);
@@ -169,8 +164,8 @@ export function CollectionControls({
       router.push("/collections");
       router.refresh();
       triggerActivityRefresh();
-    } catch {
-      toast.error("Could not delete the collection");
+    } catch (error) {
+      toast.error(refusalMessage(error, "Could not delete the collection"));
     } finally {
       pending.current = false;
       setBusy(false);
@@ -358,8 +353,8 @@ export function CollectionMemberControls({
       toast.success("Removed from collection. Kept in your library.");
       triggerActivityRefresh();
       router.refresh();
-    } catch {
-      toast.error("Could not update collection");
+    } catch (error) {
+      toast.error(refusalMessage(error, "Could not update collection"));
     } finally {
       pending.current = false;
       setBusy(null);

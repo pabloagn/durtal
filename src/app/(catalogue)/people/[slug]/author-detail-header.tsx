@@ -19,9 +19,10 @@ import { exportActionItems } from "@/components/shared/export-menu";
 import { DetailControls, DetailEditButton, DetailTitleRow } from "@/components/shared/detail-layout";
 import { ProtectedImageWrapper } from "@/components/shared/protected-image";
 import { DeleteConfirmDialog } from "@/app/(catalogue)/library/[slug]/delete-confirm-dialog";
-import { deleteAuthor } from "@/lib/actions/authors";
 import { nationalityFilterHref } from "@/lib/utils/nationality-param";
 import { mediaImageStyle, type MediaCrop } from "@/lib/utils/media-style";
+import { deleteAuthor } from "@/lib/actions/catalogue-client";
+import { refusalMessage } from "@/lib/actions/refusal";
 
 type PosterCrop = MediaCrop;
 
@@ -87,8 +88,8 @@ export function AuthorDetailHeader({
       await deleteAuthor(authorId);
       toast.success("Person deleted");
       router.push("/people");
-    } catch {
-      toast.error("Could not delete the person");
+    } catch (error) {
+      toast.error(refusalMessage(error, "Could not delete the person"));
     }
   }
 

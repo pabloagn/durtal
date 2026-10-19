@@ -105,6 +105,12 @@ outside or a new page closes. The focus is on the active item, so a screen
 reader reads each one, and goes back to where it was when the menu closes. A opens no menu: it
 waits for the key that says what to add (section 2). E and R open only where the page
 registered actions (`useEditActions`, `useReadingActions`).
+After a pick (from a menu, or A then its key), a printable key or Enter that
+comes less than 350ms after the one before is the rest of a typed word, for at
+most 2s (SLN-1190). A letter typed into a field stays there, so a name typed
+straight after N then A is kept; Enter, and a letter that would act on the
+page, are dropped, so the dialog the pick opened is never saved by it. Keys
+typed after a pause act as ever.
 
 ## 2. Global key map and conflicts
 

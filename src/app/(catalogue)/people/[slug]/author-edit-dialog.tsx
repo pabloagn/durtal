@@ -11,8 +11,10 @@ import {
   authorFormValues,
   authorPayload,
 } from "@/components/authors/author-form";
-import { getAuthor, updateAuthor, getCountries } from "@/lib/actions/authors";
+import { getAuthor, getCountries } from "@/lib/actions/authors";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
+import { updateAuthor } from "@/lib/actions/catalogue-client";
+import { refusalMessage } from "@/lib/actions/refusal";
 
 interface AuthorEditDialogProps {
   open: boolean;
@@ -92,7 +94,7 @@ export function AuthorEditDialog({
         triggerActivityRefresh();
       } catch (err) {
         notices.error(
-          err instanceof Error ? err.message : "Could not update the person",
+          refusalMessage(err, "Could not update the person"),
         );
       }
     });

@@ -14,8 +14,8 @@ import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { TitleInput } from "@/components/shared/title-input";
 import { CatalogueDateField } from "@/components/shared/catalogue-date-field";
-import { createPerfume, updatePerfume } from "@/lib/actions/perfumes";
-import { createPerfumeVariant } from "@/lib/actions/catalogue-client";
+import { createPerfumeVariant, createPerfume, updatePerfume } from "@/lib/actions/catalogue-client";
+import { refusalMessage } from "@/lib/actions/refusal";
 import { recordPerfumeEntrySource, type PerfumeSourceReview } from "@/lib/actions/perfume-sources";
 import { SourceLinkField, type SourceLinkState } from "./source-link-field";
 import type { CatalogueDateInput } from "@/lib/catalogue/dates";
@@ -129,7 +129,7 @@ export function PerfumeForm(props: Props) {
           sourceRecordId: "error" in kept ? null : kept.sourceRecordId,
         });
       } catch (err) {
-        toast.error(`The perfume is saved, but not its formulation: ${err instanceof Error ? err.message : "it was refused"}`);
+        toast.error(`The perfume is saved, but not its formulation: ${refusalMessage(err, "it was refused")}`);
       }
     }
   }
@@ -181,7 +181,7 @@ export function PerfumeForm(props: Props) {
         props.onSaved();
       }
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Could not save the perfume";
+      const message = refusalMessage(err, "Could not save the perfume");
       setError(message);
       toast.error(message);
       setSaving(false);

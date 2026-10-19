@@ -8,10 +8,12 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { SectionHeading } from "@/components/shared/section-heading";
-import { getGoalDialogData, removeReadingGoal, setReadingGoal } from "@/lib/actions/reading-goals";
+import { getGoalDialogData } from "@/lib/actions/reading-goals";
 import { GOAL_METRICS, type GoalMetric } from "@/lib/reading/constants";
 import { pastGoalText } from "@/lib/reading/goals";
 import { DialogFooter } from "./dialogs/fields";
+import { removeReadingGoal, setReadingGoal } from "@/lib/actions/catalogue-client";
+import { refusalMessage } from "@/lib/actions/refusal";
 
 type Data = Awaited<ReturnType<typeof getGoalDialogData>>;
 
@@ -90,7 +92,7 @@ export function GoalDialog({ onClose }: { onClose: () => void }) {
       onClose();
       router.refresh();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not save the goals");
+      toast.error(refusalMessage(err, "Could not save the goals"));
     } finally {
       setSaving(false);
     }

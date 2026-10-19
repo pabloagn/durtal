@@ -51,6 +51,19 @@ const ICONS = {
   ),
   // lucide: headphones
   headphones: <path d="M3 14h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a9 9 0 0 1 18 0v7a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3" />,
+  // The marks on a book's cover (CoverMark, SLN-1163)
+  // lucide: gem
+  gem: <path d="M10.5 3 8 9l4 13 4-13-2.5-6M17 3a2 2 0 0 1 1.6.8l3 4a2 2 0 0 1 .013 2.382l-7.99 10.986a2 2 0 0 1-3.247 0l-7.99-10.986A2 2 0 0 1 2.4 7.8l2.998-3.997A2 2 0 0 1 7 3zM2 9h20" />,
+  // lucide: skull
+  skull: (
+    <>
+      <path d="m12.5 17-.5-1-.5 1h1zM15 22a1 1 0 0 0 1-1v-1a2 2 0 0 0 1.56-3.25 8 8 0 1 0-11.12 0A2 2 0 0 0 8 20v1a1 1 0 0 0 1 1z" />
+      <circle cx="15" cy="12" r="1" />
+      <circle cx="9" cy="12" r="1" />
+    </>
+  ),
+  // lucide: book-open
+  "book-open": <path d="M12 7v14M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z" />,
 } as const;
 
 /** Lucide's star, for `RatingStars`: a path, not a symbol, so a `<use>` draws it in the stars' own space */

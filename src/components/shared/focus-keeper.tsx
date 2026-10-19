@@ -48,16 +48,26 @@ function controls(row: Element): HTMLElement[] {
 }
 
 function rows(list: Element): Element[] {
-  // Its own rows, not those of a list inside one of them
-  return [...list.querySelectorAll("[data-focus-row]")].filter(
-    (row) => row.closest("[data-focus-list]") === list,
-  );
+  // Its own rows, not those of a list inside one of them, and not a row
+  // inside one of its rows (a book card, a row of its own elsewhere, inside
+  // a linked work's row)
+  return [...list.querySelectorAll("[data-focus-row]")].filter((row) => {
+    if (row.closest("[data-focus-list]") !== list) return false;
+    const outer = row.parentElement?.closest("[data-focus-row]");
+    return !outer || !list.contains(outer);
+  });
 }
 
 /** Where the focus is, when it is in a row of a list */
 function placeOf(el: Element): Place | null {
-  const row = el.closest("[data-focus-row]");
-  const list = row?.closest("[data-focus-list]");
+  // The innermost list with a row around it: a list inside a row can hold
+  // the focus outside its own rows
+  let list = el.closest("[data-focus-list]");
+  let row = list && rows(list).find((r) => r.contains(el));
+  while (list && !row) {
+    list = list.parentElement?.closest("[data-focus-list]") ?? null;
+    row = list && rows(list).find((r) => r.contains(el));
+  }
   if (!row || !list) return null;
   return {
     list: list.getAttribute("data-focus-list") ?? "",
@@ -109,7 +119,11 @@ function rescue() {
   if (document.querySelector("dialog[open]")) return;
   const gone = place;
   place = null;
-  focusSuccessor(gone)?.focus({ preventScroll: true });
+  const next = focusSuccessor(gone);
+  next?.focus({ preventScroll: true });
+  // An Add can go with its section (a book's last target, off the wishlist):
+  // keep watching it, so the focus goes on to the heading then
+  if (next?.hasAttribute("data-focus-empty")) place = { ...gone, row: next };
 }
 
 export function FocusKeeper() {

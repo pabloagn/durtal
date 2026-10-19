@@ -1,5 +1,6 @@
 "use server";
 
+import { ExpectedActionError } from "@/lib/actions/expected-error";
 import { bookCondition, requireBookWork } from "@/lib/catalogue/book-boundary";
 
 import { randomUUID } from "node:crypto";
@@ -759,7 +760,7 @@ export async function updateOrderStatus(
     },
   });
 
-  if (!current) throw new Error("Order not found");
+  if (!current) throw new ExpectedActionError("Order not found");
 
   // C5: server-side transition validation
   const valid = getValidTransitions(
@@ -767,7 +768,7 @@ export async function updateOrderStatus(
     current.acquisitionMethod as AcquisitionMethod,
   );
   if (!valid.includes(newStatus)) {
-    throw new Error(
+    throw new ExpectedActionError(
       `Invalid transition from "${orderStatusLabel(current.status)}" to "${orderStatusLabel(newStatus)}" for "${acquisitionMethodLabel(current.acquisitionMethod)}"`,
     );
   }
@@ -871,11 +872,11 @@ export async function deleteOrder(id: string) {
     columns: { status: true, workId: true },
   });
 
-  if (!order) throw new Error("Order not found");
+  if (!order) throw new ExpectedActionError("Order not found");
 
   // M2: guard against all book-in-hand statuses, not just "delivered"
   if (BOOK_IN_HAND_STATUSES.includes(order.status as OrderStatus)) {
-    throw new Error(
+    throw new ExpectedActionError(
       `Cannot delete a "${orderStatusLabel(order.status)}" order. Consider updating its status instead.`,
     );
   }

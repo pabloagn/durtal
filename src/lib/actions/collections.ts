@@ -1,5 +1,6 @@
 "use server";
 
+import { ExpectedActionError } from "@/lib/actions/expected-error";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { db } from "@/lib/db";
@@ -205,7 +206,7 @@ export async function updateCollection(
     .set({ ...data, updatedAt: new Date() })
     .where(eq(collections.id, id))
     .returning();
-  if (!row) throw new Error("Collection no longer exists");
+  if (!row) throw new ExpectedActionError("Collection no longer exists");
   changed();
   return row;
 }
@@ -268,7 +269,7 @@ export async function addToCollection(
       .select({ id: works.id })
       .from(works)
       .where(and(inArray(works.id, workIds), inArray(works.kind, getEnabledWorkKinds())));
-    if (open.length !== workIds.length) throw new Error("A work was not found");
+    if (open.length !== workIds.length) throw new ExpectedActionError("A work was not found");
   }
   const result = await atomic((d) => [
     d.execute(lockCollection(collectionId)),
@@ -518,7 +519,7 @@ export async function setCollectionIcon(id: string, icon: string | null) {
     .set({ icon: value, updatedAt: new Date() })
     .where(eq(collections.id, id))
     .returning({ icon: collections.icon });
-  if (!row) throw new Error("Collection not found");
+  if (!row) throw new ExpectedActionError("Collection not found");
   changed();
   return row;
 }
@@ -575,34 +576,44 @@ export async function getCollectionCoverPreviews(collectionIds: string[]) {
  */
 export async function getCollectionsForWork(workId: string) {
   z.string().uuid().parse(workId);
-  const memberships = await db
-    .select({
-      collectionId: collectionEditions.collectionId,
-      editionId: editions.id,
-      editionTitle: editions.title,
-      publicationYear: editions.publicationYear,
-    })
-    .from(collectionEditions)
-    .innerJoin(editions, eq(editions.id, collectionEditions.editionId))
-    .where(eq(editions.workId, workId));
-  // Collections that hold the work itself, with no edition chosen
-  const asWork = await db
-    .select({ collectionId: collectionWorks.collectionId })
-    .from(collectionWorks)
-    .where(eq(collectionWorks.workId, workId));
-  const ids = [
-    ...new Set([...memberships, ...asWork].map((m) => m.collectionId)),
-  ];
-  if (!ids.length) return [];
-  const found = await db.query.collections.findMany({
-    where: inArray(collections.id, ids),
-    orderBy: [
-      asc(collections.sortOrder),
-      asc(collections.name),
-      asc(collections.id),
-    ],
-    with: memberSummary,
-  });
+  // One wave (SLN-1163): the collections are found by the same two
+  // memberships the page lists, in subqueries, not after them
+  const [memberships, asWork, found] = await Promise.all([
+    db
+      .select({
+        collectionId: collectionEditions.collectionId,
+        editionId: editions.id,
+        editionTitle: editions.title,
+        publicationYear: editions.publicationYear,
+      })
+      .from(collectionEditions)
+      .innerJoin(editions, eq(editions.id, collectionEditions.editionId))
+      .where(eq(editions.workId, workId)),
+    // Collections that hold the work itself, with no edition chosen
+    db
+      .select({ collectionId: collectionWorks.collectionId })
+      .from(collectionWorks)
+      .where(eq(collectionWorks.workId, workId)),
+    db.query.collections.findMany({
+      where: or(
+        inArray(collections.id, db.select({ id: collectionWorks.collectionId }).from(collectionWorks).where(eq(collectionWorks.workId, workId))),
+        inArray(
+          collections.id,
+          db
+            .select({ id: collectionEditions.collectionId })
+            .from(collectionEditions)
+            .innerJoin(editions, eq(editions.id, collectionEditions.editionId))
+            .where(eq(editions.workId, workId)),
+        ),
+      ),
+      orderBy: [
+        asc(collections.sortOrder),
+        asc(collections.name),
+        asc(collections.id),
+      ],
+      with: memberSummary,
+    }),
+  ]);
   return found.map((collection) => ({
     ...collection,
     ...collectionCounts(collection),

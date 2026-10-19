@@ -47,6 +47,7 @@ import type {
   Scan,
 } from "@/lib/harmonization/types";
 import { mediaUrl } from "@/lib/s3/media-url";
+import { formatDateTime, formatDay } from "@/lib/utils/date";
 import { useEscapeToCancel } from "@/components/shared/escape-to-cancel";
 import { CATEGORIES, HarmonizeTitle, IconLabel, StatContent } from "./frame";
 import { countLabel } from "@/lib/utils/format";
@@ -99,9 +100,12 @@ function Confidence({ finding }: { finding: Finding }) {
 export function HarmonizeWorkspace({
   initialScan,
   initialError,
+  timeZone,
 }: {
   initialScan: Scan | null;
   initialError: string | null;
+  /** The app's time zone: times read the same on the server and in the browser */
+  timeZone: string;
 }) {
   const router = useRouter();
   const [scan, setScan] = useState(initialScan);
@@ -344,7 +348,7 @@ export function HarmonizeWorkspace({
           </button>
           <p>
             {scan
-              ? `${scan.recordCount.toLocaleString()} records · ${scan.ruleCount} checks`
+              ? `${scan.recordCount.toLocaleString("en")} records · ${scan.ruleCount} checks`
               : "Scan the entire catalogue"}
           </p>
         </div>
@@ -387,7 +391,7 @@ export function HarmonizeWorkspace({
             <StatContent
               category={key}
               index={index}
-              count={scan ? scan.counts.categories[key].toLocaleString() : "—"}
+              count={scan ? scan.counts.categories[key].toLocaleString("en") : "—"}
             />
           </button>
         ))}
@@ -418,7 +422,7 @@ export function HarmonizeWorkspace({
         </div>
         <span className="h-scan-time">
           {scan
-            ? `Scanned ${new Date(scan.scannedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
+            ? `Scanned ${formatDateTime(scan.scannedAt, timeZone)}`
             : "Awaiting first scan"}
         </span>
       </div>
@@ -443,7 +447,7 @@ export function HarmonizeWorkspace({
                   {item.action === "merge" ? "Merged" : "Resolved"}
                 </span>
                 <span>{item.label}</span>
-                <time>{new Date(item.createdAt).toLocaleDateString()}</time>
+                <time dateTime={item.createdAt}>{formatDay(item.createdAt, timeZone)}</time>
               </button>
             ))
           ) : (
@@ -507,7 +511,7 @@ export function HarmonizeWorkspace({
             <section className="h-queue" aria-label="Findings">
               <div className="h-queue-heading">
                 <span>
-                  {total.toLocaleString()}{" "}
+                  {total.toLocaleString("en")}{" "}
                   {total === 1 ? "finding" : "findings"}
                 </span>
                 <span>Highest impact first</span>

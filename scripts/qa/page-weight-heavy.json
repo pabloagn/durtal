@@ -1,0 +1,6 @@
+{
+  "baseUrl": "http://localhost:3100",
+  "routes": [
+    { "path": "/library/survey-heavy-book", "maxKB": 400, "maxMs": 1000 }
+  ]
+}

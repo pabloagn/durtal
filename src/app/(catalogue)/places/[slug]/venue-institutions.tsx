@@ -15,10 +15,11 @@ import {
   SingleChoiceField,
   useOrganizationSearch,
 } from "@/components/catalogue/record-fields";
-import { linkVenueInstitution, unlinkVenueInstitution } from "@/lib/actions/venue-pages";
 import type { getVenueInstitutions } from "@/lib/actions/venue-pages";
 import type { OrganizationRole } from "@/lib/catalogue/organizations";
 import { VENUE_TYPE_LABELS, type VenueType } from "@/lib/catalogue/venues";
+import { linkVenueInstitution, unlinkVenueInstitution } from "@/lib/actions/catalogue-client";
+import { refusalMessage } from "@/lib/actions/refusal";
 
 type Institution = Awaited<ReturnType<typeof getVenueInstitutions>>[number];
 
@@ -69,7 +70,7 @@ export function VenueInstitutions({
       toast.success(`${institution.name} removed`);
       router.refresh();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not remove the institution");
+      toast.error(refusalMessage(err, "Could not remove the institution"));
     }
   }
 
@@ -80,7 +81,7 @@ export function VenueInstitutions({
         title="Institution"
         count={institutions.length || undefined}
         action={
-          <Button variant="ghost" size="sm" onClick={() => setAdding(true)}>
+          <Button variant="ghost" size="sm" onClick={() => setAdding(true)} data-focus-empty="venue-institutions">
             <Plus className="h-3.5 w-3.5" strokeWidth={1.5} />
             Link an institution
           </Button>
@@ -89,10 +90,11 @@ export function VenueInstitutions({
       {institutions.length === 0 ? (
         <p className="text-sm text-fg-secondary">No institution recorded</p>
       ) : (
-        <ul className="space-y-2">
+        <ul className="space-y-2" data-focus-list="venue-institutions">
           {institutions.map((institution) => (
             <li
               key={`${institution.id}-${institution.role}`}
+              data-focus-row=""
               className="flex items-start gap-3 rounded-sm border border-glass-border bg-bg-secondary/40 px-3 py-2.5"
             >
               <div className="min-w-0 flex-1">
@@ -171,7 +173,7 @@ function LinkInstitutionDialog({
       onClose();
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not link the institution");
+      setError(refusalMessage(err, "Could not link the institution"));
     } finally {
       setSaving(false);
     }

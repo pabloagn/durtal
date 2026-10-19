@@ -1,5 +1,7 @@
 "use server";
 
+import { ExpectedActionError } from "@/lib/actions/expected-error";
+
 import {
   bookCondition,
   requireBookWork,
@@ -33,7 +35,6 @@ import {
   count,
   and,
   inArray,
-  ne,
 } from "drizzle-orm";
 import { z } from "zod";
 import {
@@ -52,8 +53,8 @@ import { alphabeticalWorkIds } from "@/lib/actions/utils/alphabetical-works";
 import { compareWorks } from "@/lib/utils/title-order";
 import { posterTone, readingExtras, workCardExtras, workCardWith } from "@/lib/actions/utils/work-card-query";
 import { libraryStatsReads } from "@/lib/actions/utils/library-stats";
-import { markColumn } from "@/lib/actions/utils/work-marks";
-import { WORK_MARKS, type WorkMarkKey } from "@/lib/constants/marks";
+import { markedWorkCards, markedWorkIds } from "@/lib/catalogue/marked-works";
+import type { WorkMarkKey } from "@/lib/constants/marks";
 import { normalizeSearchText } from "@/lib/utils/search-text";
 import type { SQL } from "drizzle-orm";
 import { readingFilterConditions } from "@/lib/reading/filter-conditions";
@@ -65,7 +66,6 @@ import type { ReadingFilterParams } from "@/lib/reading/filter-params";
 import { queueNewBookEnrichment } from "@/lib/enrichment/queue";
 import { assertSql } from "@/lib/harmonization/store";
 import { KEPT_ORDER_STATUSES, keptOrderRefusalFor, workDeleteSummary } from "@/lib/catalogue/delete-summary";
-import { ExpectedActionError } from "./expected-error";
 
 export type WorkFilters = ReadingFilterParams &
   BookFilterParams & {
@@ -453,7 +453,7 @@ export async function updateWork(id: string, input: UpdateWorkInput) {
     },
   });
 
-  if (!prev) throw new Error("Work not found");
+  if (!prev) throw new ExpectedActionError("Work not found");
 
   // One transaction: the work's fields, its curation, authors and subjects
   // are all saved, or none is.
@@ -676,20 +676,7 @@ export async function getWorksWithMark(
   excludeWorkId: string,
   limit = 12,
 ) {
-  const key = z.enum(WORK_MARKS.map((m) => m.key)).parse(mark);
-  const id = z.uuid().parse(excludeWorkId);
-  z.number().int().min(1).max(50).parse(limit);
-  const ids = await alphabeticalWorkIds(
-    and(eq(markColumn(key), true), ne(works.id, id)),
-    limit,
-  );
-  if (!ids.length) return [];
-  const results = await db.query.works.findMany({
-    where: inArray(works.id, ids),
-    extras: workCardExtras,
-    with: workCardWith,
-  });
-  return results.sort(compareWorks);
+  return markedWorkCards(await markedWorkIds(mark, excludeWorkId, limit));
 }
 
 /** Dashboard stats; `shelf` is how many books each shelf takes (the API keeps 8) */

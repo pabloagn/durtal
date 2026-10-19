@@ -4,9 +4,10 @@ import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Skull } from "lucide-react";
 import { toast } from "@/lib/notifications/toast";
-import { setPoison } from "@/lib/actions/poison";
 import { MARKS } from "@/lib/constants/marks";
 import { MarkToggle } from "./mark-toggle";
+import { setPoison } from "@/lib/actions/catalogue-client";
+import { refusalMessage } from "@/lib/actions/refusal";
 
 /** The anathema mark on the book page, beside the rare gem. */
 export function PoisonToggle({
@@ -30,10 +31,8 @@ export function PoisonToggle({
       try {
         setMarked((await setPoison(workId, next)).isPoison);
         router.refresh();
-      } catch {
-        toast.error(
-          `Could not update the ${MARKS.poison.label} mark. Try again.`,
-        );
+      } catch (error) {
+        toast.error(refusalMessage(error, `Could not update the ${MARKS.poison.label} mark. Try again.`));
       }
     });
   }

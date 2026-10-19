@@ -1,5 +1,6 @@
 "use server";
 
+import { ExpectedActionError } from "@/lib/actions/expected-error";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod/v4";
 import { db } from "@/lib/db";
@@ -66,8 +67,8 @@ async function openReadingRefusal(workId: string) {
 async function requireEditionOf(editionId: string | null | undefined, workId: string) {
   if (!editionId) return;
   const [edition] = await db.select({ workId: editions.workId }).from(editions).where(eq(editions.id, editionId));
-  if (!edition) throw new Error("This edition no longer exists");
-  if (edition.workId !== workId) throw new Error("This edition belongs to another book");
+  if (!edition) throw new ExpectedActionError("This edition no longer exists");
+  if (edition.workId !== workId) throw new ExpectedActionError("This edition belongs to another book");
 }
 
 /** At most one queued and one unqueued entry per book per reading day */
@@ -86,9 +87,9 @@ export async function addToQueue(input: z.input<typeof addToQueueSchema>) {
   const data = addToQueueSchema.parse(input);
   await requireBookWork(data.workId);
   const queued = await queuedPlace(data.workId);
-  if (queued) throw new Error(`Already in Up next, at ${queued.place}`);
+  if (queued) throw new ExpectedActionError(`Already in Up next, at ${queued.place}`);
   const refusal = await openReadingRefusal(data.workId);
-  if (refusal) throw new Error(refusal);
+  if (refusal) throw new ExpectedActionError(refusal);
   await requireEditionOf(data.editionId, data.workId);
   const position =
     data.at === "top"
@@ -142,7 +143,7 @@ export async function removeFromQueue(input: z.input<typeof queueWorkSchema>) {
   const { workId } = queueWorkSchema.parse(input);
   await requireBookWork(workId);
   const [row] = await db.delete(readingQueue).where(eq(readingQueue.workId, workId)).returning();
-  if (!row) throw new Error("Not in Up next");
+  if (!row) throw new ExpectedActionError("Not in Up next");
   changed();
   await queueEvent(workId, "work.unqueued");
   return row;
@@ -152,8 +153,8 @@ export async function removeFromQueue(input: z.input<typeof queueWorkSchema>) {
 export async function restoreQueueItem(input: z.input<typeof queueSnapshotSchema>) {
   const snap = queueSnapshotSchema.parse(input);
   await requireBookWork(snap.workId);
-  if (await queuedPlace(snap.workId)) throw new Error(`${await titleOf(snap.workId)} is in Up next again`);
-  if (await openReadingRefusal(snap.workId)) throw new Error(`${await titleOf(snap.workId)} was started meanwhile`);
+  if (await queuedPlace(snap.workId)) throw new ExpectedActionError(`${await titleOf(snap.workId)} is in Up next again`);
+  if (await openReadingRefusal(snap.workId)) throw new ExpectedActionError(`${await titleOf(snap.workId)} was started meanwhile`);
   // An edition deleted or moved meanwhile comes back empty
   const [edition] = snap.editionId ? await db.select({ workId: editions.workId }).from(editions).where(eq(editions.id, snap.editionId)) : [];
   const editionId = edition?.workId === snap.workId ? snap.editionId : null;
@@ -182,10 +183,10 @@ export async function moveQueueItem(input: z.input<typeof moveQueueItemSchema>) 
     .from(readingQueue)
     .orderBy(readingQueue.position, readingQueue.workId);
   const item = rows.find((r) => r.workId === data.workId);
-  if (!item) throw new Error("Not in Up next");
+  if (!item) throw new ExpectedActionError("Not in Up next");
   const above = data.afterWorkId ? rows.find((r) => r.workId === data.afterWorkId) : null;
   const below = data.beforeWorkId ? rows.find((r) => r.workId === data.beforeWorkId) : null;
-  if ((data.afterWorkId && !above) || (data.beforeWorkId && !below)) throw new Error("Up next changed elsewhere; reload");
+  if ((data.afterWorkId && !above) || (data.beforeWorkId && !below)) throw new ExpectedActionError("Up next changed elsewhere; reload");
   const others = rows.filter((r) => r.workId !== data.workId);
   // Where it goes among the others: right after the item above, else right before the item below, else the top
   const index = above ? others.indexOf(above) + 1 : below ? others.indexOf(below) : 0;
@@ -218,7 +219,7 @@ export async function updateQueueItem(input: z.input<typeof updateQueueItemSchem
   if (data.note !== undefined) set.note = data.note || null;
   if (!Object.keys(set).length) return { workId: data.workId };
   const [row] = await withReadableErrors(() => db.update(readingQueue).set(set).where(eq(readingQueue.workId, data.workId)).returning({ id: readingQueue.id }));
-  if (!row) throw new Error("Not in Up next");
+  if (!row) throw new ExpectedActionError("Not in Up next");
   changed();
   return { workId: data.workId };
 }

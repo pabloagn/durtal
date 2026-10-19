@@ -11,7 +11,8 @@ import { EntityActionMenu } from "@/components/shared/entity-action-menu";
 import { useEditActions } from "@/components/shortcuts/shortcuts-provider";
 import { EDIT_KEYS, editHint } from "@/lib/shortcuts/shortcuts";
 import { MediaManagerDialog } from "@/components/media/media-manager-dialog";
-import { deletePerfume } from "@/lib/actions/perfumes";
+import { deletePerfume } from "@/lib/actions/catalogue-client";
+import { refusalMessage } from "@/lib/actions/refusal";
 import { PerfumeForm, type EditablePerfume } from "./perfume-form";
 import { ConfirmDeleteDialog } from "@/components/catalogue/confirm-delete-dialog";
 
@@ -131,7 +132,7 @@ export function PerfumeActions({
             );
             router.push("/perfumes");
           } catch (err) {
-            toast.error(err instanceof Error ? err.message : "Could not delete the perfume");
+            toast.error(refusalMessage(err, "Could not delete the perfume"));
           }
         }}
       />

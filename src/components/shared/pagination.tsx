@@ -258,7 +258,10 @@ export function Pagination({
       ref={nav}
       id={compact ? anchor : undefined}
       aria-label={compact ? "Pagination overview" : "Pagination"}
-      className={`my-4 flex scroll-mt-4 flex-wrap items-center justify-between gap-3 font-mono tabular-nums ${compact ? "max-sm:justify-start max-sm:gap-2" : ""}`}
+      // Above the list every list's row reads the same: the count, the pager
+      // and Per page from the left, the list's action (Select) at the right
+      // (SLN-1025). Below it the pager spreads across the row
+      className={`my-4 flex scroll-mt-4 flex-wrap items-center gap-3 font-mono tabular-nums ${compact ? "justify-start max-sm:gap-2" : "justify-between"}`}
     >
       {/* Above the list on a phone "1–48 of 775": the words stay for screen readers */}
       {(compact || !onePage) && <p className="text-xs text-fg-secondary">
