@@ -119,6 +119,13 @@ async function loadNote(id: string): Promise<NoteItem | null> {
   return row ?? null;
 }
 
+/** The note a create id already saved, or null; an id saved on another book is refused */
+async function savedNote(id: string, workId: string) {
+  const note = await loadNote(id);
+  if (note && note.workId !== workId) throw new ExpectedActionError("This note was saved on another book");
+  return note;
+}
+
 async function noteOrThrow(id: string) {
   const [row] = await db.select({ ...getTableColumns(readingNotes),
     fingerprint: sql<string>`md5(to_jsonb(${readingNotes})::text)`,
@@ -206,29 +213,39 @@ async function notesEvent(workId: string, kind: NoteKind) {
 export async function createReadingNote(input: z.input<typeof createReadingNoteSchema>): Promise<NoteItem> {
   const data = createReadingNoteSchema.parse(input);
   await requireBookWork(data.workId);
+  // A resend, or a second press after a lost answer, gets the note it saved
+  const saved = data.id ? await savedNote(data.id, data.workId) : null;
+  if (saved) return saved;
   const refs = await references(data.workId, data.readingId, data.editionId);
   const page = data.page ?? null;
   const place = { page, endPage: page == null ? null : (data.endPage ?? null), pageRoman: page == null ? false : (data.pageRoman ?? false) };
   const percent = data.percent ?? pagePercent(page, place.pageRoman, refs.totalPages);
-  const id = crypto.randomUUID();
-  await withReadableErrors(() =>
-    atomic((d) => [
-      d.insert(readingNotes).values({
-        id,
-        workId: data.workId,
-        readingId: refs.reading?.id ?? null,
-        editionId: refs.editionId,
-        kind: data.kind,
-        body: data.body,
-        ...thought(data.kind, data.commentHtml, data.commentJson),
-        ...place,
-        chapter: data.chapter || null,
-        percent,
-        isFavourite: data.isFavourite ?? false,
-        source: "manual",
-      }),
-    ]),
-  );
+  const id = data.id ?? crypto.randomUUID();
+  try {
+    await withReadableErrors(() =>
+      atomic((d) => [
+        d.insert(readingNotes).values({
+          id,
+          workId: data.workId,
+          readingId: refs.reading?.id ?? null,
+          editionId: refs.editionId,
+          kind: data.kind,
+          body: data.body,
+          ...thought(data.kind, data.commentHtml, data.commentJson),
+          ...place,
+          chapter: data.chapter || null,
+          percent,
+          isFavourite: data.isFavourite ?? false,
+          source: "manual",
+        }),
+      ]),
+    );
+  } catch (err) {
+    // The same id saved meanwhile by a resend that overtook this one
+    const raced = data.id ? await savedNote(data.id, data.workId) : null;
+    if (raced) return raced;
+    throw err;
+  }
   await notesEvent(data.workId, data.kind);
   changed();
   return (await loadNote(id))!;

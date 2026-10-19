@@ -620,37 +620,57 @@ export async function reopenReading(input: z.input<typeof reopenReadingSchema>) 
   return { reading: fresh, message: ratingMessage };
 }
 
+/** The reading a create id already saved, or null; an id saved on another book is refused */
+async function savedReading(id: string, workId: string) {
+  const reading = await loadReading(id);
+  if (reading && reading.workId !== workId) throw new ExpectedActionError("This read was saved on another book");
+  return reading;
+}
+
 /** A read from the past, written in one step; a duplicate is named, not written */
 export async function addPastReading(input: AddPastReadingInput) {
   const data = addPastReadingSchema.parse(input);
   await requireBookWork(data.workId);
-  const [outcome] = await writeReadings(
-    [
-      {
-        workId: data.workId,
-        editionId: data.editionId,
-        instanceId: data.instanceId,
-        locationId: data.locationId,
-        format: data.format,
-        unit: data.unit,
-        totalPages: data.totalPages,
-        status: data.status,
-        startedOn: data.startedOn,
-        startedPrecision: data.startedPrecision,
-        finishedOn: data.finishedOn,
-        finishedPrecision: data.finishedPrecision,
-        rating: data.rating,
-        reviewHtml: data.reviewHtml,
-        reviewJson: data.reviewJson,
-        abandonReason: data.status === "abandoned" ? (data.reason ?? null) : null,
-        abandonNote: data.status === "abandoned" ? (data.note ?? null) : null,
-        position: data.page != null ? { page: data.page } : null,
-        bookRating: "if_none",
-        allowPossibleDuplicate: data.allowPossibleDuplicate,
-      },
-    ],
-    { source: "manual" },
-  );
+  // A resend, or a second press after a lost answer, gets the read it saved
+  const saved = data.id ? await savedReading(data.id, data.workId) : null;
+  if (saved) return { outcome: "written" as const, reading: saved };
+  let outcomes: Awaited<ReturnType<typeof writeReadings>>;
+  try {
+    outcomes = await writeReadings(
+      [
+        {
+          id: data.id,
+          workId: data.workId,
+          editionId: data.editionId,
+          instanceId: data.instanceId,
+          locationId: data.locationId,
+          format: data.format,
+          unit: data.unit,
+          totalPages: data.totalPages,
+          status: data.status,
+          startedOn: data.startedOn,
+          startedPrecision: data.startedPrecision,
+          finishedOn: data.finishedOn,
+          finishedPrecision: data.finishedPrecision,
+          rating: data.rating,
+          reviewHtml: data.reviewHtml,
+          reviewJson: data.reviewJson,
+          abandonReason: data.status === "abandoned" ? (data.reason ?? null) : null,
+          abandonNote: data.status === "abandoned" ? (data.note ?? null) : null,
+          position: data.page != null ? { page: data.page } : null,
+          bookRating: "if_none",
+          allowPossibleDuplicate: data.allowPossibleDuplicate,
+        },
+      ],
+      { source: "manual" },
+    );
+  } catch (err) {
+    // The same id saved meanwhile by a resend that overtook this one
+    const raced = data.id ? await savedReading(data.id, data.workId) : null;
+    if (raced) return { outcome: "written" as const, reading: raced };
+    throw err;
+  }
+  const [outcome] = outcomes;
   if (outcome.outcome === "refused") throw new ExpectedActionError(outcome.reason ?? "This read could not be saved");
   if (outcome.outcome === "written") {
     const reading = (await loadReading(outcome.readingId!))!;

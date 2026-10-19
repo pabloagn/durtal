@@ -234,6 +234,8 @@ export const writeReadingRowSchema = z
     sourceKey: z.string().min(1).max(500).nullable().optional(),
     bookRating: z.enum(["if_none", "replace"]).optional(),
     allowPossibleDuplicate: z.boolean().optional(),
+    /** The id to write the reading under, else a new one */
+    id: z.uuid().optional(),
   })
   .refine((r) => datedPair(r.startedOn, r.startedPrecision), "A start date needs its precision, and unknown needs none")
   .refine((r) => datedPair(r.finishedOn, r.finishedPrecision), "A finish date needs its precision, and unknown needs none")
@@ -266,6 +268,8 @@ export const addPastReadingSchema = z
     page: page.nullable().optional(),
     allowPossibleDuplicate: z.boolean().optional(),
     timeZone: timeZoneSchema.optional(),
+    /** Made by the dialog when it opens: a resend or a second press saves once (SLN-1276) */
+    id: z.uuid().optional(),
   })
   .refine((r) => datedPair(r.startedOn, r.startedPrecision), "A start date needs its precision, and unknown needs none")
   .refine((r) => datedPair(r.finishedOn, r.finishedPrecision), "A finish date needs its precision, and unknown needs none")
