@@ -149,7 +149,7 @@ async function privateFolder(folder: string) {
 async function buildInspector() {
   const docker = dockerExecutable();
   const source = revision();
-  const dirty = execFileSync("git", ["status", "--porcelain", "--", "infra/ebooks", "src/lib/ebooks", "package.json", "pnpm-lock.yaml"], { encoding: "utf8" }).trim();
+  const dirty = execFileSync("git", ["status", "--porcelain", "--", "infra/ebooks", "src/lib", "package.json", "pnpm-lock.yaml"], { encoding: "utf8" }).trim();
   if (dirty) throw new Error("The inspector's sources have uncommitted changes: commit or discard them, so the image matches its revision");
   const tag = `${INSPECTOR_REPOSITORY}:${source.slice(0, 12)}`;
   log(`Building ${tag} from ${source}`);

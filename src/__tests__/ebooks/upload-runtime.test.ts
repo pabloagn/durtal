@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { OwnedInspectorRuntime, verifyInspectorContainer, type RuntimeCommands } from "@/lib/ebooks/upload/container-runtime";
+import { inspectorFailureDetail, OwnedInspectorRuntime, verifyInspectorContainer, type RuntimeCommands } from "@/lib/ebooks/upload/container-runtime";
 import { inspectorCreateArguments, inspectorLabels, inspectorName, INSPECTOR_COMMAND, requireInspectorBuild, supervisorBindingSha256, type InspectorRuntimeConfig } from "@/lib/ebooks/upload/runtime-contract";
 import { InspectorAttemptBudget, requireInspectorCgroup } from "@/lib/ebooks/upload/inspector-resources";
 import { GiB, MiB, UPLOAD_LIMITS } from "@/lib/ebooks/upload/limits";
@@ -51,6 +51,13 @@ describe("owned inspector boundary", () => {
       (c: ReturnType<typeof container>) => { c.State.Pid = 100; },
     ];
     for (const change of cases) { const raw = container(); change(raw); expect(() => verifyInspectorContainer(raw, config, identity)).toThrow(); }
+  });
+  it("says why the worker stopped, on one bounded line", () => {
+    expect(inspectorFailureDetail({ status: "exited", exitCode: 1, oomKilled: false }, 1, "Cannot find package '@/lib'\n  at resolve\n"))
+      .toBe(" (exited, exit 1, docker 1): Cannot find package '@/lib' at resolve");
+    expect(inspectorFailureDetail({ status: "exited", exitCode: 137, oomKilled: true }, 0, "")).toBe(" (exited, exit 137, out of memory)");
+    expect(inspectorFailureDetail({ status: "running", exitCode: 0, oomKilled: false }, 0, "a\u202eb\u200bc")).toBe(" (running, exit 0): a b c");
+    expect(inspectorFailureDetail({ status: "exited", exitCode: 2, oomKilled: false }, 0, "x".repeat(4096))).toHaveLength(" (exited, exit 2): ".length + 512);
   });
   it("refuses unverified controllers before any create/start command", async () => {
     const run = vi.fn(); const runtime = new OwnedInspectorRuntime(config, { run });

@@ -6,16 +6,19 @@ RUN apk add --no-cache libc6-compat
 COPY package.json pnpm-lock.yaml ./
 RUN corepack enable pnpm && pnpm install --frozen-lockfile
 
+# The worker and its sources become one JavaScript file here, so the
+# inspector runs no TypeScript loader or compiler (infra/ebooks/inspector/build.mjs)
+FROM dependencies AS worker
+COPY src/lib ./src/lib
+COPY infra/ebooks/inspector/build.mjs ./infra/ebooks/inspector/build.mjs
+RUN node infra/ebooks/inspector/build.mjs /inspector/dist/inspector.mjs
+
 FROM node:22-alpine AS inspector
 WORKDIR /inspector
 RUN apk add --no-cache libc6-compat
 COPY --from=dependencies /inspector/node_modules ./node_modules
 COPY package.json ./package.json
-COPY src/lib/ebooks ./src/lib/ebooks
-COPY src/lib/utils/language.ts ./src/lib/utils/language.ts
-COPY src/lib/constants/languages.ts src/lib/constants/language-names.ts ./src/lib/constants/
-COPY src/lib/env.ts ./src/lib/env.ts
-COPY infra/ebooks/inspector/tsconfig.json ./tsconfig.json
+COPY --from=worker /inspector/dist/inspector.mjs ./inspector.mjs
 COPY infra/ebooks/inspector/worker.mjs ./worker.mjs
 COPY infra/ebooks/inspector/patch-pdf.mjs ./patch-pdf.mjs
 RUN node patch-pdf.mjs > pdf-patch.json && rm patch-pdf.mjs

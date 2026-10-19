@@ -36,13 +36,17 @@ async function writeFrame(frame: string): Promise<void> {
   await new Promise<void>((resolve, reject) => { process.stdout.write(frame, (error) => error ? reject(error) : resolve()); });
 }
 
-/** Explicit isolated entrypoint; imported by its bootstrap, never autostarts in Next.js. */
-export async function runInspectorWorker(): Promise<void> {
+/**
+ * Explicit isolated entrypoint; imported by its bootstrap, never autostarts in Next.js.
+ * `inherited`: the environment's names as the process started, which the
+ * bootstrap reads before anything loads (libvips adds VIPSHOME when sharp loads).
+ */
+export async function runInspectorWorker(inherited: readonly string[]): Promise<void> {
   if (outputBytes) throw new Error("Inspector process cannot run another attempt");
   if (process.platform !== "linux" || process.execArgv.length !== 1 || process.execArgv[0] !== "--max-old-space-size=256")
     throw new Error("Inspector heap/platform configuration differs");
   const allowed = new Set(["PATH", "NODE_VERSION", "YARN_VERSION", "NODE_ENV", "TMPDIR", "HOME", "HOSTNAME", "UV_THREADPOOL_SIZE", "MALLOC_ARENA_MAX"]);
-  if (Object.keys(process.env).some((key) => !allowed.has(key))) throw new Error("Inspector inherited unexpected environment");
+  if (inherited.some((key) => !allowed.has(key))) throw new Error("Inspector inherited unexpected environment");
   if (process.env.HOSTNAME !== "ebook-inspector") throw new Error("Inspector hostname configuration differs");
   const cgroup = await readInspectorCgroup();
   await writeFrame(inspectorReadyFrame(cgroup)); // real OS limits precede all untrusted parsing
