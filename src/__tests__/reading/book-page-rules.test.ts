@@ -53,6 +53,15 @@ describe("nextVolume", () => {
     expect(nextVolume([v("x", null), v("1", "1", true)])?.id).toBe("x");
     expect(nextVolume([v("x", null), v("3", "3")])?.id).toBe("3");
   });
+
+  // SLN-918: "Next to read: 3" while volume 3 showed "Reading"
+  it("skips a volume under way for the next unread one, or names none", () => {
+    const reading = (id: string) => ({ ...v(id, id), reading: true });
+    expect(nextVolume([v("1", "1", true), reading("2"), v("3", "3")])?.id).toBe("3");
+    expect(nextVolume([v("1", "1", true), reading("2")])).toBeNull();
+    // A finished volume read again is finished: the order goes on after it
+    expect(nextVolume([{ ...v("1", "1", true), reading: true }, v("2", "2")])?.id).toBe("2");
+  });
 });
 
 describe("pickDefaultEdition", () => {

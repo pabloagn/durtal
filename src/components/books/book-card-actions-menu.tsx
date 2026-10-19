@@ -14,7 +14,11 @@ import { MediaManagerDialog } from "@/components/media/media-manager-dialog";
 import { AddToCollectionDialog } from "@/components/books/add-to-collection-dialog";
 import { MatchAgainDialog } from "@/components/books/match-again-dialog";
 import { WorkQuickEditDialog } from "@/components/books/work-quick-edit-dialog";
-import { deleteWork } from "@/lib/actions/works";
+import { getWorkDeleteSummary } from "@/lib/actions/works";
+import { deleteWork } from "@/lib/actions/catalogue-client";
+import { ActionRefusal } from "@/lib/actions/action-refusal";
+import { workDeleteCascade } from "@/lib/catalogue/delete-cascade";
+import { useDeleteSummary } from "@/components/books/use-delete-summary";
 import { toast } from "@/lib/notifications/toast";
 import { EbookReadMenuItem } from "@/components/ebooks/catalogue-read-action";
 import type { WorkEbookDTO } from "@/lib/ebooks/catalogue-dto";
@@ -47,14 +51,15 @@ export function BookCardActionsMenu({
   const [matchOpen, setMatchOpen] = useState(false);
   const [mediaOpen, setMediaOpen] = useState(false);
   const [collectionOpen, setCollectionOpen] = useState(false);
+  const deleteSummary = useDeleteSummary(deleteOpen, workId, () => getWorkDeleteSummary([workId]));
 
   async function handleDelete() {
     try {
       await deleteWork(workId);
       toast.success("Work deleted");
       router.refresh();
-    } catch {
-      toast.error("Failed to delete work");
+    } catch (error) {
+      toast.error(error instanceof ActionRefusal ? error.message : "Could not delete the book. Try again.");
     }
     setDeleteOpen(false);
   }
@@ -122,7 +127,8 @@ export function BookCardActionsMenu({
         title="Delete work"
         description="This cannot be undone."
         itemName={title}
-        cascade="This will permanently delete all editions, instances, and media associated with this work. Linked eBooks return to review; their files, reading positions and annotations are kept."
+        cascade={workDeleteCascade(deleteSummary)}
+        refusal={deleteSummary?.refusal}
       />
 
       <MediaManagerDialog

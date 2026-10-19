@@ -12,6 +12,19 @@ export const ALLOWED_IMAGE_TYPES = new Set(Object.keys(IMAGE_EXTENSIONS));
 /** Maximum file size in bytes (50 MB) */
 export const MAX_MEDIA_SIZE_BYTES = 50 * 1024 * 1024;
 
+/** What a file picker offers: only the types an upload accepts */
+export const IMAGE_ACCEPT = [...ALLOWED_IMAGE_TYPES].join(",");
+
+/**
+ * Why an image file cannot be uploaded, or null when it can. Checked in the
+ * browser before sending (SLN-903) and again by the routes.
+ */
+export function imageFileRefusal(file: { size: number; type: string }): string | null {
+  if (file.size > MAX_MEDIA_SIZE_BYTES) return "File too large. Maximum size: 50 MB.";
+  if (!isAllowedImageType(file.type)) return "File type not allowed. Accepted: JPEG, PNG, WebP, GIF.";
+  return null;
+}
+
 /** Validate a MIME/content type is an allowed image type */
 export function isAllowedImageType(contentType: string): boolean {
   return ALLOWED_IMAGE_TYPES.has(contentType.toLowerCase().split(";")[0].trim());
