@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { EditionChoiceFields, ReviewCopyFields } from "./edition-choice";
 import type { EditionChoice, PrepareEbookReview, ReviewQueueRow, ReviewWorkOptions, ReviewPreparationIssue } from "@/lib/ebooks/review-queue/types";
+import { useSaveReason } from "@/components/shared/save-reason";
 
 /** Folded for comparing titles: case and accents ignored */
 const fold = (value: string) => value.normalize("NFD").replace(/\p{M}/gu, "").toLocaleLowerCase().trim();
@@ -56,6 +57,7 @@ export function ChooseBookFields({ row, onPrepare, disabled, issues = [], startW
     } else setError(result && !result.ok ? result.error.message : "The editions could not be loaded.");
     setSearching(false);
   }
+  const saveReason = useSaveReason(choice.kind === "new_edition" && !choice.language && "Choose a language for the new edition");
   return <div className="space-y-4">
     <form ref={searchForm} className="flex items-end gap-2" onSubmit={(event) => { event.preventDefault(); void search(); }}>
       {/* Stays on while the first search runs: a disabled field drops the focus the dialog gives it, and typing starts a new search */}
@@ -85,8 +87,8 @@ export function ChooseBookFields({ row, onPrepare, disabled, issues = [], startW
       </p>
       <EditionChoiceFields options={options} row={row} choice={choice} onChange={setChoice} disabled={disabled} issues={issues} />
       {choice.kind !== "fill_copy" && <ReviewCopyFields options={options} locationId={locationId} onLocation={setLocation} disabled={disabled} issues={issues} />}
-      {choice.kind === "new_edition" && !choice.language && <p className="text-xs text-fg-secondary">Choose a language for the new edition</p>}
-      <Button variant="primary" type="submit" disabled={disabled || (choice.kind === "new_edition" && !choice.language)}>Preview link</Button>
+      {saveReason.hint}
+      <Button variant="primary" type="submit" disabled={disabled || (choice.kind === "new_edition" && !choice.language)} aria-describedby={saveReason.describedBy}>Preview link</Button>
     </form>}
     {error && <p role="alert" className="text-sm text-accent-red-text">{error}</p>}
   </div>;

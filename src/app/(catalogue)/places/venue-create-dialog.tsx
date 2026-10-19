@@ -1,6 +1,6 @@
 "use client";
 
-import { RequiredNameHint } from "@/components/shared/required-name-hint";
+import { useSaveReason } from "@/components/shared/save-reason";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
@@ -199,6 +199,7 @@ export function VenueCreateDialog({
     });
   }
 
+  const nameReason = useSaveReason(!name.trim() && "Give the place a name");
   return (
     <>
       {!controlled && (
@@ -400,7 +401,7 @@ export function VenueCreateDialog({
         </div>
 
         <DialogFooter>
-          <RequiredNameHint value={name} message="Give the place a name" />
+          {nameReason.hint}
           <Button data-dismiss=""
             variant="secondary"
             size="sm"
@@ -409,7 +410,7 @@ export function VenueCreateDialog({
           >
             Cancel
           </Button>
-          <Button
+          <Button aria-describedby={nameReason.describedBy}
             variant="primary"
             size="sm"
             onClick={handleSubmit}

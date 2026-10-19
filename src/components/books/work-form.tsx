@@ -1,6 +1,6 @@
 "use client";
 
-import { RequiredNameHint } from "@/components/shared/required-name-hint";
+import { useSaveReason } from "@/components/shared/save-reason";
 import { useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { X, Plus, Loader2 } from "lucide-react";
 import { toast } from "@/lib/notifications/toast";
@@ -296,6 +296,7 @@ export function WorkForm({
     ...series.map((s) => ({ value: s.id, label: s.title })),
   ];
 
+  const nameReason = useSaveReason(!values.title.trim() && "Give the book a title");
   return (
     <>
       {/* The dialog's body scrolls, with room in its padding for the rating's first star target and its focus ring, which reach past the column (SLN-641) */}
@@ -609,11 +610,11 @@ export function WorkForm({
 
       <DialogFooter>
         {notice && <div className="mr-auto min-w-0">{notice}</div>}
-        <RequiredNameHint value={values.title} message="Give the book a title" />
+        {nameReason.hint}
         <Button data-dismiss="" variant="secondary" size="sm" onClick={onCancel} disabled={pending}>
           Cancel
         </Button>
-        <Button
+        <Button aria-describedby={nameReason.describedBy}
           variant="primary"
           size="sm"
           onClick={onSubmit}

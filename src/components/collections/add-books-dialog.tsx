@@ -16,6 +16,7 @@ import type { WorkKind } from "@/lib/catalogue/kinds";
 import { mediaUrl } from "@/lib/s3/media-url";
 import { addToCollection } from "@/lib/actions/catalogue-client";
 import { refusalMessage } from "@/lib/actions/refusal";
+import { useSaveReason } from "@/components/shared/save-reason";
 
 type Edition = Awaited<ReturnType<typeof searchEditionsForPicker>>[number];
 type Work = Awaited<ReturnType<typeof searchWorksForCollection>>[number];
@@ -137,6 +138,7 @@ export function AddCollectionBooksDialog({
     }
   }
   const shown = mode === "editions" ? results.length : works.length;
+  const saveReason = useSaveReason(!count && "Tick the books to add");
   return (
     <Dialog
       dirty={count > 0}
@@ -343,12 +345,12 @@ export function AddCollectionBooksDialog({
           </details>
         )}
         <div className="flex items-center justify-between gap-2 border-t border-glass-border pt-3">
-          <span className="text-xs text-fg-secondary">{count} selected</span>
+          {saveReason.hint ?? <span className="text-xs text-fg-secondary">{count} selected</span>}
           <div className="flex gap-2">
             <Button data-dismiss="" disabled={saving} onClick={onClose}>
               Cancel
             </Button>
-            <Button variant="primary" disabled={!count} onClick={add} busy={saving}>
+            <Button variant="primary" disabled={!count} onClick={add} busy={saving} aria-describedby={saveReason.describedBy}>
               {count ? `Add ${count}` : "Add"}
             </Button>
           </div>

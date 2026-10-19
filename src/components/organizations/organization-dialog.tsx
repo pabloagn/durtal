@@ -1,6 +1,6 @@
 "use client";
 
-import { RequiredNameHint } from "@/components/shared/required-name-hint";
+import { useSaveReason } from "@/components/shared/save-reason";
 import { NameDuplicateNotice } from "@/components/shared/name-duplicate-notice";
 
 import { useId, useState } from "react";
@@ -147,6 +147,7 @@ function OrganizationForm({
     }
   }
 
+  const nameReason = useSaveReason(!typedName.trim() && "Give the organization a name");
   return (
   <form
     id={formId}
@@ -245,11 +246,11 @@ function OrganizationForm({
         </p>
       )}
       {/* The house's line beside Save, not the browser's "Please fill out this field" bubble (SLN-945) */}
-      <RequiredNameHint value={typedName} message="Give the organization a name" />
+      {nameReason.hint}
       <Button data-dismiss="" type="button" size="sm" onClick={close} disabled={saving}>
         Cancel
       </Button>
-      <Button type="submit" form={formId} variant="primary" size="sm" data-shortcut="save" busy={saving} disabled={!typedName.trim()}>
+      <Button aria-describedby={nameReason.describedBy} type="submit" form={formId} variant="primary" size="sm" data-shortcut="save" busy={saving} disabled={!typedName.trim()}>
         {organization ? "Save" : "Add"}
       </Button>
     </DialogFooter>

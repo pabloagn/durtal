@@ -1,6 +1,6 @@
 "use client";
 
-import { RequiredNameHint } from "@/components/shared/required-name-hint";
+import { useSaveReason } from "@/components/shared/save-reason";
 
 import { NameDuplicateNotice } from "@/components/shared/name-duplicate-notice";
 import { useRef, useState } from "react";
@@ -61,6 +61,7 @@ export function CreateCollectionDialog({
       setSaving(false);
     }
   }
+  const nameReason = useSaveReason(!name.trim() && "Give the collection a name");
   return (
     <>
       {!controlled && (
@@ -118,7 +119,7 @@ export function CreateCollectionDialog({
             />
           </details>
           <div className="flex justify-end gap-2">
-        <RequiredNameHint value={name} message="Give the collection a name" />
+        {nameReason.hint}
             <Button data-dismiss=""
               type="button"
               variant="ghost"
@@ -127,7 +128,7 @@ export function CreateCollectionDialog({
             >
               Cancel
             </Button>
-            <Button
+            <Button aria-describedby={nameReason.describedBy}
               type="submit"
               variant="primary"
               disabled={!name.trim()}

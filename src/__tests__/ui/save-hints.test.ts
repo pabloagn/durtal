@@ -19,7 +19,7 @@ describe("a disabled Save says what it waits for (SLN-945)", () => {
     ["components/taxonomy/create-item-dialog.tsx", "Give the item a name"],
     ["components/collections/collection-controls.tsx", "Give the collection a name"],
     ["components/catalogue/sources-section.tsx", "Name the source to save"],
-    ["components/series/add-series-books-dialog.tsx", "Choose a book to add"],
+    ["components/series/add-series-books-dialog.tsx", "Tick the books to add"],
     ["components/reading/dialogs/note-dialog.tsx", "Write the passage to save"],
     ["components/organizations/organization-dialog.tsx", "Give the organization a name"],
     ["components/reading/suggestions/not-for-me-dialog.tsx", "Choose at least one reason"],

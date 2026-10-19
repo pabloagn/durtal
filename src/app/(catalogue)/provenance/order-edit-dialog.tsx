@@ -22,6 +22,7 @@ import { useAppSettings } from "@/lib/hooks/use-app-settings";
 import type { OrderStatus, AcquisitionMethod } from "@/lib/constants/orders";
 import { updateOrder } from "@/lib/actions/catalogue-client";
 import { refusalMessage } from "@/lib/actions/refusal";
+import { useSaveReason } from "@/components/shared/save-reason";
 
 interface OrderData {
   id: string;
@@ -167,6 +168,7 @@ export function OrderEditDialog({
     });
   }
 
+  const saveReason = useSaveReason(!orderDate && "Add the order date");
   return (
     <Dialog
       draft
@@ -294,7 +296,8 @@ export function OrderEditDialog({
         />
       </div>
 
-      <div className="mt-5 flex items-center justify-end gap-3 border-t border-glass-border pt-4">
+      <div className="mt-5 flex flex-wrap items-center justify-end gap-3 border-t border-glass-border pt-4">
+        {saveReason.hint}
         <Button data-dismiss=""
           variant="ghost"
           size="sm"
@@ -309,6 +312,7 @@ export function OrderEditDialog({
           onClick={handleSubmit}
           busy={isPending}
           disabled={!orderDate}
+          aria-describedby={saveReason.describedBy}
         >
           Save changes
         </Button>

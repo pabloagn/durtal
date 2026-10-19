@@ -20,6 +20,7 @@ import type { OrganizationRole } from "@/lib/catalogue/organizations";
 import { VENUE_TYPE_LABELS, type VenueType } from "@/lib/catalogue/venues";
 import { linkVenueInstitution, unlinkVenueInstitution } from "@/lib/actions/catalogue-client";
 import { refusalMessage } from "@/lib/actions/refusal";
+import { useSaveReason } from "@/components/shared/save-reason";
 
 type Institution = Awaited<ReturnType<typeof getVenueInstitutions>>[number];
 
@@ -179,6 +180,7 @@ function LinkInstitutionDialog({
     }
   }
 
+  const saveReason = useSaveReason(!choice && "Choose an organization");
   return (
     <Dialog
       draft
@@ -212,11 +214,12 @@ function LinkInstitutionDialog({
             {error}
           </p>
         )}
-        <div className="flex justify-end gap-2 border-t border-glass-border pt-4">
+        <div className="flex flex-wrap items-center justify-end gap-2 border-t border-glass-border pt-4">
+          {saveReason.hint}
           <Button data-dismiss="" size="sm" onClick={onClose} disabled={saving}>
             Cancel
           </Button>
-          <Button variant="primary" size="sm" data-shortcut="save" busy={saving} disabled={!choice} onClick={save}>
+          <Button variant="primary" size="sm" data-shortcut="save" busy={saving} disabled={!choice} aria-describedby={saveReason.describedBy} onClick={save}>
             Link
           </Button>
         </div>

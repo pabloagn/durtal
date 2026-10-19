@@ -1,6 +1,6 @@
 "use client";
 
-import { RequiredNameHint } from "@/components/shared/required-name-hint";
+import { useSaveReason } from "@/components/shared/save-reason";
 import {
   FormSection as Section,
   FormColumns,
@@ -281,6 +281,7 @@ export function EditionForm({
   }
 
   const formId = useId();
+  const nameReason = useSaveReason(!values.title.trim() && !work && "Give the edition a title");
   return (
     <form id={formId} onSubmit={handleSubmit} className="@container">
       {/* While it saves, the fields wait: an edit made then would be lost */}
@@ -828,7 +829,7 @@ export function EditionForm({
       {/* In a dialog, under its body: the submit names this form */}
       <DialogFooter>
         {notice && <div className="mr-auto min-w-0">{notice}</div>}
-        <RequiredNameHint value={values.title} message="Give the edition a title" />
+        {nameReason.hint}
         {onCancel && (
           <Button data-dismiss=""
             type="button"
@@ -840,7 +841,7 @@ export function EditionForm({
             Cancel
           </Button>
         )}
-        <Button
+        <Button aria-describedby={nameReason.describedBy}
           type="submit"
           form={formId}
           variant="primary"

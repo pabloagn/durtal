@@ -21,6 +21,7 @@ import {
 } from "@/lib/constants/currencies";
 import { STATUS_LABELS, getPosterUrl, getPosterStyle, getAuthorName } from "./order-model";
 import { isComposing } from "@/lib/shortcuts/shortcuts";
+import { useSaveReason } from "@/components/shared/save-reason";
 
 // The steps of the new-order dialog: the book, how it was acquired, the details and the notes.
 
@@ -152,6 +153,14 @@ export function WorkSearchStep({
     setAuthorQuery("");
   }
 
+  const newBookReason = useSaveReason(
+    !newTitle.trim() && !authorQuery.trim()
+      ? "Add a title and author"
+      : !newTitle.trim()
+        ? "Add a title"
+        : !authorQuery.trim() && "Add the author",
+  );
+
   // Inline creation form
   if (showCreate) {
     return (
@@ -247,21 +256,14 @@ export function WorkSearchStep({
             )}
         </div>
 
-        {(!newTitle.trim() || !authorQuery.trim()) && (
-          <p className="text-xs text-fg-secondary">
-            {!newTitle.trim() && !authorQuery.trim()
-              ? "Add a title and author"
-              : !newTitle.trim()
-                ? "Add a title"
-                : "Add the author"}
-          </p>
-        )}
+        {newBookReason.hint}
         <Button
           variant="primary"
           size="sm"
           className="w-full"
           onClick={handleCreateWork}
           disabled={!newTitle.trim() || !authorQuery.trim()}
+          aria-describedby={newBookReason.describedBy}
         >
           <Plus className="h-3.5 w-3.5" strokeWidth={1.5} />
           Select new book

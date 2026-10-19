@@ -1,6 +1,6 @@
 "use client";
 
-import { RequiredNameHint } from "@/components/shared/required-name-hint";
+import { useSaveReason } from "@/components/shared/save-reason";
 import { useState, useCallback, type FormEvent } from "react";
 import { toast } from "@/lib/notifications/toast";
 import { Dialog } from "@/components/ui/dialog";
@@ -96,6 +96,7 @@ export function CreateItemDialog({
     [name, description, describable, color, parentId, twin, familySlug, resetForm, onCreated, onClose],
   );
 
+  const nameReason = useSaveReason(!name.trim() && "Give the item a name");
   return (
     <Dialog
       draft
@@ -156,7 +157,7 @@ export function CreateItemDialog({
 
         {/* Actions */}
         <div className="flex flex-wrap items-center justify-end gap-2 pt-2">
-          <RequiredNameHint value={name} message="Give the item a name" />
+          {nameReason.hint}
           <Button data-dismiss=""
             type="button"
             variant="ghost"
@@ -165,7 +166,7 @@ export function CreateItemDialog({
           >
             Cancel
           </Button>
-          <Button
+          <Button aria-describedby={nameReason.describedBy}
             type="submit"
             variant="primary"
             size="sm"

@@ -30,6 +30,7 @@ import { PERFUME_CONTAINERS } from "@/lib/catalogue/perfumes";
 import { FILM_HOLDING_MEDIA } from "@/lib/catalogue/films";
 import { getValidInitialStatuses, type AcquisitionMethod, type OrderStatus } from "@/lib/constants/orders";
 import { todayLocal } from "@/lib/utils/date";
+import { useSaveReason } from "@/components/shared/save-reason";
 
 /** "Oct 4, 2026", as a copy's acquisition date reads */
 const orderDay = new Intl.DateTimeFormat("en", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
@@ -211,14 +212,17 @@ function ChoiceRow<T extends string>({
   );
 }
 
-function FormFooter({ saving, error, blocked, label, onCancel, onSave }: {
+function FormFooter({ saving, error, blocked, reason, label, onCancel, onSave }: {
   saving: boolean;
   error: string | null;
   blocked: boolean;
+  /** What a blocked save waits for, beside it and read with it (SLN-1057) */
+  reason: string | null | false;
   label: string;
   onCancel: () => void;
   onSave: () => void;
 }) {
+  const saveReason = useSaveReason(reason);
   return (
     <>
       {error && (
@@ -226,11 +230,12 @@ function FormFooter({ saving, error, blocked, label, onCancel, onSave }: {
           {error}
         </p>
       )}
-      <div className="flex justify-end gap-2">
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        {saveReason.hint}
         <Button data-dismiss="" variant="ghost" onClick={onCancel} disabled={saving}>
           Cancel
         </Button>
-        <Button variant="primary" data-shortcut="save" onClick={onSave} busy={saving} disabled={blocked}>
+        <Button variant="primary" data-shortcut="save" onClick={onSave} busy={saving} disabled={blocked} aria-describedby={saveReason.describedBy}>
           {label}
         </Button>
       </div>
@@ -384,7 +389,23 @@ function WantForm({ workId, choices, onDone }: { workId: string; choices: Wanted
           options={paintingOptions}
         />
       )}
-      <FormFooter saving={saving} error={error} blocked={blocked} label="Add to list" onCancel={onDone} onSave={save} />
+      <FormFooter
+        saving={saving}
+        error={error}
+        blocked={blocked}
+        reason={
+          choices.kind === "perfume"
+            ? !variantId
+              ? "Choose a formulation"
+              : !capacity && "Enter the size"
+            : choices.kind === "film"
+              ? !versionId && "Choose the version"
+              : !objectChoice && "Choose what to buy"
+        }
+        label="Add to list"
+        onCancel={onDone}
+        onSave={save}
+      />
     </div>
   );
 }
@@ -495,7 +516,7 @@ function OrderForm({ target, locations, onDone }: { target: TypedTargetView; loc
         onSubLocation={setSubLocationId}
         placeholder="Decide when it arrives"
       />
-      <FormFooter saving={saving} error={error} blocked={blocked} label="Order" onCancel={onDone} onSave={save} />
+      <FormFooter saving={saving} error={error} blocked={blocked} reason={!orderDate && "Add the order date"} label="Order" onCancel={onDone} onSave={save} />
     </div>
   );
 }

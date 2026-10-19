@@ -1,6 +1,6 @@
 "use client";
 
-import { RequiredNameHint } from "@/components/shared/required-name-hint";
+import { useSaveReason } from "@/components/shared/save-reason";
 
 import { NameDuplicateNotice } from "@/components/shared/name-duplicate-notice";
 
@@ -139,6 +139,7 @@ export function PaintingForm(props: Props) {
     track: true,
   });
 
+  const nameReason = useSaveReason(!title.trim() && "Give the painting a title");
   return (
     // ⌘Enter saves; on the create page this is the page's shortcut scope
     <>
@@ -216,7 +217,7 @@ export function PaintingForm(props: Props) {
           under the edit dialog's body, or pinned to the bottom of the add
           page (SLN-943) */}
       <DialogFooter outside={PINNED_PAGE_FOOTER}>
-        <RequiredNameHint value={title} message="Give the painting a title" />
+        {nameReason.hint}
         {error && (
           <p role="alert" className="basis-full text-sm text-accent-red-text">
             {error}
@@ -230,7 +231,7 @@ export function PaintingForm(props: Props) {
         >
           Cancel
         </Button>
-        <Button variant="primary" data-shortcut="save" onClick={save} busy={saving} disabled={blocked}>
+        <Button aria-describedby={nameReason.describedBy} variant="primary" data-shortcut="save" onClick={save} busy={saving} disabled={blocked}>
           {props.mode === "create" ? "Add painting" : "Save"}
         </Button>
       </DialogFooter>

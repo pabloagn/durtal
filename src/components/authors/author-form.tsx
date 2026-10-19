@@ -1,6 +1,6 @@
 "use client";
 
-import { RequiredNameHint } from "@/components/shared/required-name-hint";
+import { useSaveReason } from "@/components/shared/save-reason";
 
 import { NameDuplicateNotice } from "@/components/shared/name-duplicate-notice";
 
@@ -231,6 +231,7 @@ export function AuthorForm({
 }) {
   const set = <K extends keyof AuthorFormValues>(key: K, value: AuthorFormValues[K]) =>
     onChange((current) => ({ ...current, [key]: value }));
+  const nameReason = useSaveReason(!values.name.trim() && "Give the person a name");
   return (
     <>
       <div>
@@ -395,11 +396,11 @@ export function AuthorForm({
       </div>
 
       <DialogFooter>
-        <RequiredNameHint value={values.name} message="Give the person a name" />
+        {nameReason.hint}
         <Button data-dismiss="" variant="secondary" size="sm" onClick={onCancel} disabled={pending}>
           Cancel
         </Button>
-        <Button
+        <Button aria-describedby={nameReason.describedBy}
           variant="primary"
           size="sm"
           onClick={onSubmit}

@@ -307,7 +307,8 @@ export function SessionDialog({ data, row, request, onClose, changed }: ReadingD
           />
         )}
         <Textarea aria-label="Note" placeholder="A note on this sitting (optional)" value={note} onChange={(e) => setNote(e.target.value)} rows={2} maxLength={2000} />
-        <DialogFooter form={formId} onCancel={onClose} saving={saving} saveLabel={editing ? "Save" : "Add session"} disabled={(!to && !canKeepEmptyEnd) || !!durationError || !!textError || !!overlapError} />
+        <DialogFooter form={formId} onCancel={onClose} saving={saving} saveLabel={editing ? "Save" : "Add session"} disabled={(!to && !canKeepEmptyEnd) || !!durationError || !!textError || !!overlapError}
+          hint={!to && !canKeepEmptyEnd && !textError ? "Give where the session ended" : null} />
       </form>
     </Dialog>
   );

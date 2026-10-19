@@ -374,7 +374,8 @@ export function LogProgressDialog({ data, row, request, onClose, changed, open }
               Read in another edition or format
             </button>
           ))}
-        <DialogFooter form={formId} onCancel={onClose} saving={saving} saveLabel={stopping ? "Stop timer" : "Log"} disabled={stopping ? !!error : !preview || !!error || !!dateError || !!pageTotalError} />
+        <DialogFooter form={formId} onCancel={onClose} saving={saving} saveLabel={stopping ? "Stop timer" : "Log"} disabled={stopping ? !!error : !preview || !!error || !!dateError || !!pageTotalError}
+          hint={!stopping && !preview && !error && !dateError && !pageTotalError ? "Enter where you are" : null} />
       </form>
     </Dialog>
   );
