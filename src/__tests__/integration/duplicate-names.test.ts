@@ -49,6 +49,8 @@ import { createTaxonomyItem, updateTaxonomyItem } from "@/lib/actions/taxonomy-f
 import { createEdition, updateEdition } from "@/lib/actions/editions";
 import { fastTrackBook } from "@/lib/actions/fast-track";
 import { createBookFromWizard } from "@/lib/actions/wizard";
+import { findOrCreateAuthor, createAuthor } from "@/lib/actions/authors";
+import { findDuplicateWork } from "@/lib/actions/works";
 
 /** The database's own wording, which a reader must never see */
 const RAW = /duplicate key|violates unique constraint|Failed query/;
@@ -98,6 +100,18 @@ describe.skipIf(!url)("duplicate names and numbers with PostgreSQL", () => {
       expect((await findNamedDuplicates({ kind, name: "Etoile", excludeId: rows[0].id })).some(row => row.id === rows[0].id)).toBe(false);
       expect(await findNamedDuplicates({ kind, name: "No such name" })).toEqual([]);
     }
+  });
+
+  it("finds the clean record a name pasted with invisible characters repeats, and saves the name clean (SLN-1393)", async () => {
+    const c = client!;
+    const [sebald] = await c`insert into authors(name,slug) values ('W. G. Sebald','w-g-sebald') returning id`;
+    await c`insert into work_authors(work_id,author_id,role,sort_order) values (${workId},${sebald.id},'author',0)`;
+    const pasted = "W.\u00a0G.\u200b Se\u00adbald";
+    expect((await findNamedDuplicates({ kind: "person", name: pasted })).map((row) => row.id)).toEqual([sebald.id]);
+    expect((await findOrCreateAuthor(pasted)).id).toBe(sebald.id);
+    expect((await findDuplicateWork({ title: "\ufeffThe Rings of Sat\u00adurn", authorName: pasted }))?.id).toBe(workId);
+    const created = await createAuthor({ name: "Peter\u200b Hand\u00adke" });
+    expect((await c`select name from authors where id = ${created.id}`)[0].name).toBe("Peter Handke");
   });
 
   describe("taxonomy items", () => {

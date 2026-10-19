@@ -1,9 +1,10 @@
 import { z } from "zod";
+import { cleanString } from "./helpers";
 import { ORGANIZATION_ROLES } from "@/lib/catalogue/organizations";
 
 export const organizationSchema = z
   .object({
-    name: z.string().trim().min(1).max(200),
+    name: cleanString().trim().min(1).max(200),
     roles: z.array(z.enum(ORGANIZATION_ROLES)).min(1).max(10),
     parentId: z.uuid().nullable().optional(),
     country: z.string().trim().max(200).nullable().optional(),
@@ -15,7 +16,7 @@ export const organizationSchema = z
     description: z.string().max(10000).nullable().optional(),
     notes: z.string().max(10000).nullable().optional(),
     isFavourite: z.boolean().optional(),
-    aliases: z.array(z.string().trim().min(1).max(200)).max(100).default([]),
+    aliases: z.array(cleanString().trim().min(1).max(200)).max(100).default([]),
   })
   .superRefine((org, ctx) => {
     if (org.roles.includes("publisher") && org.roles.includes("imprint"))

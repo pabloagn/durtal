@@ -1,16 +1,16 @@
 import { z } from "zod/v4";
+import { cleanString, RATING_SCHEMA } from "./helpers";
 import { bookLinksSchema } from "./book-links";
 import { WORK_DOMAINS } from "@/lib/catalogue/domains";
-import { RATING_SCHEMA } from "./helpers";
 
 export const createWorkSchema = z.object({
   // This is the legacy book entry point. Do not silently strip another kind.
   kind: z.literal("book").default("book"),
-  title: z.string().min(1, "Title is required").max(500),
+  title: cleanString().min(1, "Title is required").max(500),
   originalLanguage: z.string().default("en"),
   originalYear: z.number().int().min(-3000).max(2100).nullable().optional(),
   description: z.string().max(10000).nullable().optional(),
-  seriesName: z.string().max(300).nullable().optional(),
+  seriesName: cleanString().max(300).nullable().optional(),
   seriesPosition: z.string().max(20).nullable().optional(),
   isAnthology: z.boolean().default(false),
   workTypeId: z.string().uuid().nullable().optional(),

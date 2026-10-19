@@ -1,8 +1,9 @@
 import { z } from "zod/v4";
+import { cleanString } from "./helpers";
 const optionalText = z.string().trim().max(10000).nullable().optional();
 export const publisherSchema = z
   .object({
-    name: z.string().trim().min(1).max(200),
+    name: cleanString().trim().min(1).max(200),
     country: z.string().trim().max(200).nullable().optional(),
     website: z
       .string()
@@ -20,7 +21,7 @@ export const publisherSchema = z
     foundedPlaceId: z.uuid().nullable().optional(),
     kind: z.enum(["group", "publisher", "imprint"]).default("publisher"),
     parentId: z.uuid().nullable().optional(),
-    aliases: z.array(z.string().trim().min(1).max(200)).max(100).default([]),
+    aliases: z.array(cleanString().trim().min(1).max(200)).max(100).default([]),
     /** ISBN publisher prefixes ("978-1-59017"); undefined leaves the saved rules */
     isbnPrefixes: z
       .array(

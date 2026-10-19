@@ -56,6 +56,7 @@ import { libraryStatsReads } from "@/lib/actions/utils/library-stats";
 import { markedWorkCards, markedWorkIds } from "@/lib/catalogue/marked-works";
 import type { WorkMarkKey } from "@/lib/constants/marks";
 import { normalizeSearchText } from "@/lib/utils/search-text";
+import { cleanText } from "@/lib/utils/clean-text";
 import type { SQL } from "drizzle-orm";
 import { readingFilterConditions } from "@/lib/reading/filter-conditions";
 import { bookFilterConditions } from "@/lib/library/filter-conditions";
@@ -366,12 +367,12 @@ export async function findDuplicateWork(opts: {
     if (byIsbn?.work) return { ...byIsbn.work, matchedBy: "isbn" as const };
   }
 
-  // Same title, ignoring accents, case and punctuation ("Agua Viva" and
-  // "Água Viva"), then an author with the same name words (SLN-287)
+  // Same title, ignoring accents, case, punctuation and invisible characters
+  // ("Agua Viva" and "Água Viva"; SLN-1393), then an author with the same name words (SLN-287)
   const candidates = await db.query.works.findMany({
     where: and(
       bookCondition,
-      sql`search_normalize(${works.title}) = search_normalize(${opts.title.trim()})`,
+      sql`search_normalize(${works.title}) = search_normalize(${cleanText(opts.title).trim()})`,
     ),
     with: duplicateWith,
     limit: 5,

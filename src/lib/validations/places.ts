@@ -1,7 +1,8 @@
 import { z } from "zod/v4";
+import { cleanString } from "./helpers";
 
 export const createPlaceSchema = z.object({
-  name: z.string().min(1).max(500),
+  name: cleanString().min(1).max(500),
   fullName: z.string().max(1000).nullable().optional(),
   type: z.string().min(1).max(100),
   parentId: z.string().uuid().nullable().optional(),
