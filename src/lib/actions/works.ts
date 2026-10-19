@@ -36,9 +36,7 @@ import {
   and,
   inArray,
   isNotNull,
-  ne,
 } from "drizzle-orm";
-import { z } from "zod";
 import {
   createWorkSchema,
   updateWorkSchema,
@@ -54,8 +52,8 @@ import { authorOrderedBookIds } from "@/lib/actions/utils/author-ordered-books";
 import { alphabeticalWorkIds } from "@/lib/actions/utils/alphabetical-works";
 import { compareWorks } from "@/lib/utils/title-order";
 import { posterTone, workCardExtras, workCardWith } from "@/lib/actions/utils/work-card-query";
-import { markColumn } from "@/lib/actions/utils/work-marks";
-import { WORK_MARKS, type WorkMarkKey } from "@/lib/constants/marks";
+import { markedWorkCards, markedWorkIds } from "@/lib/catalogue/marked-works";
+import type { WorkMarkKey } from "@/lib/constants/marks";
 import { normalizeSearchText } from "@/lib/utils/search-text";
 import type { AnyColumn, SQL } from "drizzle-orm";
 import { countryDisplayName } from "@/lib/utils/labels";
@@ -665,20 +663,7 @@ export async function getWorksWithMark(
   excludeWorkId: string,
   limit = 12,
 ) {
-  const key = z.enum(WORK_MARKS.map((m) => m.key)).parse(mark);
-  const id = z.uuid().parse(excludeWorkId);
-  z.number().int().min(1).max(50).parse(limit);
-  const ids = await alphabeticalWorkIds(
-    and(eq(markColumn(key), true), ne(works.id, id)),
-    limit,
-  );
-  if (!ids.length) return [];
-  const results = await db.query.works.findMany({
-    where: inArray(works.id, ids),
-    extras: workCardExtras,
-    with: workCardWith,
-  });
-  return results.sort(compareWorks);
+  return markedWorkCards(await markedWorkIds(mark, excludeWorkId, limit));
 }
 
 /** Dashboard stats; `shelf` is how many books each shelf takes (the API keeps 8) */

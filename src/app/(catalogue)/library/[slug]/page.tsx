@@ -41,10 +41,8 @@ import { PoisonToggle } from "@/components/books/poison-toggle";
 import { BookLinks } from "@/components/books/book-links";
 import { CapAligned } from "@/components/shared/cap-aligned";
 import { ExternalLink } from "lucide-react";
-import {
-  getWorkBySlug,
-  getWorksWithMark,
-} from "@/lib/actions/works";
+import { getWorkBySlug } from "@/lib/actions/works";
+import { markedWorkCards, markedWorkIds } from "@/lib/catalogue/marked-works";
 import { MARKS_LABEL, marksOf, otherMarkedTitle } from "@/lib/constants/marks";
 import { getOrdersForWork } from "@/lib/actions/orders";
 import { getOtherWorksInSeries } from "@/lib/actions/series";
@@ -72,8 +70,8 @@ import { collectionPoster } from "@/components/collections/collection-card";
 import { WorkCollectionsSection } from "@/components/collections/work-collections";
 import { WorkCarousel } from "@/components/books/work-carousel";
 import { SimilarWorksCarousel } from "@/components/books/similar-works-carousel";
-import { getBookRelatedGroups } from "@/lib/actions/book-related";
-import { getSimilarWorks } from "@/lib/actions/similar-works";
+import { relatedBookRows, relatedGroupsFrom } from "@/lib/catalogue/related-groups";
+import { rankSimilarWorks, similarWorksFrom } from "@/lib/catalogue/similar-ranking";
 import { WorkPosterImage, WorkPosterPlaceholder } from "./work-poster-image";
 import { cardEdition } from "./card-edition";
 import {
@@ -151,8 +149,41 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
   void workTaxonomyAssignments(work.id);
   const canRead = canUseWorkCapability(work.kind, "reading");
 
-  // Get orders, e-books, and related works for this work
+  // Get orders, e-books, and related works for this work. Each read that
+  // needs another starts as soon as that one returns (SLN-1163): the shelves'
+  // picks, then their cards beside the cards' e-book marks, and the reading
+  // estimates and collection covers beside them; not after the slowest read.
   const primaryAuthor = work.workAuthors[0]?.author;
+  const shelfLimit = 12;
+  const seriesShelf = work.seriesId ? getOtherWorksInSeries(work.seriesId, work.id, shelfLimit) : Promise.resolve([]);
+  const relatedRows = relatedBookRows(work.id, shelfLimit);
+  const similarRanks = rankSimilarWorks(work.id, shelfLimit);
+  // One row of other books for each mark this book has
+  const markIds = Promise.all(
+    marksOf(work).map(async (mark) => ({ mark, ids: await markedWorkIds(mark.key, work.id, shelfLimit) })),
+  );
+  const relations = getWorkRelations(work.id);
+  const overview = canRead
+    ? getBookReadingOverview(work.id)
+    : Promise.resolve({ rows: [], summary: emptyReadingSummary(), defaults: emptyStartDefaults(), history: { closedCount: 0, hasMore: false } });
+  const dayStart = readingDayStartHour();
+  const gate = canRead ? predictionGateOn() : Promise.resolve(false);
+  const collectionsOfWork = getCollectionsForWork(work.id);
+  // This book's e-books, and how far each is read and marked
+  const ownDigital = catalogueAvailability([work.id]).then(
+    async (digital) => [digital, await getEbookReach((digital.get(work.id)?.ebooks ?? []).map((e) => e.ebookId))] as const,
+  );
+  // The e-book marks of every book card on the page
+  const cardDigital = Promise.all([seriesShelf, relatedRows, similarRanks, markIds, relations]).then(
+    ([series, related, similar, marked, links]) =>
+      catalogueAvailability([
+        ...series.map((w) => w.id),
+        ...related.map((row) => row.workId),
+        ...marked.flatMap((row) => row.ids),
+        ...similar.filter((row) => row.kind === "book").map((row) => row.id),
+        ...linkedBookIds(links),
+      ]),
+  );
   const [
     workOrders,
     ebookSuggestionCount,
@@ -167,64 +198,48 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
     readingNotes,
     dayStartHour,
     queued,
-    gateOn,
+    [[ownAvailability, reach], cardAvailability],
+    estimates,
+    predictionContext,
+    collectionCovers,
   ] = await Promise.all([
     getOrdersForWork(work.id),
     getEbookSuggestionCount(work.id),
-    getBookRelatedGroups(work.id, 12),
+    relatedRows.then(relatedGroupsFrom),
     getAcquisitionTargets(work.id),
-    getCollectionsForWork(work.id),
-    getSimilarWorks(work.id, 12),
-    // One row of other books for each mark this book has
-    Promise.all(
-      marksOf(work).map(async (mark) => ({
-        mark,
-        works: await getWorksWithMark(mark.key, work.id, 12),
-      })),
-    ),
-    work.seriesId
-      ? getOtherWorksInSeries(work.seriesId, work.id)
-      : Promise.resolve([]),
-    getWorkRelations(work.id),
-    canRead ? getBookReadingOverview(work.id) : Promise.resolve({ rows: [], summary: emptyReadingSummary(), defaults: emptyStartDefaults(), history: { closedCount: 0, hasMore: false } }),
+    collectionsOfWork,
+    similarRanks.then(similarWorksFrom),
+    markIds.then((rows) => Promise.all(rows.map(async ({ mark, ids }) => ({ mark, works: await markedWorkCards(ids) })))),
+    seriesShelf,
+    relations,
+    overview,
     // Quotes and notes (SLN-453): books only
     canRead ? getNotesForWork(work.id) : Promise.resolve([]),
-    readingDayStartHour(),
+    dayStart,
     // The book's place in Up next (SLN-452)
     getQueuePlace(work.id),
-    // The predicted rating (SLN-457) shows only while the gate is on
-    canRead ? predictionGateOn() : Promise.resolve(false),
+    Promise.all([ownDigital, cardDigital]),
+    // Time left and the finish date of the open reading (SLN-451)
+    Promise.all([overview, dayStart]).then(([{ rows }, hour]) =>
+      readingEstimates(
+        rows.filter((r) => r.reading.status === "reading" || r.reading.status === "paused").map((r) => r.reading.id),
+        readingDay(new Date(), appTimeZone(), hour),
+      ),
+    ),
+    // The predicted rating (SLN-457) shows only while the gate is on, and
+    // only for an unread book with enough similar books
+    Promise.all([gate, overview]).then(([on, { summary }]) =>
+      canRead && on && summary.finishedCount === 0 ? getBookPredictionContext(work.id) : null,
+    ),
+    // Member-cover collage only for collections without a poster
+    collectionsOfWork.then((found) =>
+      getCollectionCoverPreviews(found.filter((c) => !collectionPoster(c.media)).map((c) => c.id)),
+    ),
   ]);
   const readingRows = readingOverview.rows;
   const zone = appTimeZone();
   const today = readingDay(new Date(), zone, dayStartHour);
-  // Everything that needs the reads above goes out together
-  const [[digital, reach], estimates, predictionContext, collectionCovers] = await Promise.all([
-    catalogueAvailability([
-      work.id,
-      ...seriesWorks.map((related) => related.id),
-      ...relatedGroups.flatMap((group) => group.works.map((related) => related.id)),
-      ...markRows.flatMap((row) => row.works.map((related) => related.id)),
-      ...similarWorks.filter((related) => related.kind === "book").map((related) => related.id),
-      ...linkedBookIds(links),
-    ]).then(async (digital) => {
-      const ebooks = digital.get(work.id)?.ebooks ?? [];
-      return [digital, await getEbookReach(ebooks.map((e) => e.ebookId))] as const;
-    }),
-    // Time left and the finish date of the open reading (SLN-451)
-    readingEstimates(
-      readingRows.filter((r) => r.reading.status === "reading" || r.reading.status === "paused").map((r) => r.reading.id),
-      today,
-    ),
-    // Only for an unread book, and only with enough similar books
-    canRead && gateOn && readingOverview.summary.finishedCount === 0
-      ? getBookPredictionContext(work.id)
-      : Promise.resolve(null),
-    // Member-cover collage only for collections without a poster
-    getCollectionCoverPreviews(
-      workCollections.filter((c) => !collectionPoster(c.media)).map((c) => c.id),
-    ),
-  ]);
+  const digital = new Map([...cardAvailability, ...ownAvailability]);
   const digitalBooks = digital.get(work.id)?.ebooks ?? [];
   const digitalCards = new Map([...digital].map(([id, value]) => [id, value.read]));
   const readerReturnTo = `/library/${slug}`;

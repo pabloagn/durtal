@@ -492,6 +492,21 @@ describe.skipIf(!url)("series with PostgreSQL", () => {
     const siblings = await getOtherWorksInSeries(all[0].id, books[2].id);
     expect(siblings.map((w) => w.seriesPosition)).toEqual(["1", "2.5", "10"]);
   });
+  it("shows a book's 12 nearest volumes in reading order, not the whole series (SLN-1163)", async () => {
+    const [long] = await db.insert(schema.series).values({ title: "Long Series", slug: "long-series" }).returning();
+    const books: { id: string }[] = [];
+    for (let n = 1; n <= 20; n++)
+      books.push(await book(`Long Volume ${n}`, { seriesId: long.id, seriesPosition: String(n) }));
+    const positions = async (n: number) =>
+      (await getOtherWorksInSeries(long.id, books[n - 1].id)).map((w) => Number(w.seriesPosition));
+    // Near the start, the volumes after it fill the shelf
+    expect(await positions(3)).toEqual([1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]);
+    // In the middle, as many before as after, the earlier one first on a tie
+    expect(await positions(10)).toEqual([4, 5, 6, 7, 8, 9, 11, 12, 13, 14, 15, 16]);
+    // At the end, the volumes before it
+    expect(await positions(20)).toEqual([8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]);
+    expect(await getOtherWorksInSeries(long.id, books[9].id, 2)).toHaveLength(2);
+  });
   it("rejects invalid positions before creating any series", async () => {
     const w = await book("Bad input");
     await expect(
