@@ -768,19 +768,34 @@ Grid of curated collections. A collection holds book editions and whole works
 of every open collection: books with no edition chosen, films, perfumes and
 paintings (SLN-362).
 
-**Per collection card**: Name, description, count line by kind ("6 books",
-"4 editions", "3 books · 1 perfume"; "Empty"; a book held both ways counted
-once, as its edition; `collectionCountLine`), cover image or the first four
-members' images. The collection page shows the same line under its name, and
-none when it is empty (its empty state says so).
+**Toolbar** (SLN-845, SLN-1059): the shared list toolbar (`EntityFilters`):
+search as you type, sort by Name (the curated order, then name), Recent (when
+made) or Size (members), each reversible and kept in the address, Favourites
+only, and the grid or mosaic with its size. A search or filter that matches
+nothing shows "No collections found" with Clear search or Clear filters.
+
+**Per collection card**: Name, count line by kind ("6 books",
+"4 editions", "3 books · 1 perfume"; "0 books" when empty, as an empty
+series; a book held both ways counted once, as its edition;
+`collectionCountLine`, wrapping only between kinds), cover image or the first
+four members' images. The description is read on the collection page only.
+The collection page shows the same line under its name, and none when it is
+empty (its empty state says so, with the page's one Add).
+
+Lists count members in SQL (`collectionTallySql`), never by loading them
+(SLN-1058).
 
 **Collection page** (`/collections/[id]`): one ordered list of member cards
 (`MemberCard`): an edition (cover, publisher and year, ISBN; "also collected
 as the book" when the whole book is in too), a whole book (one line: "Any
 edition", then its reading), a film (poster or the title's letter, directors, year and runtime),
 a perfume (bottle, house, concentrations) or a painting (picture, painters,
-date). Each card moves earlier or later in the one order and can be removed;
-the header counts books, editions, films, perfumes and paintings.
+date). Every image fills the card's 2:3 frame (a bottle or picture whole on
+its own tone), and every card has Copy (title and author, director, house or
+painter); books also have Read. Each card moves earlier or later in the one
+order and can be removed; the header counts books, editions, films, perfumes
+and paintings. With no artwork and no chosen icon, the poster shows the
+name's letter and the icon spot the plain mark, so the letter shows once.
 
 **Management**: Create, edit, delete collections. "Add" opens a dialog with
 Editions, Books, Films, Perfumes and Paintings (the open collections). The

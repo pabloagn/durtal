@@ -70,14 +70,14 @@ interface Member {
   sortOrder: number;
   addedAt: Date;
   card: Omit<React.ComponentProps<typeof MemberCard>, "actions">;
-  /** Copy title and author, for books */
+  /** Copy title and maker, and Read for a book: the same actions on every kind (SLN-1059) */
   copy?: React.ReactNode;
 }
 
 const cover = (key: string | null | undefined, alt: string) => {
   // The title's letter on the cover's blank, as on every other card: with no cover, or one that fails
   const blank = (
-    <span className={`h-32 w-full bg-bg-tertiary ${COVER_BLANK}`}>
+    <span className={`absolute inset-0 ${COVER_BLANK}`}>
       <CoverLetter title={alt} />
     </span>
   );
@@ -87,7 +87,7 @@ const cover = (key: string | null | undefined, alt: string) => {
       alt={alt}
       loading="lazy"
       decoding="async"
-      className="max-h-32 w-full object-contain"
+      className="protected-image absolute inset-0 h-full w-full object-cover"
       fallback={blank}
     />
   ) : (
@@ -144,7 +144,6 @@ async function collectionMembers(
         facts: [e.publisher, e.publicationYear, languageName(e.language), bindingLabel(e.binding)].filter(Boolean).join(" · "),
         // A book held both ways shows as its edition, and says so
         note: [e.isbn13, heldAsWork.has(work.id) ? "also collected as the book" : null, state(work.id)].filter(Boolean).join(" · ") || null,
-        noteMono: true,
       },
       copy: <><CopyBookButton title={work.title} authorNames={names} /><CatalogueReadLink ebook={ebook} returnTo={readerReturnTo} /></>,
     };
@@ -185,17 +184,13 @@ async function collectionMembers(
           ...base,
           card: {
             href: filmHref(film),
-            image: (
-              <FilmPoster
-                image={film.poster}
-                title={film.title}
-              />
-            ),
+            image: <FilmPoster image={film.poster} title={film.title} className="h-full" />,
             title: film.title,
             byline: filmDirectors(film),
             facts: filmFacts(film) || null,
             note: label,
           },
+          copy: <CopyBookButton title={film.title} authorName={filmDirectors(film) ?? undefined} what="film title and director" />,
         },
       ];
     }
@@ -207,12 +202,13 @@ async function collectionMembers(
           ...base,
           card: {
             href: perfumeHref(perfume),
-            image: <PerfumeImage image={perfume.poster} title={perfume.title} />,
+            image: <PerfumeImage image={perfume.poster} title={perfume.title} className="h-full aspect-auto!" />,
             title: perfume.title,
             byline: perfumeMakers(perfume),
             facts: perfumeFacts(perfume) || null,
             note: label,
           },
+          copy: <CopyBookButton title={perfume.title} authorName={perfumeMakers(perfume) ?? undefined} what="perfume name and house" />,
         },
       ];
     }
@@ -223,12 +219,13 @@ async function collectionMembers(
         ...base,
         card: {
           href: paintingHref(painting),
-          image: <PaintingImage image={painting.poster} title={painting.title} />,
+          image: <PaintingImage image={painting.poster} title={painting.title} className="h-full aspect-auto!" />,
           title: painting.title,
           byline: paintingPainters(painting),
           facts: paintingFacts(painting) || null,
           note: label,
         },
+        copy: <CopyBookButton title={painting.title} authorName={paintingPainters(painting) ?? undefined} what="painting title and painter" />,
       },
     ];
   });
@@ -383,6 +380,7 @@ export default async function CollectionPage({
                     collectionId={collection.id}
                     name={collection.name}
                     value={collection.icon}
+                    letterShown={!poster && !covers.length}
                   >
                     <CollectionIcon
                       icon={collection.icon}

@@ -44,6 +44,12 @@ export function memberTally(collection: CountedCollection): MemberTally {
 }
 
 /**
+ * An empty collection's count, in the same form as an empty series' ("0
+ * books"), so the two lists read alike side by side (SLN-1059)
+ */
+export const EMPTY_COUNT_LINE = "0 books";
+
+/**
  * What a collection holds, counted as its page shows it: every edition, and
  * every whole work except a book that also has an edition there (the edition
  * stands for it). A book collected both ways counts once.
@@ -58,7 +64,7 @@ export function collectionCounts(collection: CountedCollection) {
  * books", "3 books · 1 perfume", "1,050 films". A book counts once, held
  * whole or through its editions; more editions than the books they hold say
  * so: "5 books (6 editions)" (SLN-915). `null` when it holds nothing, so
- * the card says "Empty" and the page leaves the line out.
+ * the card says `EMPTY_COUNT_LINE` and the page leaves the line out.
  */
 export function collectionCountLine(collection: CountedCollection) {
   const { books, editions, byEdition, kinds } = members(collection);
