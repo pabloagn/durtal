@@ -80,7 +80,8 @@ export function RankList({ title, items, tone = "sage" }: { title?: string; item
             <div className="flex items-baseline justify-between gap-3 text-sm">
               {item.href ? (
                 // The label cuts off inside the link: the link's touch area is not clipped
-                <Link href={item.href} className="min-w-0 text-fg-primary transition-colors hover:text-accent-primary touch-hit">
+                // A text command (SLN-1195): in the text colour it read as a plain label
+                <Link href={item.href} className="min-w-0 text-command touch-hit">
                   <span className="lines-1">{item.label}</span>
                 </Link>
               ) : (

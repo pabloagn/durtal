@@ -50,8 +50,9 @@ export function MemberCard({
       </Link>
       {/* Text grows with its content instead of clipping */}
       <div className="flex min-w-0 flex-1 flex-col">
-        {/* A one-line title still takes a 44px press area on touch */}
-        <Link href={href} className="touch-hit block [overflow-wrap:anywhere] type-item-title">
+        {/* A one-line title still takes a 44px press area on touch. The card's
+            box and cover say it opens the record (data-card-title, SLN-1195) */}
+        <Link href={href} className="touch-hit block [overflow-wrap:anywhere] type-item-title" data-card-title="">
           {title}
         </Link>
         {byline && <p className="mt-1 [overflow-wrap:anywhere] text-sm text-fg-secondary">{byline}</p>}

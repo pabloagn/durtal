@@ -134,10 +134,7 @@ export default async function SeriesDetailPage({
               <Fragment key={author.id}>
                 {i > 0 && ", "}
                 {author.slug ? (
-                  <Link
-                    href={`/people/${author.slug}`}
-                    className="transition-colors hover:text-accent-primary"
-                  >
+                  <Link href={`/people/${author.slug}`} className="text-command">
                     {author.name}
                   </Link>
                 ) : (
