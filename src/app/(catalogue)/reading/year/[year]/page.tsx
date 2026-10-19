@@ -27,7 +27,7 @@ export async function generateMetadata({ params }: { params: Promise<{ year: str
 const book = (b: { slug: string | null; workId: string }) => `/library/${b.slug ?? b.workId}`;
 const link = "text-fg-primary transition-colors hover:text-accent-primary";
 const evidence = "text-xs whitespace-nowrap text-fg-secondary transition-colors hover:text-fg-primary touch-hit";
-/** Covers a month shows at most; the rest are a "+38" tile to the journal, so a year of hundreds stays within the page budget */
+/** Covers a month shows at most; the rest are a "+38" tile to the journal, so a year of hundreds stays within the page budget. Print lists every title instead */
 const WALL_MONTH = 12;
 
 /**
@@ -129,7 +129,7 @@ export default async function YearInReviewPage({ params }: { params: Promise<{ y
                   {month ? MONTHS[month - 1] : "Month unknown"}
                   <span className="ml-2 tabular-nums sm:ml-0 sm:block">{n(books.length)}</span>
                 </p>
-                <ul className="flex flex-wrap gap-2">
+                <ul className="flex flex-wrap gap-2 print:hidden">
                   {books.slice(0, WALL_MONTH).map((b) => (
                     <li key={`${b.workId}-${b.finishedOn}`}>
                       <Link
@@ -156,6 +156,15 @@ export default async function YearInReviewPage({ params }: { params: Promise<{ y
                     </li>
                   )}
                 </ul>
+                {/* On paper "+38" opens nothing: every title of the month, as text (SLN-1174) */}
+                <ol className="hidden columns-2 gap-x-6 text-xs text-fg-primary print:block" data-review-print-list="">
+                  {books.map((b) => (
+                    <li key={`${b.workId}-${b.finishedOn}`} className="break-inside-avoid [overflow-wrap:break-word]">
+                      {b.title}
+                      {b.rating !== null && <span className="text-fg-secondary"> · {formatRating(b.rating)}</span>}
+                    </li>
+                  ))}
+                </ol>
               </div>
             ))}
           </div>

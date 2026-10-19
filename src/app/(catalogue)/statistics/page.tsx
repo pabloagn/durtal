@@ -69,12 +69,56 @@ export default async function StatisticsPage() {
   const years = await busiestYears(written.years);
   const unrated = split.unrated;
 
+  // Shown with or without books on the shelves (SLN-1174): readings need no copy, and the other collections are not books
+  const readingSection =
+    reading.books > 0 || reading.hours > 0 ? (
+      <StatsSection
+        title="Reading"
+        id="reading"
+        action={
+          <Link href="/reading/stats" className="text-xs whitespace-nowrap text-command touch-hit" data-stats-reading-link="">
+            Reading stats
+          </Link>
+        }
+      >
+        <NumberTiles
+          tiles={[
+            { label: "Books finished", value: n(reading.books) },
+            { label: "Pages read", value: n(reading.pages) },
+            { label: "Hours", value: n(reading.hours) },
+            { label: "Reading days", value: n(reading.readingDays) },
+          ]}
+        />
+        <Footnote>
+          {numbers.books === 0
+            ? "Every book you finished, owned or not."
+            : "Every book you finished, owned or not, so it can be more than Read in the Breakdown, which counts the books on your shelves."}
+        </Footnote>
+      </StatsSection>
+    ) : null;
+  const othersSection = others.some((o) => o.counts.records > 0) && (
+      <StatsSection title="The other collections" id="collections">
+        <NumberTiles
+          tiles={others
+            .filter((o) => o.counts.records > 0)
+            .flatMap(({ kind, counts }) => [
+              { label: WORK_DOMAINS[kind].pluralLabel, value: n(counts.records) },
+              { label: CREATORS[kind], value: n(counts.creators) },
+            ])}
+        />
+      </StatsSection>
+    );
+
   return (
     <>
       <PageHeader title="Statistics" description="The books on your shelves, in numbers." />
 
       {numbers.books === 0 ? (
-        <EmptyState icon={BarChart3} title="No books on your shelves yet" />
+        <div className="space-y-14">
+          <EmptyState icon={BarChart3} title="No books on your shelves yet" heading="h2" />
+          {readingSection}
+          {othersSection}
+        </div>
       ) : (
         <div className="space-y-14">
           <CoverStrip books={covers} />
@@ -281,40 +325,8 @@ export default async function StatisticsPage() {
             </StatsSection>
           ) : null}
 
-          {reading.books > 0 || reading.hours > 0 ? (
-            <StatsSection
-              title="Reading"
-              id="reading"
-              action={
-                <Link href="/reading/stats" className="text-xs whitespace-nowrap text-command touch-hit" data-stats-reading-link="">
-                  Reading stats
-                </Link>
-              }
-            >
-              <NumberTiles
-                tiles={[
-                  { label: "Books finished", value: n(reading.books) },
-                  { label: "Pages read", value: n(reading.pages) },
-                  { label: "Hours", value: n(reading.hours) },
-                  { label: "Reading days", value: n(reading.readingDays) },
-                ]}
-              />
-              <Footnote>Every book you finished, owned or not, so it can be more than Read in the Breakdown, which counts the books on your shelves.</Footnote>
-            </StatsSection>
-          ) : null}
-
-          {others.some((o) => o.counts.records > 0) && (
-            <StatsSection title="The other collections" id="collections">
-              <NumberTiles
-                tiles={others
-                  .filter((o) => o.counts.records > 0)
-                  .flatMap(({ kind, counts }) => [
-                    { label: WORK_DOMAINS[kind].pluralLabel, value: n(counts.records) },
-                    { label: CREATORS[kind], value: n(counts.creators) },
-                  ])}
-              />
-            </StatsSection>
-          )}
+          {readingSection}
+          {othersSection}
         </div>
       )}
     </>

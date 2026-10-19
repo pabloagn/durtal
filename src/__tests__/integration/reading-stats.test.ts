@@ -730,6 +730,9 @@ describe.skipIf(!url)("reading stats with PostgreSQL", () => {
       expect(page).toContain(`${YEAR} in review`);
       expect(page).toContain(`href="/reading/journal?yearMin=${YEAR}&amp;yearMax=${YEAR}"`);
       expect(page).toContain("The best line.");
+      // On paper every title is written out, month by month, where the screen shows covers and a "+N" tile (SLN-1174)
+      const printed = [...page.matchAll(/<ol[^>]*data-review-print-list[^>]*>(.*?)<\/ol>/g)].flatMap((m) => [...m[1].matchAll(/<li[^>]*>([^<]*)/g)].map((x) => x[1]));
+      expect(printed).toEqual(["First", "Longest", "Best", "Last", "Some time"]);
     });
 
     it("finds books finished or started on this calendar day in earlier years, at day precision only", async () => {
