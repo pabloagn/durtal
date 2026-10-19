@@ -22,9 +22,14 @@ import { useFocusThroughBusy } from "@/hooks/use-focus-through-busy";
 import { CollectionIconLazy } from "@/components/collections/collection-icon-lazy";
 import { CountParts } from "@/components/collections/count-parts";
 import { countLabel } from "@/lib/utils/format";
+import { normalizeSearchText } from "@/lib/utils/search-text";
 import { shortcutProps } from "@/lib/shortcuts/shortcuts";
 
 type Data = Awaited<ReturnType<typeof getCollectionSelection>>;
+
+/** One collection name: accents, case and punctuation aside */
+const sameName = (a: string, b: string) =>
+  normalizeSearchText(a) === normalizeSearchText(b);
 
 /** A work joining a collection, with its kind for the row's count line */
 function workKind(data: Data, workId: string) {
@@ -162,10 +167,7 @@ export function AddToCollectionDialog({
   async function create(event: React.FormEvent) {
     event.preventDefault();
     if (saving.current || !query.trim() || !chosen) return;
-    const existing = data?.collections.find(
-      (c) =>
-        c.name.trim().toLocaleLowerCase() === query.trim().toLocaleLowerCase(),
-    );
+    const existing = data?.collections.find((c) => sameName(c.name, query));
     if (existing) {
       await toggle(existing.id, false);
       return;
@@ -220,9 +222,11 @@ export function AddToCollectionDialog({
       setBusy(false);
     }
   }
+  // Accents and case are ignored, as in every search: "decadents" finds
+  // "Décadents", and adds to it rather than making a second one
   const filtered =
     data?.collections.filter((c) =>
-      c.name.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()),
+      normalizeSearchText(c.name).includes(normalizeSearchText(query)),
     ) ?? [];
   return (
     <Dialog
@@ -326,11 +330,7 @@ export function AddToCollectionDialog({
                 variant="primary"
                 data-shortcut="save"
               >
-                {data.collections.some(
-                  (c) =>
-                    c.name.trim().toLocaleLowerCase() ===
-                    query.trim().toLocaleLowerCase(),
-                )
+                {data.collections.some((c) => sameName(c.name, query))
                   ? "Add"
                   : "Create & add"}
               </Button>
