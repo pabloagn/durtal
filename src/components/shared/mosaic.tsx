@@ -45,6 +45,7 @@ function MosaicTile({ item, isSelecting, selected, onSelect }: {
   </>;
   const className = `mosaic-tile group/tile ${selected ? "mosaic-tile-selected" : ""}`;
   const link = <Link href={item.href}
+    data-focus-row={item.actions ? undefined : ""}
     aria-label={item.subtitle ? `${item.title}, ${item.subtitle}` : item.title}
     aria-pressed={isSelecting ? selected : undefined}
     className={item.actions ? "absolute inset-0 outline-none" : className}
@@ -55,7 +56,7 @@ function MosaicTile({ item, isSelecting, selected, onSelect }: {
       event.preventDefault(); onSelect(item.key);
     }}>{content}</Link>;
   if (!item.actions) return link;
-  return <div className={`${className} group focus-within:ring-2 focus-within:ring-accent-primary focus-within:[&_.mosaic-caption]:opacity-100 focus-within:[&_.mosaic-caption]:translate-y-0`}
+  return <div data-focus-row="" className={`${className} group focus-within:ring-2 focus-within:ring-accent-primary focus-within:[&_.mosaic-caption]:opacity-100 focus-within:[&_.mosaic-caption]:translate-y-0`}
     style={{ "--tile-aspect": item.aspect } as CSSProperties}>
     {link}
     {!isSelecting && <div className={`artwork-actions !bottom-auto !top-1 ${menuOpen ? "before:!opacity-100 [&>div]:!opacity-100" : ""}`}>
@@ -102,6 +103,8 @@ export function Mosaic({
     <div className="@container">
       <div
         className="mosaic"
+        // A deleted picture hands the focus to the next one (FocusKeeper)
+        data-focus-list="mosaic"
         style={{ "--mosaic-per-row": perRow, "--mosaic-aspect": aspect } as CSSProperties}
       >
         {items.map((item) => <MosaicTile key={item.key} item={item} isSelecting={isSelecting}

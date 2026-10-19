@@ -182,6 +182,7 @@ function ObjectItem({
   const away = object.ownerVenue && object.currentVenueId && object.currentVenueId !== object.ownerVenue.id;
   return (
     <li
+      data-focus-row=""
       className={`rounded-sm border border-glass-border bg-bg-secondary/40 px-3 py-2.5 ${
         object.disposed ? "opacity-70" : ""
       }`}
@@ -278,8 +279,8 @@ export function ArtObjectsSection({
     }
   }
 
-  const list = (items: ObjectView[]) => (
-    <ul className="space-y-2">
+  const list = (items: ObjectView[], name: string) => (
+    <ul data-focus-list={name} className="space-y-2">
       {items.map((object) => (
         <ObjectItem key={object.id} object={object} setDialog={setDialog} onVerify={verify} />
       ))}
@@ -297,6 +298,7 @@ export function ArtObjectsSection({
             <Button
               variant="ghost"
               size="sm"
+              data-focus-empty="painting-originals"
               onClick={() =>
                 setDialog({ kind: "add", objectKind: originals.some((o) => o.kind === "original") ? "version" : "original" })
               }
@@ -311,7 +313,7 @@ export function ArtObjectsSection({
             Where the original is, and who owns it, is not recorded yet.
           </p>
         ) : (
-          list(originals)
+          list(originals, "painting-originals")
         )}
       </section>
 
@@ -321,7 +323,12 @@ export function ArtObjectsSection({
           title="Reproductions"
           count={reproductions.length || undefined}
           action={
-            <Button variant="ghost" size="sm" onClick={() => setDialog({ kind: "add", objectKind: "reproduction" })}>
+            <Button
+              variant="ghost"
+              size="sm"
+              data-focus-empty="painting-reproductions"
+              onClick={() => setDialog({ kind: "add", objectKind: "reproduction" })}
+            >
               <Plus className="h-3.5 w-3.5" strokeWidth={1.5} />
               Add reproduction
             </Button>
@@ -330,7 +337,7 @@ export function ArtObjectsSection({
         {reproductions.length === 0 ? (
           <p className="text-sm text-fg-secondary">No print, copy or poster recorded</p>
         ) : (
-          list(reproductions)
+          list(reproductions, "painting-reproductions")
         )}
       </section>
 

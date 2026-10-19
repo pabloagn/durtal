@@ -86,6 +86,7 @@ export function EditionAddDialog({
         <Button
           variant="ghost"
           size="sm"
+          data-focus-empty="editions"
           onClick={() => setOpen(true)}
           onPointerEnter={() => preloadEditOptions(EDITION_GROUPS)}
           onFocus={() => preloadEditOptions(EDITION_GROUPS)}

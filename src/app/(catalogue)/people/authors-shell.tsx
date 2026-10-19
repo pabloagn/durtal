@@ -318,7 +318,7 @@ export function AuthorsShell({
 
       {viewMode === "grid" && (
         <div className="@container">
-          <div data-catalogue-grid="" data-grid-density={gridColumns} className={`grid gap-4 ${COL_CLASSES[gridColumns] ?? COL_CLASSES[5]}`}>
+          <div data-catalogue-grid="" data-grid-density={gridColumns} data-focus-list="people" className={`grid gap-4 ${COL_CLASSES[gridColumns] ?? COL_CLASSES[5]}`}>
             {authors.map((a) => (
               <AuthorCard
                 key={a.id}
@@ -374,7 +374,7 @@ export function AuthorsShell({
       )}
 
       {viewMode === "list" && (
-        <div className="space-y-1">
+        <div className="space-y-1" data-focus-list="people">
           {authors.map((a) => (
             <AuthorListItem
               key={a.id}

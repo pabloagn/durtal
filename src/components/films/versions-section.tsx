@@ -87,7 +87,7 @@ export function VersionsSection({
         title="Versions"
         count={versions.length || undefined}
         action={
-          <Button variant="ghost" size="sm" onClick={() => setDialog({ kind: "add" })}>
+          <Button variant="ghost" size="sm" data-focus-empty="film-versions" onClick={() => setDialog({ kind: "add" })}>
             <Plus className="h-3.5 w-3.5" strokeWidth={1.5} />
             Add version
           </Button>
@@ -100,7 +100,7 @@ export function VersionsSection({
           releases. A remake is a film of its own.
         </p>
       ) : (
-        <ol className="space-y-2">
+        <ol data-focus-list="film-versions" className="space-y-2">
           {versions.map((v, index) => {
             const items: EntityActionItem[] = [
               { label: "Edit", icon: Pencil, onClick: () => setDialog({ kind: "edit", version: v }) },
@@ -121,6 +121,7 @@ export function VersionsSection({
             return (
               <li
                 key={v.id}
+                data-focus-row=""
                 className="flex items-start gap-3 rounded-sm border border-glass-border bg-bg-secondary/40 px-3 py-2.5"
               >
                 <div className="min-w-0 flex-1">
