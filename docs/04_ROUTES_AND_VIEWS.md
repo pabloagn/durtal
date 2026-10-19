@@ -755,7 +755,7 @@ Management interface for physical and digital storage locations.
 - Item count: the book copies, film copies, paintings and perfume bottles held there, read live
 - Address details (if physical)
 
-**Actions**: Create location, edit, delete. Create sub-location. Delete says that the location's book copies are deleted with it; a location that still holds film copies, paintings or perfume bottles cannot be deleted, and the dialog says to move them first. Three input modes for address entry:
+**Actions**: Create location, edit, delete. Create sub-location. A location that still holds anything (book copies, film copies, paintings or perfume bottles) cannot be deleted: the dialog names what it holds and says to move it first, and `deleteLocation` refuses the same way, so a copy is never deleted with its place (SLN-1060). Three input modes for address entry:
 - Manual form (street, city, region, country, postal code)
 - Postal code lookup (via Nominatim geocoder)
 - Interactive map picker (Leaflet with Carto Dark Matter tiles)
@@ -1065,6 +1065,7 @@ Grid of taxonomy families (`taxonomy_families` table). System families wrap the 
 Items in one family. **Actions**: Create, rename, edit, move, merge and delete items.
 
 - **Row menu**: Rename (in place), Edit… (name, colour, description, parent), Move to… (hierarchical families), Merge into…, Delete (SLN-1158).
+- **Repeated names**: a new name, a rename or a move that repeats a sibling's name, accents and case aside, names that sibling ("This family already has \"Novel\" under Fiction.") with Open Novel, and the dialog's button becomes Create anyway, Save anyway or Move anyway. A rename in place that repeats one opens Edit item to confirm. Families that keep each exact name once (Subjects, Genres, Tags, Keywords, Art types, Art movements, Attributes) take only an accented or cased variant (SLN-1016, SLN-1159).
 - **Parent picker** (New item, Edit item, Move to…): a search over every item's path ("Fiction / Short story"), with "Top level" first; at most eight choices show, so the list never scrolls inside its dialog, and typing narrows it. A move leaves out the item and everything under it; the database refuses a loop all the same.
 - **Description** is offered only where the family stores one. Themes, Genres, Tags, Keywords and Art movements keep none, and a description sent for them is refused, never dropped.
 - **Drag** reorders an item among its siblings. A drop under another parent is refused with a message pointing to Move to…, and the server refuses a reorder that mixes parents, so nothing is renumbered silently.

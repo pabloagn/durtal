@@ -45,7 +45,7 @@ afterEach(() => {
 });
 
 const settle = (ms = 400) => act(() => new Promise((resolve) => setTimeout(resolve, ms)));
-const searchField = () => host.querySelector('input[placeholder^="Search by title"]') as HTMLInputElement;
+const searchField = () => host.querySelector('input[aria-label^="Search by title"]') as HTMLInputElement;
 
 describe("AddBookWizard from the book picker", () => {
   it("fills its search with the query and runs it", async () => {

@@ -192,9 +192,9 @@ describe.skipIf(!url)("reading stats with PostgreSQL", () => {
       expect(year.bars.map((b) => b.pages)).toEqual([0, 0, 300, 200, 0, 0, 0, 0, 0, 0, 0, 0]);
       expect(year.unknown).toEqual({ key: null, books: 1, pages: 100 });
 
-      // All time: the undated book is in the totals, in no bar, and named in the footnote
+      // All time: the undated book is in the totals, in no bar, and counted once, under the numbers (SLN-1173)
       expect(await yearNumbers(null)).toMatchObject({ books: 4, pages: 1000, undated: 1 });
-      expect(await overTheYear(null)).toEqual({ bars: [{ key: YEAR, books: 3, pages: 600 }], unknown: null, undated: 1 });
+      expect(await overTheYear(null)).toEqual({ bars: [{ key: YEAR, books: 3, pages: 600 }], unknown: null });
     });
   });
 
@@ -305,6 +305,23 @@ describe.skipIf(!url)("reading stats with PostgreSQL", () => {
           { format: "print", minutes: 60, pages: 150, readings: 1 },
           { format: "audio", minutes: 30, pages: 150, readings: 1 },
           { format: "ebook", minutes: 0, pages: 200, readings: 1 },
+        ]),
+      );
+    });
+
+    it("counts a Goodreads reading with no copy as format not recorded, never print (SLN-1171)", async () => {
+      const imported = await past(await book("Imported"), { on: `${YEAR}-05-01`, pages: 120 });
+      await q(`update readings set source = 'import', source_key = 'goodreads:test#1' where id = $1`, [imported]);
+      const w = await book("Imported with its copy");
+      const e = await edition(w);
+      const linked = await past(w, { on: `${YEAR}-05-02`, pages: 80, format: "ebook", editionId: e, instanceId: await copy(e, { at: kindle }) });
+      await q(`update readings set source = 'import', source_key = 'goodreads:test#2' where id = $1`, [linked]);
+      await past(await book("Read by hand"), { on: `${YEAR}-05-03`, pages: 50 });
+      expect((await whereAndHow(YEAR)).formats).toEqual(
+        expect.arrayContaining([
+          { format: "unknown", minutes: 0, pages: 120, readings: 1 },
+          { format: "ebook", minutes: 0, pages: 80, readings: 1 },
+          { format: "print", minutes: 0, pages: 50, readings: 1 },
         ]),
       );
     });

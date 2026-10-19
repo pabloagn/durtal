@@ -19,6 +19,18 @@ export interface Insight {
 }
 
 const r1 = (v: number) => (Math.round(v * 10) / 10).toFixed(1);
+/** A count with its thousands grouped, as everywhere: "2,823" (SLN-1173) */
+const c = (v: number) => v.toLocaleString("en-US");
+
+/**
+ * The share of started books finished: "9 of 10", and from 95% a percentage
+ * rounded down, so a book abandoned never reads as all ("99%"), where "10 of
+ * 10" hid it (SLN-1173)
+ */
+export function finishShare(finished: number, started: number): string {
+  const tens = Math.round((finished / started) * 10);
+  return tens < 10 ? `${tens} of 10 books` : `${Math.floor((finished / started) * 100)}% of the books`;
+}
 
 /** Both groups big enough and far enough apart */
 export function meaningful(a: InsightGroup, b: InsightGroup): boolean {
@@ -33,7 +45,7 @@ function compare(key: string, a: InsightGroup, b: InsightGroup, words: { a: stri
   return {
     key,
     text: `${aHigher ? words.higherA : words.higherB} (${r1(aHigher ? a.avg! : b.avg!)} against ${r1(aHigher ? b.avg! : a.avg!)})`,
-    numbers: words.numbers.replace("{a}", String(a.count)).replace("{b}", String(b.count)),
+    numbers: words.numbers.replace("{a}", c(a.count)).replace("{b}", c(b.count)),
     href,
   };
 }
@@ -90,16 +102,17 @@ export function insights(input: InsightInputs, year: number | null): Insight[] {
         a: "own",
         b: "borrowed",
         higherA: "Books from your own shelves get higher ratings",
-        higherB: "Borrowed books get higher ratings than your own copies",
+        higherB: "Books with no copy recorded get higher ratings than your own copies",
         numbers: "{a} rated from your copies, {b} rated with no copy",
       },
       journal("status=finished"),
     ),
-    input.started >= MIN_GROUP
+    // Only when something was abandoned: with none it says nothing new
+    input.started >= MIN_GROUP && input.started > input.finished
       ? {
           key: "finish",
-          text: `You finish ${Math.round((input.finished / input.started) * 10)} of 10 books you start`,
-          numbers: `${input.finished} finished, ${input.started - input.finished} abandoned`,
+          text: `You finish ${finishShare(input.finished, input.started)} you start`,
+          numbers: `${c(input.finished)} finished, ${c(input.started - input.finished)} abandoned`,
           href: journal("status=finished,abandoned"),
         }
       : null,

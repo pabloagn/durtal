@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { getTaxonomyItemDescription } from "@/lib/actions/taxonomy-browse";
 import { TaxonomyColorPicker } from "./taxonomy-color-picker";
 import { ParentPicker, type ParentChoice } from "./parent-picker";
+import { NameTwinNotice, useTaxonomyNameTwin } from "./name-twin-notice";
 
 export interface EditableItem {
   id: string;
@@ -21,7 +22,8 @@ export interface EditableItem {
  * Edit an item (name, colour, description where the family keeps one,
  * parent) or only move it (SLN-1158). Mounted only while open; a move
  * leaves out the item and everything under it, and the database refuses a
- * loop all the same.
+ * loop all the same. A name or a parent that repeats a sibling's name says
+ * so and saves anyway only when asked (SLN-1159).
  */
 export function EditItemDialog({
   mode,
@@ -31,6 +33,7 @@ export function EditItemDialog({
   hierarchical,
   describable,
   choices,
+  initialName,
   onClose,
   onSaved,
 }: {
@@ -41,11 +44,13 @@ export function EditItemDialog({
   hierarchical: boolean;
   describable: boolean;
   choices: ParentChoice[];
+  /** A name typed in the row's rename that repeats a sibling's */
+  initialName?: string;
   onClose: () => void;
   onSaved: () => void;
 }) {
   const move = mode === "move";
-  const [name, setName] = useState(item.name);
+  const [name, setName] = useState(initialName ?? item.name);
   const [color, setColor] = useState(item.color);
   const [parentId, setParentId] = useState(item.parentId ?? "");
   // undefined while the stored description loads
@@ -81,15 +86,24 @@ export function EditItemDialog({
     ...(hierarchical && parentId !== (item.parentId ?? "") ? { parentId: parentId || null } : {}),
   };
   const changed = Object.keys(changes).length > 0;
+  const twin = useTaxonomyNameTwin(
+    familySlug,
+    trimmed,
+    { parentId: parentId || null, exceptId: item.id },
+    "name" in changes || "parentId" in changes,
+  );
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
-    if (!trimmed || !changed || description === undefined) return;
+    if (!trimmed || !changed || description === undefined || (twin && !twin.saveAnyway)) return;
     setSubmitting(true);
     setError(null);
     try {
       const { updateTaxonomyItem } = await import("@/lib/actions/taxonomy-client");
-      await updateTaxonomyItem(familySlug, item.id, changes);
+      await updateTaxonomyItem(familySlug, item.id, {
+        ...changes,
+        ...(twin?.saveAnyway ? { allowDuplicateName: true } : {}),
+      });
       toast.success(move ? `Moved "${item.name}"` : `Saved "${trimmed}"`);
       onSaved();
     } catch (err) {
@@ -117,6 +131,7 @@ export function EditItemDialog({
               onChange={(e) => setName(e.target.value)}
               error={!trimmed ? "Name is required" : undefined}
             />
+            {twin && <NameTwinNotice familySlug={familySlug} twin={twin} hierarchical={hierarchical} />}
             <div className="space-y-1.5">
               <span className="type-label block">Color</span>
               <div className="flex items-center gap-2">
@@ -145,6 +160,7 @@ export function EditItemDialog({
             exclude={item.id}
           />
         )}
+        {move && twin && <NameTwinNotice familySlug={familySlug} twin={twin} hierarchical={hierarchical} />}
         {error && (
           <p role="alert" className="text-sm text-accent-red-text">
             {error}
@@ -158,10 +174,11 @@ export function EditItemDialog({
             type="submit"
             variant="primary"
             size="sm"
-            disabled={!trimmed || !changed || description === undefined}
+            disabled={!trimmed || !changed || description === undefined || (!!twin && !twin.saveAnyway)}
             busy={submitting}
           >
             {move ? "Move" : "Save"}
+            {twin?.saveAnyway && " anyway"}
           </Button>
         </div>
       </form>

@@ -185,7 +185,8 @@ function SourceForm({
         type="url"
         value={url}
         onChange={(e) => setUrl(e.target.value)}
-        placeholder="https:// (none for a book or a box)"
+        placeholder="https://"
+        hint="None for a book or a box"
         maxLength={4000}
         error={validUrl ? undefined : "Enter an address that starts with http:// or https://"}
       />

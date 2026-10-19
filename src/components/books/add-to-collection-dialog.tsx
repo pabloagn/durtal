@@ -9,10 +9,12 @@ import { Input } from "@/components/ui/input";
 import { useShortcut } from "@/components/shortcuts/shortcuts-provider";
 import {
   getCollectionSelection,
+  getCollectionTally,
 } from "@/lib/actions/collections";
 import {
   collectionCountLine,
   collectionCreatedMessage,
+  memberTally,
 } from "@/lib/collections/counts";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
 import { useFocusThroughBusy } from "@/hooks/use-focus-through-busy";
@@ -100,59 +102,46 @@ export function AddToCollectionDialog({
   // Films, perfumes, paintings and books with no edition join as whole works
   const wholeWorks = data?.works.map((w) => w.id) ?? [];
   const chosen = selected.length + wholeWorks.length;
+  const bookOf = (editionId: string) => data?.editions.find((e) => e.id === editionId)?.workId;
+  /**
+   * The chosen editions a collection holds: itself, or its book held whole
+   * (SLN-1058), so a whole-book member shows ticked and is never added twice
+   */
+  const heldEditions = (c: Data["collections"][number]) =>
+    selected.filter((id) => c.editionIds.includes(id) || c.workIds.includes(bookOf(id) ?? ""));
   async function toggle(id: string, remove: boolean) {
-    if (saving.current || !chosen) return;
+    const c = data?.collections.find((row) => row.id === id);
+    if (saving.current || !chosen || !c) return;
     saving.current = true;
     setBusy(true);
     try {
-      // Editions and whole works change together or not at all (SLN-573)
-      const members = { editionIds: selected, workIds: wholeWorks };
-      await (remove ? removeFromCollection(id, members) : addToCollection(id, members));
-      setData(
-        (current) =>
-          current && {
-            ...current,
-            collections: current.collections.map((c) =>
-              c.id !== id
-                ? c
-                : {
-                    ...c,
-                    collectionEditions: remove
-                      ? c.collectionEditions.filter(
-                          (e) => !selected.includes(e.editionId),
-                        )
-                      : [
-                          ...c.collectionEditions,
-                          ...selected
-                            .filter(
-                              (eid) =>
-                                !c.collectionEditions.some(
-                                  (e) => e.editionId === eid,
-                                ),
-                            )
-                            .map((editionId) => ({
-                              editionId,
-                              edition: {
-                                workId:
-                                  current.editions.find((e) => e.id === editionId)
-                                    ?.workId ?? editionId,
-                              },
-                            })),
-                        ],
-                    collectionWorks: remove
-                      ? c.collectionWorks.filter((w) => !wholeWorks.includes(w.workId))
-                      : [
-                          ...c.collectionWorks,
-                          ...wholeWorks
-                            .filter((wid) => !c.collectionWorks.some((w) => w.workId === wid))
-                            .map((workId) => ({ workId, work: workKind(current, workId) })),
-                        ],
-                  },
-            ),
-          },
+      // Editions and whole works change together or not at all (SLN-573).
+      // Removing takes out a book held whole too; adding skips one held so
+      const wholeBooks = [...new Set(selected.flatMap((e) => bookOf(e) ?? []))].filter((w) =>
+        c.workIds.includes(w),
       );
+      const members = remove
+        ? { editionIds: selected, workIds: [...wholeWorks, ...wholeBooks] }
+        : { editionIds: selected.filter((e) => !wholeBooks.includes(bookOf(e) ?? "")), workIds: wholeWorks };
+      await (remove ? removeFromCollection(id, members) : addToCollection(id, members));
+      const change = (row: Data["collections"][number]) => ({
+        ...row,
+        editionIds: remove
+          ? row.editionIds.filter((e) => !members.editionIds.includes(e))
+          : [...new Set([...row.editionIds, ...members.editionIds])],
+        workIds: remove
+          ? row.workIds.filter((w) => !members.workIds.includes(w))
+          : [...new Set([...row.workIds, ...members.workIds])],
+      });
+      setData((current) => current && { ...current, collections: current.collections.map((row) => (row.id === id ? change(row) : row)) });
       toast.success(remove ? "Removed from collection" : "Added to collection");
       refreshed();
+      // The count line, read again: counting it here would need every member
+      getCollectionTally(id)
+        .then((tally) => {
+          if (tally) setData((current) => current && { ...current, collections: current.collections.map((row) => (row.id === id ? { ...row, tally } : row)) });
+        })
+        .catch(() => {});
     } catch (error) {
       // Nothing was changed; a book may have gone meanwhile, so read again
       toast.error(refusalMessage(error, "Could not update this collection. Nothing was changed."));
@@ -187,17 +176,17 @@ export function AddToCollectionDialog({
             collections: [
               ...current.collections.filter((row) => row.id !== c.id),
               {
-                ...c,
-                collectionEditions: selected.map((editionId) => ({
-                  editionId,
-                  edition: {
-                    workId:
-                      current.editions.find((e) => e.id === editionId)?.workId ??
-                      editionId,
-                  },
-                })),
-                collectionWorks: wholeWorks.map((workId) => ({ workId, work: workKind(current, workId) })),
-                media: [],
+                id: c.id,
+                name: c.name,
+                icon: c.icon,
+                tally: memberTally({
+                  collectionEditions: selected.map((editionId) => ({
+                    edition: { workId: current.editions.find((e) => e.id === editionId)?.workId ?? editionId },
+                  })),
+                  collectionWorks: wholeWorks.map((workId) => ({ workId, work: workKind(current, workId) })),
+                }),
+                editionIds: selected,
+                workIds: wholeWorks,
               },
             ],
           },
@@ -310,7 +299,7 @@ export function AddToCollectionDialog({
                 <Input
                   ref={field}
                   aria-label="Find or create a collection"
-                  placeholder="Find or create a collection…"
+                  placeholder="Find or create…"
                   value={query}
                   maxLength={160}
                   onChange={(e) => {
@@ -338,12 +327,8 @@ export function AddToCollectionDialog({
               {filtered.length ? (
                 filtered.map((c) => {
                   const amount =
-                    selected.filter((id) =>
-                      c.collectionEditions.some((e) => e.editionId === id),
-                    ).length +
-                    wholeWorks.filter((id) =>
-                      c.collectionWorks.some((w) => w.workId === id),
-                    ).length;
+                    heldEditions(c).length +
+                    wholeWorks.filter((id) => c.workIds.includes(id)).length;
                   const all = chosen > 0 && amount === chosen;
                   return (
                     <button
@@ -354,29 +339,33 @@ export function AddToCollectionDialog({
                       aria-label={c.name}
                       disabled={busy || !chosen}
                       onClick={() => toggle(c.id, all)}
-                      className="flex w-full items-center gap-3 rounded-sm px-2 py-2 text-left hover:bg-bg-tertiary disabled:opacity-50 pointer-coarse:min-h-11"
+                      className="flex w-full items-start gap-3 rounded-sm px-2 py-2 text-left hover:bg-bg-tertiary disabled:opacity-50 pointer-coarse:min-h-11"
                     >
-                      <span
-                        className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border ${amount ? "border-accent-primary bg-accent-primary/25" : "border-glass-border"}`}
-                      >
-                        {all ? (
-                          <Check size={12} />
-                        ) : amount ? (
-                          <Minus size={12} />
-                        ) : null}
+                      {/* The box and icon sit on the name's first line, as it may wrap */}
+                      <span className="flex h-6 shrink-0 items-center">
+                        <span
+                          className={`flex h-4 w-4 items-center justify-center rounded-sm border ${amount ? "border-accent-primary bg-accent-primary/25" : "border-glass-border"}`}
+                        >
+                          {all ? (
+                            <Check size={12} />
+                          ) : amount ? (
+                            <Minus size={12} />
+                          ) : null}
+                        </span>
                       </span>
                       {/* Same slot for every row, so names line up */}
-                      <span className="flex h-3.5 w-3.5 shrink-0 items-center justify-center text-fg-secondary">
+                      <span className="flex h-6 w-3.5 shrink-0 items-center justify-center text-fg-secondary">
                         <CollectionIconLazy
                           icon={c.icon}
                           className="h-3.5 w-3.5"
                         />
                       </span>
-                      <span className="min-w-0 flex-1 truncate text-sm">
+                      {/* A long name wraps in full, never cut (SLN-1058) */}
+                      <span className="min-w-0 flex-1 text-sm [overflow-wrap:anywhere]">
                         {c.name}
                       </span>
                       {/* At most half the row, so a long count never hides the name */}
-                      <span className="max-w-[50%] shrink-0 text-right text-xs text-fg-secondary">
+                      <span className="max-w-[50%] shrink-0 text-right text-xs pt-0.5 text-fg-secondary">
                         <CountParts line={collectionCountLine(c) ?? "Empty"} />
                       </span>
                     </button>

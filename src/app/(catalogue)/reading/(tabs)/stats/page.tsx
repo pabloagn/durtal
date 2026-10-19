@@ -11,7 +11,7 @@ import { GoalCards } from "@/components/reading/goal-card";
 import { BarChart } from "@/components/reading/charts/bar-chart";
 import { CalendarHeatmap } from "@/components/reading/charts/calendar-heatmap";
 import { SectionHeading } from "@/components/shared/section-heading";
-import { Footnote, NameList, NumberTiles, RankList, StatsSection, audioNote } from "@/components/reading/stats-parts";
+import { Footnote, NameList, NumberTiles, hoursTile, RankList, StatsSection, audioNote } from "@/components/reading/stats-parts";
 import { getGoalProgress, hasReadingGoals } from "@/lib/actions/reading-goals";
 import { getAppSettings } from "@/lib/actions/settings";
 import { readingDay } from "@/lib/reading/dates";
@@ -40,7 +40,7 @@ import {
 } from "@/lib/reading/stats";
 import { languageName } from "@/lib/utils/language";
 import { nationalityFilterHref, shortCountryName } from "@/lib/utils/nationality-param";
-import { formatRating } from "@/lib/utils/rating";
+import { formatAverageRating, formatRating } from "@/lib/utils/rating";
 
 export const metadata = { title: "Reading stats" };
 
@@ -51,6 +51,7 @@ const FORMATS: Record<string, string> = {
   print: "Print",
   ebook: "eBook",
   audio: "Audio",
+  unknown: "Format not recorded",
 };
 const PARTS: Record<string, string> = {
   night: "Night",
@@ -145,11 +146,11 @@ export default async function ReadingStatsPage({ searchParams }: { searchParams:
               tiles={[
                 { label: "Books finished", value: n(numbers.books) },
                 { label: "Pages", value: n(numbers.pages) },
-                { label: "Hours", value: n(numbers.hours) },
+                hoursTile(numbers.hours),
                 { label: "Reading days", value: n(numbers.readingDays) },
                 {
                   label: "Average rating",
-                  value: numbers.avgRating === null ? "None" : formatRating(Math.round(numbers.avgRating * 10) / 10),
+                  value: numbers.avgRating === null ? "None" : formatAverageRating(numbers.avgRating),
                 },
                 { label: "Re-reads", value: n(numbers.rereads) },
                 { label: "Abandoned", value: n(numbers.abandoned) },
@@ -162,7 +163,7 @@ export default async function ReadingStatsPage({ searchParams }: { searchParams:
             {[
               audioNote(numbers.audioWithoutPages),
               year === null && numbers.undated
-                ? `${count(numbers.undated, "finished book")} with no known date ${numbers.undated === 1 ? "is" : "are"} in the totals, in no chart.`
+                ? `${count(numbers.undated, "finished reading")} with no known date ${numbers.undated === 1 ? "is" : "are"} in the totals, in no chart.`
                 : null,
             ]
               .filter(Boolean)
@@ -205,7 +206,6 @@ export default async function ReadingStatsPage({ searchParams }: { searchParams:
                     minRows={months.bars.length + (months.unknown ? 1 : 0)}
                     footnote={[
                       unknown ? "“?” holds the readings dated only by the year." : null,
-                      months.undated ? `${count(months.undated, "reading")} with unknown dates ${months.undated === 1 ? "is" : "are"} not shown.` : null,
                       metric === "pages" ? audioNote(numbers.audioWithoutPages) : null,
                     ]
                       .filter(Boolean)
@@ -485,7 +485,7 @@ export default async function ReadingStatsPage({ searchParams }: { searchParams:
                     text: count(where.ownCopy, "reading"),
                   },
                   {
-                    label: "No copy (borrowed, library)",
+                    label: "Copy not recorded",
                     value: where.noCopy,
                     text: count(where.noCopy, "reading"),
                   },
@@ -560,7 +560,7 @@ export default async function ReadingStatsPage({ searchParams }: { searchParams:
                 label: r.name,
                 href: `/recommenders/${r.recommenderId}`,
                 value: r.read,
-                text: `${n(r.read)} read${r.rated ? `, ${n(r.liked)} rated 4 or more, ${formatRating(Math.round(r.avgRating! * 10) / 10)} on average` : ""}`,
+                text: `${n(r.read)} read${r.rated ? `, ${n(r.liked)} rated 4 or more, ${formatAverageRating(r.avgRating!)} on average` : ""}`,
               }))}
             />
           </StatsSection>

@@ -276,7 +276,8 @@ export function LogProgressDialog({ data, row, request, onClose, changed, open }
         ) : (
           <Input
             label="Where are you?"
-            placeholder="212, 44%, +20, 212/480, 3:12, ch 7"
+            placeholder="212, 44% or +20"
+            hint="212, 44%, +20, 212/480, 3:12 or ch 7"
             autoFocus
             value={text}
             onChange={(e) => setText(e.target.value)}

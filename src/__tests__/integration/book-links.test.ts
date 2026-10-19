@@ -157,4 +157,25 @@ describe.skipIf(!url)("book links with PostgreSQL", () => {
       updatedAt: after.updatedAt,
     });
   });
+
+  // SLN-1132: the book page's editions, in this file as it reads a book page's work
+  it("lists a book's editions with the original language first, then the newest, then by title", async () => {
+    const [work] = await db
+      .insert(schema.works)
+      .values({ title: "Against Nature", slug: "against-nature-test", originalLanguage: "fr" })
+      .returning();
+    await db.insert(schema.editions).values([
+      { workId: work.id, title: "Penguin", language: "en" },
+      { workId: work.id, title: "Against Nature", language: "en", publicationYear: 2003 },
+      { workId: work.id, title: "À rebours", language: "fr" },
+      { workId: work.id, title: "A Rebours", language: "fr", publicationYear: 1884 },
+      { workId: work.id, title: "Gegen den Strich", language: "de", publicationYear: 2003 },
+    ]);
+    const titles = async () => (await getWorkBySlug("against-nature-test"))!.editions.map((e) => e.title);
+    const order = ["A Rebours", "À rebours", "Against Nature", "Gegen den Strich", "Penguin"];
+    expect(await titles()).toEqual(order);
+    // Stable: the same order on every load
+    expect(await titles()).toEqual(order);
+  });
 });
+

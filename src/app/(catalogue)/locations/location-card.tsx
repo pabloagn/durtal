@@ -20,6 +20,7 @@ import { CapAligned } from "@/components/shared/cap-aligned";
 import {
   describeLocationItems,
   locationItemCount,
+  locationItemTotal,
   type LocationItemCounts,
 } from "@/lib/catalogue/location-items";
 import { updateLocation, deleteLocation } from "@/lib/actions/catalogue-client";
@@ -66,9 +67,9 @@ export function LocationCard({
   items,
   subLocations,
 }: LocationCardProps) {
-  // Film copies, paintings and bottles keep the location (the database refuses
-  // the delete); book copies are deleted with it
-  const blocking = describeLocationItems(items, ["films", "paintings", "perfumes"]);
+  // Anything held here, book copies included, keeps the location; the server
+  // refuses the delete too (SLN-1060)
+  const blocking = describeLocationItems(items);
   const router = useRouter();
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -263,24 +264,17 @@ export function LocationCard({
         open={deleteOpen}
         onClose={() => setDeleteOpen(false)}
         title={`Delete ${name}`}
-        description="This cannot be undone."
+        description={blocking ? undefined : "This cannot be undone."}
         className="max-w-lg"
         expandable={false}
       >
         <div className="space-y-4">
-          {blocking ? (
+          {blocking && (
             <div className="rounded-sm border border-accent-red/30 bg-accent-red/5 p-3 text-xs text-fg-secondary">
               {name} holds {blocking}. Move{" "}
-              {items.films + items.paintings + items.perfumes === 1 ? "it" : "them"}{" "}
-              to another location before deleting it.
+              {locationItemTotal(items) === 1 ? "it" : "them"} to another
+              location before deleting it.
             </div>
-          ) : (
-            items.copies > 0 && (
-              <div className="rounded-sm border border-accent-red/30 bg-accent-red/5 p-3 text-xs text-fg-secondary">
-                Deleting {name} also deletes the{" "}
-                {describeLocationItems(items, ["copies"])} kept there.
-              </div>
-            )
           )}
           <div className="flex items-center justify-end gap-2 border-t border-glass-border pt-4">
             <Button data-dismiss=""

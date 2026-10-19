@@ -6,7 +6,9 @@ import { sql, type SQL } from "drizzle-orm";
  * committed confirmation (an undo or restore after it leaves it settled). The
  * run stays "running" while any file is open, so a late file still registers;
  * it is "failed" when a file was given up on after its check failed, else
- * "finished". A no-op for a run already settled or not an upload's.
+ * "finished". A retry clears the last check's failure, so a file whose retried
+ * check passed doesn't count; a restart, which bumps the generation, keeps it
+ * (SLN-1466). A no-op for a run already settled or not an upload's.
  */
 export function settleUploadRunSql(runId: string): SQL {
   return sql`update ebook_ingest_runs r set state=case when exists(select 1 from ebook_upload_operations u

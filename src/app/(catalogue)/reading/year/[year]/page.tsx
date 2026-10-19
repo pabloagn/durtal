@@ -8,7 +8,7 @@ import { SectionHeading } from "@/components/shared/section-heading";
 import { ReadingTabs } from "@/components/reading/reading-tabs";
 import { Cover } from "@/components/reading/reading-tiles";
 import { PrintButton } from "@/components/reading/print-button";
-import { Footnote, NameList, NumberTiles, StatsSection, audioNote } from "@/components/reading/stats-parts";
+import { Footnote, NameList, NumberTiles, hoursTile, StatsSection, audioNote } from "@/components/reading/stats-parts";
 import { getGoalProgress } from "@/lib/actions/reading-goals";
 import { getAppSettings } from "@/lib/actions/settings";
 import { MONTHS, finishText, n, yearRhythm, yearRhythmText } from "@/lib/reading/charts";
@@ -103,7 +103,7 @@ export default async function YearInReviewPage({ params }: { params: Promise<{ y
             tiles={[
               { label: numbers.books === 1 ? "Book finished" : "Books finished", value: n(numbers.books) },
               { label: "Pages", value: n(numbers.pages) },
-              { label: "Hours", value: n(numbers.hours) },
+              hoursTile(numbers.hours),
               { label: "Reading days", value: n(numbers.readingDays) },
             ]}
           />

@@ -468,7 +468,7 @@ dialog::backdrop {
 /* A small button on a list row (the reading import's rows, SLN-450): one
    class, so 50 rows a section stay light. `data-on` is the chosen one */
 @utility row-chip {
-  @apply inline-flex h-7 max-w-full items-center gap-1.5 rounded-sm border border-transparent px-2.5 text-xs font-medium text-fg-secondary transition-colors hover:bg-bg-tertiary/50 hover:text-fg-primary disabled:opacity-40 data-[on]:border-glass-border data-[on]:bg-glass-highlight data-[on]:text-fg-primary pointer-coarse:h-11;
+  @apply inline-flex h-7 max-w-full items-center gap-1.5 rounded-sm border border-transparent px-2.5 text-xs font-medium text-fg-secondary transition-colors hover:bg-bg-tertiary/50 hover:text-fg-primary disabled:opacity-40 aria-disabled:opacity-40 data-[on]:border-glass-border data-[on]:bg-glass-highlight data-[on]:text-fg-primary pointer-coarse:h-11;
 }
 
 /* The shadow and hairline ring under a book cover */
@@ -1357,7 +1357,8 @@ dialog::backdrop {
   padding-inline: 12px;
   max-height: var(--menu-height, calc(100dvh - 16px));
 }
-.dropdown-list:has([data-menu-icon]) {
+/* Set by the menu when an item has an icon: never :has(), which restyles every page on each change (SLN-1249) */
+.dropdown-list[data-icons] {
   grid-template-columns: 16px minmax(0, 1fr) max-content;
   --menu-icon-gap: 10px;
 }
@@ -1390,18 +1391,20 @@ dialog::backdrop {
 }
 
 /* Phone card size is selected in CSS before hydration. The desktop density
-   and mosaic slider keep their existing 2–8 preference and geometry. */
+   and mosaic slider keep their existing 2–8 preference and geometry. The
+   row holding the view switch says its view (`data-view`); a :has() that
+   looked for the switch restyled every page on each change (SLN-1249). */
 .grid-size-mobile { display: none; }
 @media (pointer: coarse) and (max-width: 767px) {
-  :has(> [data-catalogue-view="grid"]) > .grid-size-slider .grid-size-desktop { display: none; }
-  :has(> [data-catalogue-view="grid"]) > .grid-size-slider .grid-size-mobile { display: block; }
+  [data-view="grid"] > .grid-size-slider .grid-size-desktop { display: none; }
+  [data-view="grid"] > .grid-size-slider .grid-size-mobile { display: block; }
   /* The card size takes the rest of the views' row, so the first card
      reaches the first screen (SLN-641); under 7.5rem, too narrow for the
      slider and "Compact" side by side, it takes a row (SLN-804) */
-  :has(> [data-catalogue-view="grid"]) > .grid-size-slider { flex: 1 1 7.5rem; min-width: 0; }
+  [data-view="grid"] > .grid-size-slider { flex: 1 1 7.5rem; min-width: 0; }
   /* The controls share their top, the slider as tall as the views'
      outlined row */
-  :has(> [data-catalogue-view="grid"]) > * { align-self: flex-start; }
+  [data-view="grid"] > * { align-self: flex-start; }
   .catalogue-density-grid { grid-template-columns: minmax(0, 1fr); }
   /* Compact is two cards a row, with a tighter gap and card padding. A
      container too narrow for two (a 320px phone) keeps one ordinary card a

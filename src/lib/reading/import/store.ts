@@ -13,7 +13,8 @@ import type { WriteReadingRow } from "@/lib/validations/reading";
 import { IMPORT_SOURCES } from "@/lib/validations/reading-import";
 import { matchRows, withVerdicts, type MatchedRow } from "./match";
 import { defaultDecision, importableAnyway, type ImportDecision, type ImportMatch, type ImportSection } from "./match-rules";
-import { parseImportFile } from "./parse";
+import { parseUploadedFile } from "./parse";
+import { singleCopyLinks, type SingleLink } from "./single-copy";
 import { commitNotes, defaultNoteDecision, noteWritten, readingsCommitted, readingsUncommittedSql, undoNotes } from "./notes";
 import type { ImportReading, ImportRow, ImportSource } from "./types";
 
@@ -101,7 +102,7 @@ const asMatched = (r: StoredRow): MatchedRow => ({ rowNo: r.rowNo, data: r.data,
 
 /** Parses, matches and stores a file: the import and its rows in one write. Reads only until then */
 export async function createReadingImport(input: { text: string; fileName: string }): Promise<{ importId: string; source: ImportSource; rows: number }> {
-  const parsed = parseImportFile(input.text);
+  const parsed = parseUploadedFile(input.text);
   return storeImport({ ...parsed, fileName: displayFileName(input.fileName) });
 }
 
@@ -354,7 +355,15 @@ export async function commitImport(importId: string): Promise<CommitResult> {
   const fresh = await withVerdicts(imp.source, counted.map(asMatched));
   const now = new Map(counted.map((r, i) => [r.rowNo, fresh[i]]));
   const todo = counted.filter((r) => r.decision === "import" && !readingsCommitted(r.written));
-  const editionIds = [...new Set(todo.map((r) => r.match.editionId).filter((id): id is string => !!id))];
+  // A book matched by title and author: its only copy or only edition (SLN-1171); Durtal files name their own
+  const singles = imp.source === "goodreads" || imp.source === "storygraph"
+    ? await singleCopyLinks(todo.filter((r) => !r.match.editionId).map((r) => r.workId!))
+    : new Map<string, SingleLink>();
+  const linkOf = (row: (typeof todo)[number]) =>
+    row.match.editionId
+      ? { editionId: row.match.editionId, instanceId: row.match.instanceId, format: null }
+      : (singles.get(row.workId!) ?? { editionId: null, instanceId: null, format: null });
+  const editionIds = [...new Set(todo.map((r) => linkOf(r).editionId).filter((id): id is string => !!id))];
   const editionPages = new Map(
     editionIds.length
       ? resultRows<{ id: string; pages: number | null }>(
@@ -372,6 +381,7 @@ export async function commitImport(importId: string): Promise<CommitResult> {
       return [];
     }
     const anyway = match.section === "present" && importableAnyway(match.verdicts);
+    const link = linkOf(row);
     const items = row.data.readings.map((reading, k) => {
       const verdict = match.verdicts[k];
       // An e-book library's read beside Durtal's own (SLN-658) waits for Import anyway: the writer's duplicate rule would take it as new
@@ -382,16 +392,17 @@ export async function commitImport(importId: string): Promise<CommitResult> {
         : {
             workId: row.workId!,
             readingId: reading.readingId,
-            editionId: row.match.editionId,
-            instanceId: row.match.instanceId,
-            format: reading.format,
+            editionId: link.editionId,
+            instanceId: link.instanceId,
+            // Goodreads keeps no format: the linked copy's is better than print
+            format: imp.source === "goodreads" && link.format ? link.format : reading.format,
             unit: reading.unit,
             status: reading.status,
             startedOn: reading.startedOn,
             startedPrecision: reading.startedPrecision,
             finishedOn: reading.finishedOn,
             finishedPrecision: reading.finishedPrecision,
-            totalPages: pagesFor(reading, row.data, row.match.editionId ? (editionPages.get(row.match.editionId) ?? null) : null),
+            totalPages: pagesFor(reading, row.data, link.editionId ? (editionPages.get(link.editionId) ?? null) : null),
             totalMinutes: reading.totalMinutes,
             position: reading.position,
             rating: reading.rating,

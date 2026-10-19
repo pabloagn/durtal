@@ -15,6 +15,7 @@ import {
   getTaxonomyBrowsePage,
   getTaxonomyEditorChoices,
 } from "@/lib/actions/taxonomy-browse";
+import { findTaxonomyNameTwin } from "@/lib/actions/taxonomy-families";
 import { firstPageHref } from "@/lib/utils/list-params";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, Pencil, Plus, Search, Tags, Trash2 } from "lucide-react";
@@ -173,6 +174,8 @@ export function TaxonomyFamilyShell({
   const [editing, setEditing] = useState<{
     mode: "edit" | "move";
     item: TaxonomyItemData;
+    /** A rename that repeats a sibling's name, to confirm (SLN-1159) */
+    name?: string;
   } | null>(null);
   const [familyDialog, setFamilyDialog] = useState<"edit" | "delete" | null>(
     null,
@@ -289,22 +292,32 @@ export function TaxonomyFamilyShell({
     [family.slug, refresh],
   );
 
-  const handleRename = useCallback(
-    async (id: string, name: string) => {
-      try {
-        const { updateTaxonomyItem } =
-          await import("@/lib/actions/taxonomy-client");
-        await updateTaxonomyItem(family.slug, id, { name });
-        toast.success(`Renamed to "${name}"`);
-        refresh();
-      } catch (err) {
-        const message =
-          err instanceof Error ? err.message : "Failed to rename item";
-        toast.error(message);
+  async function handleRename(id: string, name: string, item?: TaxonomyItemData) {
+    try {
+      // A name a sibling has opens Edit item, which names the sibling and
+      // offers Open or Save anyway (SLN-1159)
+      const found = item ?? items.find((i) => i.id === id);
+      const twin =
+        found &&
+        (await findTaxonomyNameTwin(family.slug, name, {
+          parentId: found.parentId ?? null,
+          exceptId: id,
+        }).catch(() => null));
+      if (found && twin) {
+        void openEditor(() => setEditing({ mode: "edit", item: found, name }));
+        return;
       }
-    },
-    [family.slug, refresh],
-  );
+      const { updateTaxonomyItem } =
+        await import("@/lib/actions/taxonomy-client");
+      await updateTaxonomyItem(family.slug, id, { name });
+      toast.success(`Renamed to "${name}"`);
+      refresh();
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Failed to rename item";
+      toast.error(message);
+    }
+  }
 
   async function openEditor(action: () => void) {
     if (!serverPaged) {
@@ -591,6 +604,7 @@ export function TaxonomyFamilyShell({
           hierarchical={family.hierarchical}
           describable={family.describable ?? true}
           choices={choices}
+          initialName={editing.name}
           onClose={() => setEditing(null)}
           onSaved={() => {
             setEditing(null);

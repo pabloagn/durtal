@@ -603,7 +603,7 @@ export default async function FilmPage({
             title={film.title}
             sources={sources}
             examples={{
-              name: "The film's credits, a festival catalogue, a disc's sleeve",
+              name: "e.g. the film’s credits",
               says: "Release date, runtime of the theatrical cut",
             }}
             lookup={<FilmSourceLookup key="lookup" film={{ id: film.id, title: film.title, fingerprint: film.fingerprint }} />}

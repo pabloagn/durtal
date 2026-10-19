@@ -94,7 +94,7 @@ export function SearchStep({
           <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-fg-muted" />
           <input
             type="text"
-            placeholder="Search by title, author, or ISBN..."
+            placeholder="Title, author or ISBN"
             aria-label="Search by title, author, or ISBN"
             data-shortcut-search=""
             aria-keyshortcuts="/"

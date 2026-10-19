@@ -24,10 +24,17 @@ import { placeMenu } from "@/lib/utils/menu-placement";
 interface DropdownMenuContextValue {
   /** Closes the menu after an item acted, and keeps the focus (see `closeAfterAction`) */
   close: () => void;
+  /**
+   * An item with an icon says so while it is drawn, and the list makes its
+   * icon column. Told, not found: a `:has()` rule for it restyled every page
+   * on each change (SLN-1249). Returns the item's goodbye.
+   */
+  showIcon: () => () => void;
 }
 
 const DropdownMenuContext = createContext<DropdownMenuContextValue>({
   close: () => {},
+  showIcon: () => () => {},
 });
 
 /* ── DropdownMenu (root) ────────────────────────────────────────────────── */
@@ -94,6 +101,13 @@ export function DropdownMenu({
       if (triggerRef.current?.isConnected) triggerRef.current.focus({ preventScroll: true });
     });
   }, [setOpen]);
+
+  // How many drawn items have an icon (see `showIcon`)
+  const [icons, setIcons] = useState(0);
+  const showIcon = useCallback(() => {
+    setIcons((n) => n + 1);
+    return () => setIcons((n) => n - 1);
+  }, []);
 
   // The native top layer escapes card/toolbar clipping while keeping the
   // menu beside its trigger in the DOM (dialog focus restoration uses this).
@@ -245,7 +259,7 @@ export function DropdownMenu({
   }, [isOpen]);
 
   return (
-    <DropdownMenuContext.Provider value={{ close: closeAfterAction }}>
+    <DropdownMenuContext.Provider value={{ close: closeAfterAction, showIcon }}>
       <div ref={containerRef} className="relative inline-flex">
         {/* Trigger */}
         {cloneElement(trigger, {
@@ -280,7 +294,7 @@ export function DropdownMenu({
               triggerRef.current?.focus();
             }}
           >
-            <div className="dropdown-list overflow-y-auto overscroll-contain py-1">
+            <div className="dropdown-list overflow-y-auto overscroll-contain py-1" data-icons={icons > 0 ? "" : undefined}>
               {children}
             </div>
           </div>
@@ -312,7 +326,10 @@ export function DropdownMenuItem({
   shortcut,
   checked,
 }: DropdownMenuItemProps) {
-  const { close } = useContext(DropdownMenuContext);
+  const { close, showIcon } = useContext(DropdownMenuContext);
+  const hasIcon = !!icon;
+  // Before paint, so the menu opens with its icon column already there
+  useLayoutEffect(() => (hasIcon ? showIcon() : undefined), [hasIcon, showIcon]);
 
   const baseClass =
     "dropdown-item py-2 text-sm text-left transition-colors outline-none pointer-coarse:min-h-11";

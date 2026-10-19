@@ -55,18 +55,22 @@ const PER_KIND = 5;
 const EMPTY: QuickSearchResult = { works: [], people: [], organizations: [], venues: [] };
 
 /**
- * A work's search text: its title, series (its own name and the series it
- * belongs to) and the names its collection credits it to: book authors;
+ * A work's search text: its title and original title, a book's edition titles
+ * (SLN-1363: "Swann's Way" finds "Du côté de chez Swann"; subtitles stay
+ * out), series (its own name and the series it belongs to) and the names its
+ * collection credits it to: book authors;
  * directors and writers; perfumers (of the fragrance or of one formulation)
  * and houses; painters. Credited-as names count, so "Leonardo" finds a
  * painting credited that way. Each collection reads only its own credits, so
  * a book costs what it did before.
  */
 const workHaystack = sql`search_normalize(w.title
+  || ' ' || coalesce(w.original_title, '')
   || ' ' || coalesce(w.series_name, '')
   || ' ' || coalesce((select s.title from series s where s.id = w.series_id), '')
   || ' ' || case when w.kind = 'book'
     then coalesce((select string_agg(a.name, ' ') from work_authors wa join authors a on a.id = wa.author_id where wa.work_id = w.id), '')
+      || ' ' || coalesce((select string_agg(e.title, ' ') from editions e where e.work_id = w.id and e.title <> w.title), '')
     else coalesce((select string_agg(coalesce(c.credited_as, a.name, ''), ' ') from work_credits c left join authors a on a.id = c.person_id
         where c.work_id = w.id and c.role_id in ('film.director', 'film.screenwriter', 'perfume.perfumer', 'painting.painter')), '')
       || case when w.kind = 'perfume' then

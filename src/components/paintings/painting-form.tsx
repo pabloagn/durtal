@@ -149,7 +149,7 @@ export function PaintingForm(props: Props) {
           label="Title"
           value={title}
           onValueChange={setTitle}
-          placeholder="The Garden of Earthly Delights"
+          placeholder="e.g. The Night Watch"
           maxLength={500}
           required
         /><NameDuplicateNotice kind="painting" name={title} enabled={props.mode === "create"} /></div>
