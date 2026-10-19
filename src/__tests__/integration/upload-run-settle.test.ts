@@ -94,6 +94,25 @@ describe.skipIf(!url)("an upload's run settles with its last file", () => {
     expect(await runOf(run)).toEqual({ state: "failed", finished: true });
   });
 
+  it("counts only the current check's failure, so a retry that passed and was canceled is finished", async () => {
+    // Each claim of the check is a new generation (claimNext); a failure records the generation it failed in
+    const check = (upload: string) => c`update ebook_upload_operations set state='processing', generation=generation+1 where id=${upload}`;
+    const fail = (upload: string) => c`update ebook_upload_operations set state='failed',
+      progress=jsonb_build_object('jobFailureV1',jsonb_build_object('generation',generation,'code','upload_job_failed')) where id=${upload}`;
+    const pass = (upload: string) => c`update ebook_upload_operations set state='ready' where id=${upload}`;
+    const cancel = (upload: string) => c`update ebook_upload_operations set state='canceled' where id=${upload}`;
+
+    const retried = await batch(3500, 1), [passed] = retried.uploads;
+    await check(passed); await fail(passed); await check(passed); await pass(passed); await cancel(passed);
+    await settle(retried.run);
+    expect(await runOf(retried.run)).toEqual({ state: "finished", finished: true });
+
+    const twice = await batch(3600, 1), [refused] = twice.uploads;
+    await check(refused); await fail(refused); await check(refused); await fail(refused); await cancel(refused);
+    await settle(twice.run);
+    expect(await runOf(twice.run)).toEqual({ state: "failed", finished: true });
+  });
+
   it("leaves a settled run, a run with no files and another kind of run as they are", async () => {
     const { run, uploads: [upload] } = await batch(4000, 1);
     await add(run, upload, 4100); await settle(run);
