@@ -13,7 +13,7 @@ The Delete location dialog's Delete was a primary button painted red. Plain Ente
 
 ## Implementation Details
 
-- `src/app/(catalogue)/locations/location-card.tsx`: Delete is `variant="danger"`, as every other delete, with the hand-painted red removed. Plain Enter skips a danger button. It carries `data-shortcut="save"`, as the shared delete dialog's does, so ⌘Enter (Ctrl+Enter) still deletes from the keyboard.
+- `src/app/(catalogue)/locations/location-card.tsx`: Delete is `variant="danger"`, as every other delete, with the hand-painted red removed. Plain Enter skips a danger button. It carries `data-shortcut="save"`, as the shared delete dialog's does (`ConfirmDeleteDialog`, `components/catalogue/confirm-delete-dialog.tsx`), so ⌘Enter (Ctrl+Enter) still deletes from the keyboard.
 - No other dialog paints a primary button red; the new test checks every `variant="primary"` button in `src/`.
 - Test: `src/__tests__/ui/location-delete-danger.test.ts` (both fail without the change).
 
