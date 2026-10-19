@@ -118,9 +118,11 @@ describe("CardReading", () => {
     });
     expect(host.querySelector('a[data-reader-entry]')).not.toBeNull();
     act(() => root.render(createElement(BookCard, { ...card, ebook, isSelecting: true })));
-    expect(host.querySelector('button[aria-label="Actions"]')).toBeNull();
+    // The actions stay mounted but hidden, so leaving selection redraws no menu (SLN-1249)
+    expect(host.querySelector<HTMLElement>(".artwork-actions")!.style.display).toBe("none");
     expect(host.querySelector('a[data-reader-entry]')).toBeNull();
     act(() => root.render(createElement(BookCard, { ...card, ebook, isSelecting: false })));
+    expect(host.querySelector<HTMLElement>(".artwork-actions")!.style.display).toBe("");
     expect(host.querySelector('button[aria-label="Actions"]')).not.toBeNull();
     expect(host.querySelector('a[data-reader-entry]')).toBeNull();
     await act(async () => {

@@ -132,7 +132,8 @@ export function EbooksFilters({
     },
   ];
   return (
-    <div className={`mb-4 sm:mb-6 ${FILTER_ROW_CLASSES}`}>
+    // `data-view`: the view the switch shows, for the phone's card size rules (SLN-1249)
+    <div className={`mb-4 sm:mb-6 ${FILTER_ROW_CLASSES}`} data-view={view}>
       <div className="relative flex-1">
         <Search
           aria-hidden
