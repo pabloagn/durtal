@@ -5,7 +5,9 @@ Reads the existing owner env source in memory; the unchanged reviewed SLN-491
 identity API verifies the durtal-app IAM pair. CloudFront mode alone reads the
 existing signing Keychain item and verifies its public identity in memory. A failed initial
 preflight exits once (launchd KeepAlive=false); only already-running server
-crashes receive a bounded restart attempt. No migrations or tailnet commands.
+crashes receive a bounded restart attempt. No migrations or tailnet commands:
+a database that lacks one of this release's migrations refuses the start
+(SLN-1320).
 """
 import argparse
 import base64
@@ -21,12 +23,13 @@ import sys
 import threading
 import time
 import urllib.request
+from urllib.parse import urlparse
 
 # Importing packaged modules must not mutate the attested release.
 sys.dont_write_bytecode = True
 
-from mac_release import (ACCOUNT, Refusal, checked_config, clean_environment, executable,
-                         file_hash, node_identity, owned_path, read_json, verify_release)
+from mac_release import (ACCOUNT, HASH, Refusal, checked_config, clean_environment, executable,
+                         file_hash, migration_state, node_identity, owned_path, read_json, verify_release)
 
 
 SIGNING_SERVICE = 'com.durtal.ebooks.cloudfront-private-key'
@@ -178,6 +181,51 @@ def load_helper(config):
     return module
 
 
+LATEST_MIGRATION = 'SELECT hash, created_at::text FROM "drizzle"."__drizzle_migrations" ORDER BY created_at DESC LIMIT 1'
+
+
+def neon_fetch(endpoint, body, headers):
+    request = urllib.request.Request(endpoint, data=body, headers=headers, method='POST')
+    with urllib.request.urlopen(request, timeout=10) as response:
+        return json.loads(response.read(65536))
+
+
+def latest_migration(url, fetch=neon_fetch):
+    """The ledger's newest row, read the way the app reads its database.
+
+    The app talks to Neon over its HTTP SQL endpoint (@neondatabase/serverless),
+    the one path known to work from the Mac. This is that driver's request: the
+    endpoint is the host with its first label replaced by "api.", and one
+    read-only batch carries the query.
+    """
+    host = urlparse(url).hostname or ''
+    if not host.endswith('.neon.tech'):
+        raise Refusal('The migration check reads the Neon database only')
+    endpoint = 'https://' + re.sub(r'^[^.]+\.', 'api.', host, count=1) + '/sql'
+    body = json.dumps({'queries': [{'query': LATEST_MIGRATION, 'params': []}]}).encode()
+    headers = {'Neon-Connection-String': url, 'Neon-Raw-Text-Output': 'true', 'Neon-Array-Mode': 'true',
+               'Neon-Batch-Read-Only': 'true', 'Content-Type': 'text/plain;charset=UTF-8'}
+    rows = fetch(endpoint, body, headers)['results'][0]['rows']
+    if len(rows) > 1 or rows and (len(rows[0]) != 2 or not HASH.fullmatch(rows[0][0]) or not re.fullmatch(r'\d{1,16}', rows[0][1])):
+        raise Refusal('Unexpected migration ledger')
+    return (rows[0][0], rows[0][1]) if rows else None
+
+
+def require_migrated(manifest, url, log, read=None):
+    """Refuse to start a build whose migrations the database lacks; an older build on a newer schema may start."""
+    try:
+        state, pending = migration_state(manifest['migrations']['entries'], (read or latest_migration)(url))
+    except Exception:
+        log.write('Migration ledger check failed; start refused')
+        raise Refusal('Migration ledger check failed; start refused') from None
+    if state == 'behind':
+        log.write('The database lacks %d migration(s) of this release (%s); start refused'
+                  % (len(pending), ', '.join(entry['tag'] for entry in pending)))
+        raise Refusal('The database lacks migrations of this release; start refused')
+    if state == 'ahead':
+        log.write('The database is ahead of this release; starting, as a rollback over additive migrations')
+
+
 def unused_port(port):
     with socket.socket() as probe:
         try:
@@ -220,6 +268,7 @@ def launch(config, config_hash):
     helper = load_helper(config)
     env, secret_values = load_environment(config, helper)
     log = BoundedLog(config['logDirectory'], secret_values)
+    require_migrated(manifest, env['DATABASE_URL'], log)
     # No Keychain retry occurs after failed preflight. Restart uses the same
     # verified in-memory environment; explicit rotation requires a new launch.
     stop = threading.Event()

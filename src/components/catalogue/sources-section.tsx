@@ -1,5 +1,6 @@
 "use client";
 
+import { RequiredNameHint } from "@/components/shared/required-name-hint";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ExternalLink, Plus, Trash2 } from "lucide-react";
@@ -197,7 +198,11 @@ function SourceForm({
         maxLength={2000}
         placeholder={examples.says}
       />
-      <div className="flex justify-end gap-2">
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <RequiredNameHint value={attribution} message="Name the source to save" />
+        {attribution.trim() && validUrl && (!day || day > today()) && (
+          <p className="mr-auto text-xs text-fg-secondary">Give the day you consulted it, today or earlier</p>
+        )}
         <Button data-dismiss="" variant="ghost" onClick={onDone} disabled={saving}>
           Cancel
         </Button>
