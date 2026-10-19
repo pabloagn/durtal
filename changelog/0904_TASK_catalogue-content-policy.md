@@ -44,7 +44,7 @@ SLN-1240, ticket 2 of `findings/web-security-survey-2026-10-19.md`.
   The not-found page for an unknown address renders per request and carries
   nonces.
 - **Every answer** (`next.config.ts`): `X-Content-Type-Options: nosniff` and
-  `Referrer-Policy: same-origin`, beside `X-Frame-Options`. That covers pages,
+  `Referrer-Policy: strict-origin-when-cross-origin`, beside `X-Frame-Options`. That covers pages,
   API routes, the reader, public files and the proxy's own refusals.
 - `docs/01_ARCHITECTURE.md` names the policy.
 

@@ -78,7 +78,7 @@ describe("every answer's headers", () => {
     for (const path of ["/", "/library", "/api/works", "/api/s3/read", "/reader/5e0c6a43-2f43-4b8e-a1f4-2b3c4d5e6f70", "/sw.js"]) {
       expect(on(path)).toMatchObject({
         "x-content-type-options": "nosniff",
-        "referrer-policy": "same-origin",
+        "referrer-policy": "strict-origin-when-cross-origin",
         "x-frame-options": "SAMEORIGIN",
       });
     }
