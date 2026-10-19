@@ -13,7 +13,7 @@ import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
 import { DetailEditButton } from "@/components/shared/detail-layout";
 import { SeriesFormDialog } from "./series-form-dialog";
 import { AddSeriesBooksDialog } from "./add-series-books-dialog";
-import { deleteSeries } from "@/lib/actions/catalogue-client";
+import { deleteSeriesFromPage } from "@/lib/actions/catalogue-client";
 import { refusalMessage } from "@/lib/actions/refusal";
 
 const ADD_EVENT = "durtal:series-add";
@@ -89,11 +89,10 @@ export function SeriesActions({
 
   async function remove() {
     try {
-      await deleteSeries(series.id);
+      // On to the list in the action's own response (SLN-1330)
+      await deleteSeriesFromPage(series.id);
       toast.success(`${series.title} deleted. Books kept.`);
       triggerActivityRefresh();
-      router.push("/series");
-      router.refresh();
     } catch (error) {
       toast.error(refusalMessage(error, "Could not delete the series"));
     }

@@ -189,8 +189,9 @@ export function FormulationsSection({
             toast.success("Formulation deleted");
             close();
             // The page shows the fragrance again when its formulation is gone
+            // A navigation renders fresh; a refresh after it renders twice (SLN-1330)
             if (target.id === selectedId) router.replace(clearHref, { scroll: false });
-            router.refresh();
+            else router.refresh();
           } catch (err) {
             toast.error(err instanceof Error ? err.message : "Could not delete the formulation");
           }

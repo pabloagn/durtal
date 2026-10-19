@@ -11,7 +11,7 @@ import { useEditActions } from "@/components/shortcuts/shortcuts-provider";
 import { EDIT_KEYS, editHint } from "@/lib/shortcuts/shortcuts";
 import { ConfirmDeleteDialog } from "@/components/catalogue/confirm-delete-dialog";
 import { VenueCreateDialog, type EditableVenue } from "../venue-create-dialog";
-import { removeVenue, setVenueArchived } from "@/lib/actions/catalogue-client";
+import { removeVenueFromPage, setVenueArchived } from "@/lib/actions/catalogue-client";
 import { refusalMessage } from "@/lib/actions/refusal";
 
 /**
@@ -93,9 +93,9 @@ export function VenueActions({
               blockers={blockers}
               onConfirm={async () => {
                 try {
-                  await removeVenue(venue.id);
+                  // On to the list in the action's own response (SLN-1330)
+                  await removeVenueFromPage(venue.id);
                   toast.success(`${venue.name} deleted`);
-                  router.push("/places");
                 } catch (err) {
                   toast.error(refusalMessage(err, "Could not delete the venue"));
                 }

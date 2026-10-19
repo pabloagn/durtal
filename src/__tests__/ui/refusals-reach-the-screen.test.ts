@@ -72,8 +72,10 @@ describe("the client adapters", () => {
     const server = read("lib/actions/catalogue-ui.ts");
     const writes = [...server.matchAll(/^export async function (\w+)\(/gm)].map((m) => m[1]);
     expect(writes.length).toBeGreaterThan(130);
+    // A delete from its record's page goes through deleteThenLeave, which wraps it too (SLN-1330)
+    expect(server).toMatch(/function deleteThenLeave[^{]*\{\s*const result = await actionResult\(run\);/);
     for (const name of writes)
-      expect(server, name).toMatch(new RegExp(`function ${name}\\([^)]*\\)[^{]*\\{\\s*return actionResult\\(`));
+      expect(server, name).toMatch(new RegExp(`function ${name}\\([^)]*\\)[^{]*\\{\\s*return (actionResult|deleteThenLeave)\\(`));
   });
 });
 

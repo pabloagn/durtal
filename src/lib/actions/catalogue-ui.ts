@@ -1,5 +1,6 @@
 "use server";
 
+import { RedirectType, redirect } from "next/navigation";
 import { actionResult } from "./action-result";
 import * as films from "./films";
 import * as paintings from "./paintings";
@@ -1030,4 +1031,57 @@ export async function deletePerfumeBottle(
   ...args: Parameters<typeof perfumes.deletePerfumeBottle>
 ) {
   return actionResult(() => perfumes.deletePerfumeBottle(...args));
+}
+
+/**
+ * A delete made from the record's own page (SLN-1330). On success the action
+ * redirects to the list, so its one response renders the list: answering the
+ * page instead re-rendered the deleted record as "Page not found" before the
+ * tab left. A refusal stays on the page as data, as does an outcome the page
+ * must still report (`stay`, such as image files left to clean up).
+ */
+async function deleteThenLeave<T>(to: string, run: () => Promise<T>, stay?: (value: T) => boolean) {
+  const result = await actionResult(run);
+  if (result.ok && !stay?.(result.value)) redirect(to, RedirectType.replace);
+  return result;
+}
+
+export async function deleteCollectionFromPage(id: string) {
+  return deleteThenLeave("/collections", () => collections.deleteCollection(id), (outcome) => outcome.cleanupPending);
+}
+
+export async function deleteFilmFromPage(id: string) {
+  return deleteThenLeave("/films", () => films.deleteFilm(id), (outcome) => outcome.cleanupPending);
+}
+
+export async function deleteWorkFromPage(id: string) {
+  return deleteThenLeave("/library", () => works.deleteWork(id));
+}
+
+export async function removeOrganizationFromPage(id: string) {
+  return deleteThenLeave("/organizations", () => organization_directory.removeOrganization(id));
+}
+
+export async function deletePaintingFromPage(id: string) {
+  return deleteThenLeave("/paintings", () => paintings.deletePainting(id), (outcome) => outcome.cleanupPending);
+}
+
+export async function deleteAuthorFromPage(id: string) {
+  return deleteThenLeave("/people", () => authors.deleteAuthor(id));
+}
+
+export async function deletePerfumeFromPage(id: string) {
+  return deleteThenLeave("/perfumes", () => perfumes.deletePerfume(id), (outcome) => outcome.cleanupPending);
+}
+
+export async function removeVenueFromPage(id: string) {
+  return deleteThenLeave("/places", () => venue_pages.removeVenue(id));
+}
+
+export async function deleteRecommenderFromPage(id: string) {
+  return deleteThenLeave("/recommenders", () => recommenders.deleteRecommender(id));
+}
+
+export async function deleteSeriesFromPage(id: string) {
+  return deleteThenLeave("/series", () => series.deleteSeries(id));
 }
