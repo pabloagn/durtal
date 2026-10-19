@@ -1,5 +1,6 @@
 // Runs a built inspector image with the upload service's own create arguments
-// (no network, read-only, 16 processes, 768 MB) on an EPUB, a PDF and a comic,
+// (no network, read-only, 16 processes, 768 MB) on EPUBs (two with a JPEG or
+// PNG cover the size real books carry), a PDF and a comic,
 // and says whether each gives a report. Run it as the service's user after
 // `pnpm ebooks:upload-service build-inspector`:
 //   pnpm ebooks:check-inspector durtal/inspector@sha256:...
@@ -39,10 +40,15 @@ async function check(name: string): Promise<void> {
     const { stdout, stderr } = await run("docker", ["container", "start", "--attach", inspectorName(identity)], { maxBuffer: 64 * 1024 * 1024 })
       .catch((error: { stdout?: string; stderr?: string }) => ({ stdout: error.stdout ?? "", stderr: error.stderr ?? String(error) }));
     const { stdout: exit } = await run("docker", ["container", "inspect", "--format", "{{.State.ExitCode}} {{.State.OOMKilled}}", inspectorName(identity)]);
-    const kinds = stdout.trim().split("\n").filter(Boolean).map((line) => (JSON.parse(line) as { kind: string }).kind);
+    const frames = stdout.trim().split("\n").filter(Boolean)
+      .map((line) => JSON.parse(line) as { kind: string; payload?: { derived?: { name: string }[]; prepared?: { coverReason: string | null } } });
+    const kinds = frames.map((frame) => frame.kind);
     if (exit.trim() !== "0 false" || stderr || kinds[0] !== "ready" || kinds.at(-1) !== "report")
       throw new Error(`${name}: exit ${exit.trim()}, frames ${kinds.join(" ") || "none"}${stderr ? `, stderr: ${stderr.trim().slice(0, 512)}` : ""}`);
-    console.log(`ok      ${name}`);
+    const covers = (frames.at(-1)!.payload?.derived ?? []).filter((object) => object.name.startsWith("cover-")).length;
+    if (name.startsWith("cover-") && covers !== 3)
+      throw new Error(`${name}: ${covers} of 3 covers (${frames.at(-1)!.payload?.prepared?.coverReason ?? "no reason given"})`);
+    console.log(`ok      ${name}${covers ? `, ${covers} covers` : ""}`);
   } finally {
     await run("docker", ["container", "rm", "--force", inspectorName(identity)]).catch(() => {});
     await rm(spool, { recursive: true, force: true });
@@ -50,6 +56,6 @@ async function check(name: string): Promise<void> {
 }
 
 let failed = false;
-for (const name of ["epub2.epub", "text.pdf", "cbz.cbz"])
+for (const name of ["epub2.epub", "cover-jpeg.epub", "cover-png.epub", "text.pdf", "cbz.cbz"])
   await check(name).catch((error: unknown) => { failed = true; console.log(`FAILED  ${error instanceof Error ? error.message : String(error)}`); });
 process.exitCode = failed ? 1 : 0;

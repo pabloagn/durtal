@@ -23,6 +23,8 @@ public-domain Huysmans excerpt is described below. The font inside
 | `scripted.epub` | EPUB whose chapter has a `<script>` setting a global (the content policy check) | generated | CC0 1.0 |
 | `corrupt.epub` | A zip cut short and filled with noise | generated | CC0 1.0 |
 | `drm.epub` | EPUB with an `encryption.xml` that is not font obfuscation | generated | CC0 1.0 |
+| `cover-jpeg.epub` | EPUB 3 with a 1600 x 2400 JPEG cover (encoded by sharp) and a PNG plate (`--covers`) | generated | CC0 1.0 |
+| `cover-png.epub` | EPUB 3 with a 1600 x 2560 PNG cover (`--covers`) | generated | CC0 1.0 |
 
 SLN-499 adds `nav-pagelist.epub`, `nav-pagemap.epub` and
 `nav-no-contents.epub`, rebuilt independently with
