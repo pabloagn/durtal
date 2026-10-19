@@ -44,6 +44,8 @@ vi.mock("@/lib/cache", () => ({
 vi.mock("@/lib/activity/record", () => ({ recordActivity: activity }));
 
 import { createWork, updateWork } from "@/lib/actions/works";
+import { bookEditFingerprint, STALE_BOOK } from "@/lib/catalogue/book-fingerprint";
+import { readFingerprint } from "@/lib/catalogue/work-store";
 import { getWorkCuration } from "@/lib/actions/curation";
 
 const MISSING = "00000000-0000-4000-8000-000000000000";
@@ -165,6 +167,29 @@ describe.skipIf(!url)("book saves through the shared adapters", () => {
       subjects: [subject],
       recommenders: [friend],
     });
+  });
+
+  it("refuses a save from a stale Edit work, and saves from a current one (SLN-1243)", async () => {
+    const work = await createWork({ title: "Demian", authorIds: [{ authorId: hesse }] });
+    const read = async () => (await readFingerprint(bookEditFingerprint(work.id)))!;
+    // Tabs A and B read the same book
+    const seen = await read();
+    // A saves a note with what it read
+    await updateWork(work.id, { notes: "From tab A" }, seen);
+    // B, still on the old page, saves a description over it: refused
+    await expect(updateWork(work.id, { description: "From tab B", notes: null }, seen)).rejects.toThrow(STALE_BOOK);
+    const [stored] = await c`select notes, description from works where id=${work.id}`;
+    expect(stored).toEqual({ notes: "From tab A", description: null });
+    // After a reload, B's save lands
+    await updateWork(work.id, { description: "From tab B", notes: "From tab A" }, await read());
+    const [after] = await c`select notes, description from works where id=${work.id}`;
+    expect(after).toEqual({ notes: "From tab A", description: "From tab B" });
+    // A save with no fingerprint (bulk edits) works as before
+    await updateWork(work.id, { rating: 4 });
+    // A change Edit work does not show (a subject) leaves the fingerprint alone
+    const before = await read();
+    await updateWork(work.id, { subjectIds: [subject] });
+    expect(await read()).toBe(before);
   });
 
   it("replaces recommendations once when the form repeats one, and records the rating", async () => {
