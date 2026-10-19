@@ -21,7 +21,7 @@ function meta(note: NotesListRow, withBook: boolean, edition: NoteEdition | null
   if (!withBook) return where;
   return (
     <>
-      <Link href={note.book.href} className="text-fg-primary transition-colors hover:text-accent-primary">
+      <Link href={note.book.href} className="text-command">
         {note.book.title}
       </Link>
       {[note.book.author, where].filter(Boolean).map((part) => ` · ${part}`)}

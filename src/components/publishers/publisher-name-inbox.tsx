@@ -145,7 +145,7 @@ function NameRow({
           Suggested:{" "}
           <Link
             href={`/publishers/${s.publisher.slug}`}
-            className="text-accent-blue hover:underline"
+            className="text-command"
           >
             {s.publisher.name}
           </Link>
