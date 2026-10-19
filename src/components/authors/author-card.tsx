@@ -83,6 +83,7 @@ export function AuthorCard({
 
   return (
     <div
+      data-focus-row=""
       className={`@container catalogue-card group relative rounded-sm border border-glass-border bg-bg-secondary card-interactive ${selectionRing}`}
       onClick={handleCardClick}
     >

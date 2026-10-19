@@ -82,6 +82,7 @@ export function AuthorListItem({
   );
   return (
     <div
+      data-focus-row=""
       className={`group relative flex items-start gap-3 rounded-sm px-3 py-2 transition-colors hover:bg-bg-secondary ${selectionBg}`}
       onClick={handleRowClick}
     >

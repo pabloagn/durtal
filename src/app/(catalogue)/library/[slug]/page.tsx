@@ -708,18 +708,20 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
             }
           />
 
-          <div className="space-y-4">
+          {/* A deleted edition hands the focus to the next one (FocusKeeper) */}
+          <div className="space-y-4" data-focus-list="editions">
             {work.editions.map((edition) => (
-              <EditionDetailCard
-                key={edition.id}
-                edition={edition}
-                poster={poster}
-                workId={work.id}
-                authorName={primaryAuthor?.name}
-                availableLocations={allLocations}
-                quotes={canRead ? editionQuotes(edition.id) : undefined}
-                ebooksByCopy={ebooksByCopy}
-              />
+              <div key={edition.id} data-focus-row="">
+                <EditionDetailCard
+                  edition={edition}
+                  poster={poster}
+                  workId={work.id}
+                  authorName={primaryAuthor?.name}
+                  availableLocations={allLocations}
+                  quotes={canRead ? editionQuotes(edition.id) : undefined}
+                  ebooksByCopy={ebooksByCopy}
+                />
+              </div>
             ))}
           </div>
         </section>
