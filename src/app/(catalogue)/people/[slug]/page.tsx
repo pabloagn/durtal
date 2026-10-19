@@ -55,6 +55,7 @@ import {
 } from "@/lib/utils/labels";
 import { PhonePairGrid } from "@/components/shared/phone-pair-grid";
 import { mediaUrl } from "@/lib/s3/media-url";
+import { CoverThumb } from "@/components/books/cover-thumb";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -459,29 +460,12 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
                       key={`${edition.id}-${edition.role}`}
                       className="flex items-center gap-4 rounded-sm border border-glass-border bg-bg-secondary px-4 py-3"
                     >
-                      {edition.thumbnailS3Key ? (
-                        <div className="relative flex h-12 w-8 flex-shrink-0 items-center justify-center overflow-hidden rounded-sm bg-bg-primary">
-                          <FadeImage
-                            src={mediaUrl(edition.thumbnailS3Key)}
-                            alt={edition.title ?? "Edition cover"}
-                            loading="lazy"
-                            decoding="async"
-                            className="protected-image absolute inset-0 h-full w-full object-cover"
-                            // A cover that fails shows the title's letter, as with none
-                            fallback={
-                              <span aria-hidden="true" data-decorative className="font-serif text-xs text-fg-muted/30">
-                                {(edition.title ?? "?")[0]}
-                              </span>
-                            }
-                          />
-                        </div>
-                      ) : (
-                        <div className="flex h-12 w-8 flex-shrink-0 items-center justify-center rounded-sm bg-bg-primary">
-                          <span aria-hidden="true" data-decorative className="font-serif text-xs text-fg-muted/30">
-                            {(edition.title ?? "?")[0]}
-                          </span>
-                        </div>
-                      )}
+                      <CoverThumb
+                        src={edition.thumbnailS3Key ? mediaUrl(edition.thumbnailS3Key) : null}
+                        title={edition.title ?? ""}
+                        alt={edition.title ?? "Edition cover"}
+                        className="w-8"
+                      />
                       <div className="min-w-0 flex-1">
                         <span className="type-item-title">
                           {edition.title}

@@ -1,6 +1,6 @@
 "use client";
 
-import Image from "next/image";
+import { CoverThumb } from "@/components/books/cover-thumb";
 import { useDroppable, useDraggable } from "@dnd-kit/core";
 import type { OrderStatus } from "@/lib/constants/orders";
 import { CapAligned } from "@/components/shared/cap-aligned";
@@ -91,25 +91,7 @@ export function PipelineOrderCard({
     >
       <div className="flex items-start gap-2.5">
         {/* Poster */}
-        <div className="relative h-14 w-10 shrink-0 overflow-hidden rounded-sm bg-bg-tertiary shadow-[0_2px_8px_rgba(0,0,0,0.4)]">
-          {posterUrl ? (
-            <Image
-              src={posterUrl}
-              alt={order.work.title}
-              fill
-              className="object-cover"
-              style={getPosterStyle(order.work)}
-              unoptimized
-            />
-          ) : (
-            <div className="flex h-full items-center justify-center">
-              {/* Decoration: the title is in the text beside it */}
-              <span aria-hidden="true" data-decorative className="font-serif text-xs text-fg-muted/30">
-                {order.work.title?.[0] ?? "?"}
-              </span>
-            </div>
-          )}
-        </div>
+        <CoverThumb src={posterUrl} title={order.work.title} alt={order.work.title} style={getPosterStyle(order.work)} className="h-14 w-10 shadow-[0_2px_8px_rgba(0,0,0,0.4)]" />
 
         {/* Info */}
         <div className="min-w-0 flex-1">

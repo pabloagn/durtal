@@ -2,7 +2,8 @@
 
 import type { CSSProperties } from "react";
 import type { AuthorTimelineItem } from "@/lib/actions/author-timeline";
-import { monogramTint } from "@/components/shared/no-photo";
+import { Monogram } from "@/components/shared/no-photo";
+import { FadeImage } from "@/components/shared/fade-image";
 import { mediaImageStyle } from "@/lib/utils/media-style";
 import { lifeDates } from "@/lib/utils/format";
 
@@ -47,33 +48,24 @@ function Portrait({
     overflow: "hidden",
     border: "1px solid rgba(193,198,196,0.10)",
     backgroundColor: "var(--color-bg-tertiary)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
+    position: "relative",
   };
 
-  if (author.posterUrl) {
-    const imgStyle: CSSProperties = {
-      width: "100%",
-      height: "100%",
-      objectFit: "cover",
-      ...mediaImageStyle(author.posterCrop),
-    };
-
-    return (
-      <div style={containerStyle}>
-        <img src={author.posterUrl} alt={author.name} style={imgStyle} />
-      </div>
-    );
-  }
-
-  // No photo: the initial on the author's Monogram tint, as on their card. At
-  // 12px it is fg-primary: fg-secondary is under 4.5:1 on four of the tints.
+  // With no photo, or one that fails: the initials on the author's Monogram
+  // tint, as on their card (12px, fg-primary at this size)
   return (
-    <div style={{ ...containerStyle, ...monogramTint(author.name) }}>
-      <span className="select-none font-serif text-micro leading-none text-fg-primary">
-        {author.name[0]}
-      </span>
+    <div style={containerStyle}>
+      {author.posterUrl ? (
+        <FadeImage
+          src={author.posterUrl}
+          alt={author.name}
+          className="absolute inset-0 h-full w-full object-cover"
+          style={mediaImageStyle(author.posterCrop)}
+          fallback={<Monogram name={author.name} />}
+        />
+      ) : (
+        <Monogram name={author.name} />
+      )}
     </div>
   );
 }

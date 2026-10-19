@@ -34,6 +34,8 @@ import { shortCountryName, withNationalityFilter } from "@/lib/utils/nationality
 import { LIST_PREFERENCES } from "@/lib/preferences";
 import { publicEnv } from "@/lib/env";
 import { countLabel, lifeDates } from "@/lib/utils/format";
+import { FadeImage } from "@/components/shared/fade-image";
+import { Monogram } from "@/components/shared/no-photo";
 
 interface AuthorProperties {
   id: string;
@@ -483,13 +485,19 @@ export function AuthorsMap({ authors }: AuthorsMapProps) {
               style={{ border: "1px solid rgba(255,255,255,0.08)" }}
             >
               <div className="flex items-start gap-2">
-                {selection.author.posterUrl && (
-                  <img
-                    src={selection.author.posterUrl}
-                    alt={selection.author.name}
-                    className="h-12 w-9 flex-shrink-0 rounded-sm object-cover"
-                  />
-                )}
+                {/* With no portrait, or one that fails, the initials, as on the card */}
+                <div className="relative h-12 w-9 flex-shrink-0 overflow-hidden rounded-sm bg-bg-tertiary">
+                  {selection.author.posterUrl ? (
+                    <FadeImage
+                      src={selection.author.posterUrl}
+                      alt={selection.author.name}
+                      className="absolute inset-0 h-full w-full object-cover"
+                      fallback={<Monogram name={selection.author.name} />}
+                    />
+                  ) : (
+                    <Monogram name={selection.author.name} />
+                  )}
+                </div>
                 <div className="min-w-0 flex-1 pr-3">
                   <Link
                     href={`/people/${selection.author.slug}`}

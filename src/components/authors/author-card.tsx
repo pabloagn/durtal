@@ -112,14 +112,13 @@ export function AuthorCard({
                   alt={name}
                   loading="lazy"
                   decoding="async"
-                  fallback={coverPreviews.length ? <CoverFan covers={coverPreviews} /> : <Monogram name={name} />}
+                  fallback={<CoverFan covers={coverPreviews} fallback={<Monogram name={name} />} />}
                   className="protected-image absolute inset-0 h-full w-full object-cover group-hover:scale-[1.02]"
                   style={mediaImageStyle(posterCrop)}
                 />
-              ) : coverPreviews.length ? (
-                <CoverFan covers={coverPreviews} />
               ) : (
-                <Monogram name={name} />
+                // Their covers, fanned; with none, or when every one fails, the initials
+                <CoverFan covers={coverPreviews} fallback={<Monogram name={name} />} />
               )}
 
             </div>

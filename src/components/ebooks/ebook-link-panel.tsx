@@ -11,6 +11,7 @@ import { FadeImage } from "@/components/shared/fade-image";
 import { WorkCardInfo } from "@/components/shared/work-card";
 import { buttonClass } from "@/components/ui/button";
 import { COVER_CORNER } from "@/components/books/cover-chip";
+import { COVER_BLANK, CoverLetter } from "@/components/books/cover-letter";
 import { HuntBadge } from "@/components/books/hunt-badge";
 import { PoisonBadge } from "@/components/books/poison-badge";
 import { EbookLinkControls } from "./ebook-link-controls";
@@ -20,16 +21,14 @@ import { LinkedBookMenu } from "./linked-book-menu";
  * Below 340px of card the cover stays beside the title only, and the rest takes the card's width. */
 const CARD = "grid max-w-xl grid-cols-[5rem_minmax(0,1fr)] gap-x-4 rounded-sm border border-glass-border bg-bg-secondary p-4 @[340px]:grid-cols-[6rem_minmax(0,1fr)] @[480px]:grid-cols-[7rem_minmax(0,1fr)]";
 
-function CoverFrame({ book, letter }: { book: LinkedBook | null; letter: string }) {
+function CoverFrame({ book, title }: { book: LinkedBook | null; title: string }) {
+  const blank = <div className={`${COVER_BLANK} h-full`}><CoverLetter title={title} /></div>;
   return <div className="cover-shadow">
     <div className="relative aspect-[2/3] overflow-hidden rounded-sm bg-bg-tertiary" style={coverToneStyle(book?.coverTone)}>
       {book?.coverUrl ? <FadeImage src={withMediaWidth(book.coverUrl, 240)}
         srcSet={`${withMediaWidth(book.coverUrl, 240)} 240w, ${withMediaWidth(book.coverUrl, 400)} 400w`} sizes="112px"
-        alt="" loading="lazy" decoding="async" className="protected-image cover-image" style={mediaImageStyle(book.coverCrop)} />
-        : <div className="flex h-full items-center justify-center">
-          {/* Decoration: the title is in the card's text */}
-          <span aria-hidden="true" data-decorative className="font-serif text-3xl text-fg-muted/30">{letter}</span>
-        </div>}
+        alt="" loading="lazy" decoding="async" className="protected-image cover-image" style={mediaImageStyle(book.coverCrop)} fallback={blank} />
+        : blank}
       {book && (book.isRare || book.isPoison) && <div className={COVER_CORNER.bottomLeft}>
         <HuntBadge isRare={book.isRare} huntAssessedOn={book.huntAssessedOn} cover />
         <PoisonBadge isPoison={book.isPoison} cover />
@@ -48,7 +47,7 @@ export async function EbookLinkPanel({ ebook, book: read }: { ebook: EbookDetail
     return <div className="@container">
       <article className={`${CARD} @[340px]:grid-rows-[auto_1fr]`} data-ebook-linked-book="">
         <Link href={href} tabIndex={-1} aria-label={book.title} className="group self-start @[340px]:row-span-2">
-          <CoverFrame book={book} letter={book.title[0] ?? ""} />
+          <CoverFrame book={book} title={book.title} />
         </Link>
         <CardHeading
           title={<Link href={href} className="transition-colors hover:text-accent-primary">{book.title}</Link>}
@@ -98,7 +97,7 @@ export async function EbookLinkPanel({ ebook, book: read }: { ebook: EbookDetail
         : ["Not linked to a book yet", "Choose its book, or create one, so its reading and quotes join the book."];
   return <div className="@container">
     <article className={CARD} data-ebook-linked-book="" data-unlinked="">
-      <div className="self-start"><CoverFrame book={null} letter={ebook.title[0] ?? ""} /></div>
+      <div className="self-start"><CoverFrame book={null} title={ebook.title} /></div>
       <CardHeading title={title} subtitle={note} subtitleLines={2} />
       {/* The decisions take the card's whole width under the placeholder: up to five buttons */}
       <div className="col-span-2"><EbookLinkControls row={row} /></div>

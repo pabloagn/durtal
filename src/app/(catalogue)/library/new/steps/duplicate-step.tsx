@@ -27,6 +27,7 @@ function DuplicateCover({ work }: { work: DuplicateWork }) {
           alt={`${work.title} cover`}
           className="h-full w-full object-cover"
           style={poster ? mediaImageStyle(mediaCrop(poster)) : undefined}
+          fallback={<span className={`${COVER_BLANK} h-full w-full`}><CoverLetter title={work.title} /></span>}
         />
       ) : (
         <span className={`${COVER_BLANK} h-full w-full`}><CoverLetter title={work.title} /></span>

@@ -114,8 +114,8 @@ const DEFAULT_COLUMN_CONFIG = ALL_AUTHOR_COLUMNS.map((c) => ({
 function renderAuthorCell(author: AuthorItem, key: string, filteredRoles: string[] | null) {
   switch (key) {
     case "name": {
-      // No photo, or one that fails: the name's letter
-      const blank = <span aria-hidden="true" data-decorative className="font-serif text-xs text-fg-muted/40">{author.name[0]}</span>;
+      // No photo, or one that fails: the name's initials, as on the card
+      const blank = <Monogram name={author.name} />;
       return (
         <Link
           href={`/people/${author.slug}`}
@@ -371,7 +371,7 @@ export function AuthorsShell({
                 src={a.photoUrl}
                 crop={a.posterCrop}
                 tone={a.photoTone}
-                fallback={a.coverPreviews.length ? <CoverFan covers={a.coverPreviews} /> : <Monogram name={a.name} />}
+                fallback={<CoverFan covers={a.coverPreviews} fallback={<Monogram name={a.name} />} />}
               />
             ),
           }))}

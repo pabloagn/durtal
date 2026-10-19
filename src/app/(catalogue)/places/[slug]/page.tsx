@@ -146,12 +146,10 @@ async function PlaceContent({ slug }: { slug: string }) {
 
         {!displayImage && (
           <div
-            className="flex h-40 w-56 flex-shrink-0 items-center justify-center rounded-sm border border-glass-border bg-bg-secondary"
+            className={`${COVER_BLANK} h-40 w-56 flex-shrink-0 rounded-sm border border-glass-border bg-bg-secondary`}
             style={venue.color ? { backgroundColor: venue.color } : undefined}
           >
-            <span aria-hidden="true" className="font-serif text-4xl text-fg-secondary">
-              {venue.name[0]}
-            </span>
+            <CoverLetter title={venue.name} />
           </div>
         )}
 

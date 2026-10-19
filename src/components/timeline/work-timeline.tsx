@@ -15,6 +15,7 @@ import { STATUS_CONFIG } from "@/lib/constants/catalogue";
 import type { CatalogueStatus } from "@/lib/types";
 import { mediaImageStyle } from "@/lib/utils/media-style";
 import { RatingStars } from "@/components/shared/rating";
+import { COVER_BLANK, CoverLetter } from "@/components/books/cover-letter";
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -144,8 +145,8 @@ function WorkTooltipContent({ work }: { work: WorkTimelineItem }) {
             onError={() => setImgError(true)}
           />
         ) : (
-          <span className="select-none font-serif text-lg leading-none text-fg-secondary">
-            {work.title[0]}
+          <span className={`${COVER_BLANK} h-full w-full`}>
+            <CoverLetter title={work.title} />
           </span>
         )}
       </div>

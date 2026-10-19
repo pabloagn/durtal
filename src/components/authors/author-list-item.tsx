@@ -11,6 +11,7 @@ import type { WorkKind } from "@/lib/catalogue/kinds";
 import { CapAlignedControls } from "@/components/shared/cap-aligned";
 import { FavouriteToggle } from "@/components/shared/favourite-toggle";
 import { RowCheckbox } from "@/components/books/book-list";
+import { Monogram } from "@/components/shared/no-photo";
 
 type PosterCrop = MediaCrop;
 
@@ -75,14 +76,8 @@ export function AuthorListItem({
 
   const selectionBg = isSelected ? "bg-accent-primary/5" : "";
 
-  // No photo, or one that fails: the name's letter
-  const blank = (
-    <div className="flex h-full items-center justify-center">
-      <span aria-hidden="true" data-decorative className="font-serif text-micro text-fg-muted/40">
-        {name[0]}
-      </span>
-    </div>
-  );
+  // No photo, or one that fails: the name's initials, as on the card
+  const blank = <Monogram name={name} />;
   return (
     <div
       data-focus-row=""

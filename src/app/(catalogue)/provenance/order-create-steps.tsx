@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { Plus, Loader2, Search } from "lucide-react";
-import Image from "next/image";
+import { CoverThumb } from "@/components/books/cover-thumb";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { TitleInput } from "@/components/shared/title-input";
@@ -274,25 +274,7 @@ export function WorkSearchStep({
     <div className="space-y-4">
       {selectedWork && (
         <div className="flex items-center gap-3 rounded-sm border border-accent-primary/20 bg-selection-bg/40 p-3">
-          <div className="relative h-14 w-10 shrink-0 overflow-hidden rounded-sm bg-bg-tertiary">
-            {getPosterUrl(selectedWork) ? (
-              <Image
-                src={getPosterUrl(selectedWork)!}
-                alt={selectedWork.title}
-                fill
-                className="object-cover"
-                style={getPosterStyle(selectedWork)}
-                unoptimized
-              />
-            ) : (
-              <div className="flex h-full items-center justify-center">
-                {/* Decoration: the title is in the text beside it */}
-                <span aria-hidden="true" data-decorative className="font-serif text-sm text-fg-muted/40">
-                  {selectedWork.title?.[0] ?? "?"}
-                </span>
-              </div>
-            )}
-          </div>
+          <CoverThumb src={getPosterUrl(selectedWork)} title={selectedWork.title} alt={selectedWork.title} style={getPosterStyle(selectedWork)} className="h-14 w-10" />
           <div className="min-w-0">
             <p className="truncate text-sm font-medium text-fg-primary">
               {selectedWork.title}
@@ -343,25 +325,7 @@ export function WorkSearchStep({
                   isSelected ? "bg-selection-bg/40" : ""
                 }`}
               >
-                <div className="relative h-10 w-7 shrink-0 overflow-hidden rounded-sm bg-bg-tertiary">
-                  {posterUrl ? (
-                    <Image
-                      src={posterUrl}
-                      alt={work.title}
-                      fill
-                      className="object-cover"
-                      style={getPosterStyle(work)}
-                      unoptimized
-                    />
-                  ) : (
-                    <div className="flex h-full items-center justify-center">
-                      {/* Decoration: the title is in the text beside it */}
-                      <span aria-hidden="true" data-decorative className="font-serif text-xs text-fg-muted/40">
-                        {work.title?.[0] ?? "?"}
-                      </span>
-                    </div>
-                  )}
-                </div>
+                <CoverThumb src={posterUrl} title={work.title} alt={work.title} style={getPosterStyle(work)} className="h-10 w-7" />
                 <div className="min-w-0">
                   <p className="truncate text-sm text-fg-primary">
                     {work.title}

@@ -4,6 +4,7 @@ import { CardHeading } from "@/components/shared/card-heading";
 import { FavouriteToggle } from "@/components/shared/favourite-toggle";
 import { ExternalLink } from "lucide-react";
 import { websiteLabel } from "@/lib/validations/recommenders";
+import { Monogram } from "@/components/shared/no-photo";
 
 export interface RecommenderItem {
   id: string;
@@ -78,8 +79,8 @@ export function RecommenderListItem({
         aria-label={`Open ${r.name}`}
         className="absolute inset-0 z-10 rounded-sm"
       />
-      <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-sm bg-bg-tertiary">
-        <span className="font-serif text-sm text-fg-muted/50">{r.name[0]}</span>
+      <div className="relative h-10 w-10 flex-shrink-0 overflow-hidden rounded-sm bg-bg-tertiary">
+        <Monogram name={r.name} />
       </div>
       <div className="min-w-0 flex-1">
         <h3 className="type-item-title truncate group-hover:text-accent-primary">

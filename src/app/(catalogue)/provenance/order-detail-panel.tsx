@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import Image from "next/image";
+import { CoverThumb } from "@/components/books/cover-thumb";
 import Link from "next/link";
 import { workHref } from "@/lib/catalogue/work-href";
 import {
@@ -213,25 +213,7 @@ export function OrderDetailPanel({
         <div className="flex-1 overflow-y-auto p-5">
           {/* Work info */}
           <div className="flex gap-4">
-            <div className="relative h-24 w-16 shrink-0 overflow-hidden rounded-sm bg-bg-tertiary shadow-[0_4px_16px_rgba(0,0,0,0.5)]">
-              {posterUrl ? (
-                <Image
-                  src={posterUrl}
-                  alt={order.work.title}
-                  fill
-                  className="object-cover"
-                  style={getPosterStyle(order.work)}
-                  unoptimized
-                />
-              ) : (
-                <div className="flex h-full items-center justify-center">
-                  {/* Decoration: the title is in the text beside it */}
-                  <span aria-hidden="true" data-decorative className="font-serif text-lg text-fg-muted/30">
-                    {order.work.title?.[0] ?? "?"}
-                  </span>
-                </div>
-              )}
-            </div>
+            <CoverThumb src={posterUrl} title={order.work.title} alt={order.work.title} style={getPosterStyle(order.work)} className="h-24 w-16 shadow-[0_4px_16px_rgba(0,0,0,0.5)]" />
             <div className="min-w-0">
               <Link
                 href={workHref(order.work)}

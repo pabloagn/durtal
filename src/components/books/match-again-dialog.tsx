@@ -17,6 +17,7 @@ import type { MatchSource } from "@/lib/match/source";
 import { MatchPreviewStep } from "@/components/books/match-preview";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
 import { toast } from "@/lib/notifications/toast";
+import { CoverThumb } from "@/components/books/cover-thumb";
 
 interface MatchResult {
   id: string;
@@ -231,13 +232,7 @@ export function MatchAgainDialog({
           </button>
 
           <div className="flex gap-3 rounded-sm border border-glass-border bg-bg-primary/60 p-4">
-            {selected.coverUrl && (
-              <img
-                src={selected.coverUrl}
-                alt=""
-                className="h-16 w-11 flex-shrink-0 rounded-sm object-cover"
-              />
-            )}
+            <CoverThumb src={selected.coverUrl} title={selected.title} className="w-11" />
             <div className="min-w-0">
               <h4 className="type-item-title">
                 {selected.title}
@@ -352,19 +347,7 @@ export function MatchAgainDialog({
                   className="flex items-start gap-3 rounded-sm border border-glass-border bg-bg-primary/40 p-3 transition-colors hover:bg-bg-tertiary/40"
                 >
                   {/* Cover thumbnail */}
-                  {result.coverUrl ? (
-                    <img
-                      src={result.coverUrl}
-                      alt=""
-                      className="h-16 w-11 flex-shrink-0 rounded-sm object-cover"
-                    />
-                  ) : (
-                    <div className="flex h-16 w-11 flex-shrink-0 items-center justify-center rounded-sm bg-bg-tertiary/60">
-                      <span aria-hidden="true" data-decorative className="font-serif text-xs text-fg-muted/40">
-                        {result.title[0]}
-                      </span>
-                    </div>
-                  )}
+                  <CoverThumb src={result.coverUrl} title={result.title} className="w-11" />
 
                   {/* Info */}
                   <div className="min-w-0 flex-1">

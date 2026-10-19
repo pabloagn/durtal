@@ -70,7 +70,7 @@ export function CollectionsView({
                 src={poster ? mediaUrl(poster.thumbnailS3Key ?? poster.s3Key) : null}
                 crop={poster ? mediaCrop(poster) : null}
                 fallback={
-                  covers.length ? <CoverFan covers={covers.map((key) => mediaUrl(key))} /> : <span className={`absolute inset-0 ${COVER_BLANK}`}><CoverLetter title={collection.name} /></span>
+                  <CoverFan covers={covers.map((key) => mediaUrl(key))} fallback={<span className={`absolute inset-0 ${COVER_BLANK}`}><CoverLetter title={collection.name} /></span>} />
                 }
               />
             ),

@@ -16,6 +16,7 @@ import type { WorkKind } from "@/lib/catalogue/kinds";
 import { mediaUrl } from "@/lib/s3/media-url";
 import { addToCollection } from "@/lib/actions/catalogue-client";
 import { refusalMessage } from "@/lib/actions/refusal";
+import { CoverThumb } from "@/components/books/cover-thumb";
 
 type Edition = Awaited<ReturnType<typeof searchEditionsForPicker>>[number];
 type Work = Awaited<ReturnType<typeof searchWorksForCollection>>[number];
@@ -225,13 +226,7 @@ export function AddCollectionBooksDialog({
                       })
                     }
                   />
-                  {e.thumbnailS3Key && (
-                    <img
-                      src={mediaUrl(e.thumbnailS3Key)}
-                      alt=""
-                      className="h-12 w-8 shrink-0 rounded-sm object-cover"
-                    />
-                  )}
+                  <CoverThumb src={e.thumbnailS3Key ? mediaUrl(e.thumbnailS3Key) : null} title={e.editionTitle} className="w-8" />
                   <span className="min-w-0 flex-1">
                     <span className="block text-sm">{e.editionTitle}</span>
                     <span className="block text-xs text-fg-secondary">
@@ -269,13 +264,7 @@ export function AddCollectionBooksDialog({
                       })
                     }
                   />
-                  {w.imageS3Key && (
-                    <img
-                      src={mediaUrl(w.imageS3Key)}
-                      alt=""
-                      className={`${w.kind === "perfume" ? "h-10 w-10 object-contain" : "h-12 w-8 object-cover"} shrink-0 rounded-sm`}
-                    />
-                  )}
+                  <CoverThumb src={w.imageS3Key ? mediaUrl(w.imageS3Key) : null} title={w.title} className="w-8" contain={w.kind === "perfume"} />
                   <span className="min-w-0 flex-1">
                     <span className="block text-sm">{w.title}</span>
                     <span className="block text-xs text-fg-secondary">

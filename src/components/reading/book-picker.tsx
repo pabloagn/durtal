@@ -10,6 +10,7 @@ import { bookPickerAddHref, pickerReadingState, type PickerPurpose } from "@/lib
 import { catalogueStatusLabel } from "@/lib/utils/labels";
 import { useReadingDialogs } from "./reading-dialogs-provider";
 import { mediaUrl } from "@/lib/s3/media-url";
+import { CoverThumb } from "@/components/books/cover-thumb";
 
 /*
  * Choose a book to start or to log a past read of (SLN-448): owned books
@@ -110,12 +111,7 @@ export function BookPicker({
                   onClick={() => choose(book)}
                   className="flex w-full items-center gap-3 rounded-sm px-2 py-1.5 text-left transition-colors hover:bg-bg-tertiary/50 focus-visible:bg-bg-tertiary/50 focus-visible:-outline-offset-2"
                 >
-                  <span className="h-12 w-8 shrink-0 overflow-hidden rounded-sm bg-bg-tertiary">
-                    {book.cover && (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={mediaUrl(book.cover)} alt="" className="h-full w-full object-cover" loading="lazy" />
-                    )}
-                  </span>
+                  <CoverThumb src={book.cover ? mediaUrl(book.cover) : null} title={book.title} className="w-8" />
                   <span className="min-w-0 flex-1">
                     <span className="lines-1 text-sm text-fg-primary">{book.title}</span>
                     <span className="lines-1 text-xs text-fg-secondary">

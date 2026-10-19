@@ -4,6 +4,7 @@ import { useState, useCallback, type CSSProperties } from "react";
 import { useRouter } from "next/navigation";
 import type { WorkTimelineItem } from "@/lib/actions/work-timeline";
 import { mediaImageStyle } from "@/lib/utils/media-style";
+import { COVER_BLANK, CoverLetter } from "@/components/books/cover-letter";
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -190,19 +191,8 @@ export function WorkTimelineMarker({
               onError={() => setImgError(true)}
             />
           ) : (
-            <div
-              style={{
-                width: "100%",
-                height: "100%",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                backgroundColor: "var(--color-bg-tertiary)",
-              }}
-            >
-              <span className="font-serif text-micro leading-none text-fg-secondary">
-                {work.title[0]}
-              </span>
+            <div className={`${COVER_BLANK} h-full w-full bg-bg-tertiary`}>
+              <CoverLetter title={work.title} />
             </div>
           )}
         </div>

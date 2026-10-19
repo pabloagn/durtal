@@ -11,7 +11,8 @@ import type { AuthorTimelineItem } from "@/lib/actions/author-timeline";
 import { TimelineCanvas, useTimelineContext } from "./timeline-canvas";
 import { TimelineTooltip } from "./timeline-tooltip";
 import { AuthorTimelineRow, ROW_HEIGHT } from "./author-timeline-row";
-import { monogramTint } from "@/components/shared/no-photo";
+import { Monogram } from "@/components/shared/no-photo";
+import { FadeImage } from "@/components/shared/fade-image";
 import { mediaImageStyle } from "@/lib/utils/media-style";
 import { lifeDates } from "@/lib/utils/format";
 
@@ -35,8 +36,8 @@ function AuthorTooltipContent({ author }: { author: AuthorTimelineItem }) {
         minWidth: 180,
       }}
     >
-      {/* Portrait 48×48. With no photo, the letter is fg-primary: fg-secondary
-          is under 4.5:1 on four of the six Monogram tints. */}
+      {/* Portrait 48×48. With no photo, or one that fails, the initials on
+          the author's Monogram tint, as on their card */}
       <div
         style={{
           flexShrink: 0,
@@ -46,27 +47,19 @@ function AuthorTooltipContent({ author }: { author: AuthorTimelineItem }) {
           overflow: "hidden",
           border: "1px solid rgba(193,198,196,0.10)",
           backgroundColor: "var(--color-bg-tertiary)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          ...(author.posterUrl ? {} : monogramTint(author.name)),
+          position: "relative",
         }}
       >
         {author.posterUrl ? (
-          <img
+          <FadeImage
             src={author.posterUrl}
             alt={author.name}
-            style={{
-              width: "100%",
-              height: "100%",
-              objectFit: "cover",
-              ...mediaImageStyle(author.posterCrop),
-            }}
+            className="absolute inset-0 h-full w-full object-cover"
+            style={mediaImageStyle(author.posterCrop)}
+            fallback={<Monogram name={author.name} />}
           />
         ) : (
-          <span className="select-none font-serif text-lg leading-none text-fg-primary">
-            {author.name[0]}
-          </span>
+          <Monogram name={author.name} />
         )}
       </div>
 

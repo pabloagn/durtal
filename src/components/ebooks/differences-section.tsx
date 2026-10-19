@@ -1,7 +1,6 @@
 "use client";
 
 import { useRef, useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { SectionHeading } from "@/components/shared/section-heading";
@@ -12,6 +11,7 @@ import { decideEbookDifferences, undoEbookDifferences } from "@/lib/actions/eboo
 import { DIFFERENCE_FIELDS, DIFFERENCE_LABELS, fieldWord, type Difference, type DifferenceField } from "@/lib/ebooks/differences/compare";
 import type { DifferenceOutcome, DifferencesPage } from "@/lib/ebooks/differences/store";
 import { languageName } from "@/lib/utils/language";
+import { CoverThumb } from "@/components/books/cover-thumb";
 
 type Choice = "keep" | "use";
 const CHOICES: Record<Choice, string> = { keep: "Keep Durtal's", use: "Use the file's" };
@@ -103,8 +103,7 @@ export function DifferencesSection({ page, step, links, moreHref }: {
     {notice && <p role="status" className="text-sm text-fg-secondary">{notice}</p>}
     {rows.map((d) => <article key={key(d)} data-difference-row={key(d)} className="card-body rounded-sm border border-glass-border bg-bg-secondary/70 p-4">
       <div className="flex items-start gap-3">
-        {d.ebookCover && <Image src={`/api/reader/${d.ebookId}/cover?w=240`} width={60} height={88} alt="" unoptimized
-          loading="lazy" className="h-22 w-15 shrink-0 rounded-sm object-cover" />}
+        <CoverThumb src={d.ebookCover ? `/api/reader/${d.ebookId}/cover?w=240` : null} title={d.bookTitle} className="w-15" />
         <div className="min-w-0 flex-1">
           <CardHeading title={d.slug ? <a href={`/library/${d.slug}`}>{d.bookTitle}</a> : d.bookTitle} subtitle={DIFFERENCE_LABELS[d.field]} />
           <dl className="mt-3 grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">

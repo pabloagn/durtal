@@ -6,7 +6,7 @@ import type { useDebouncedSearch } from "@/lib/hooks/use-debounced-search";
 import type { SearchResult } from "@/lib/api/types";
 import { CapAligned } from "@/components/shared/cap-aligned";
 import { Button } from "@/components/ui/button";
-import { CoverLetter, COVER_BLANK } from "@/components/books/cover-letter";
+import { CoverThumb } from "@/components/books/cover-thumb";
 import { Badge } from "@/components/ui/badge";
 import { isComposing } from "@/lib/shortcuts/shortcuts";
 
@@ -138,17 +138,7 @@ export function SearchStep({
                     onMouseEnter={() => setHighlightedIndex(i)}
                   >
                     {/* Cover thumbnail */}
-                    <div className="relative h-14 w-10 flex-shrink-0 overflow-hidden rounded-sm bg-bg-primary">
-                      {result.coverUrl ? (
-                        <img
-                          src={result.coverUrl}
-                          alt=""
-                          className="h-full w-full object-cover"
-                        />
-                      ) : (
-                        <div className={`${COVER_BLANK} h-full w-full`}><CoverLetter title={result.title} /></div>
-                      )}
-                    </div>
+                    <CoverThumb src={result.coverUrl} title={result.title} className="h-14 w-10" />
 
                     {/* Details */}
                     <div className="min-w-0 flex-1">

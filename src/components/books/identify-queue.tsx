@@ -32,6 +32,7 @@ import {
   moveToExistingEdition,
 } from "@/lib/actions/catalogue-client";
 import { refusalMessage } from "@/lib/actions/refusal";
+import { CoverThumb } from "@/components/books/cover-thumb";
 
 type SearchState =
   | { status: "loading" }
@@ -80,20 +81,7 @@ function CandidateCard({
   ].filter(Boolean);
   return (
     <div className="flex gap-3 rounded-sm border border-glass-border bg-bg-primary/40 p-3">
-      <div className="h-24 w-16 shrink-0 overflow-hidden bg-bg-secondary">
-        {candidate.coverUrl ? (
-          <img
-            src={candidate.coverUrl}
-            alt={`${candidate.title ?? "Edition"} cover`}
-            loading="lazy"
-            className="h-full w-full object-cover"
-          />
-        ) : (
-          <span className="flex h-full items-center justify-center text-center text-micro text-fg-secondary">
-            No cover
-          </span>
-        )}
-      </div>
+      <CoverThumb src={candidate.coverUrl} title={candidate.title ?? ""} alt={`${candidate.title ?? "Edition"} cover`} className="w-16" />
       <div className="flex min-w-0 flex-1 flex-col">
         <p className="lines-2 text-sm text-fg-primary">{candidate.title}</p>
         <p className="lines-1 text-xs text-fg-secondary">

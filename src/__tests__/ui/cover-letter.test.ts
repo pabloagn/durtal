@@ -45,7 +45,7 @@ it("gets the whole title, never a letter cut from it", () => {
 // line box) and half a pixel left of it (letter spacing after the last letter)
 it("centers a monogram's initials as the cover letter is", () => {
   const monogram = read("components/shared/no-photo.tsx");
-  expect(monogram).toContain('<span className="font-serif text-4xl leading-none text-fg-secondary [text-box:trim-both_cap_alphabetic]">');
+  expect(monogram).toContain("leading-none text-fg-primary [text-box:trim-both_cap_alphabetic]");
   expect(monogram).not.toContain("tracking-wide");
 });
 

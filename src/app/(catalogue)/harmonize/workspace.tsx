@@ -8,7 +8,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import Image from "next/image";
+import { CoverThumb } from "@/components/books/cover-thumb";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -903,12 +903,12 @@ function FindingReview({
             )}
             {f.resolution.kind === "poster" && (
               <div className="h-artwork-preview">
-                <Image
+                <CoverThumb
                   src={mediaUrl(f.resolution.thumbnailS3Key || f.resolution.s3Key)}
+                  title={f.records[0].name}
                   alt={`Proposed poster for ${f.records[0].name}`}
-                  width={100}
-                  height={144}
-                  unoptimized
+                  className="h-[135px] w-[90px]"
+                  contain
                 />
                 <div>
                   <p className="h-section-label">Already in your library</p>

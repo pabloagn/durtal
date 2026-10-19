@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { ChevronDown, Unlink } from "lucide-react";
 
 import { CardHeading } from "@/components/shared/card-heading";
@@ -13,6 +12,7 @@ import { formatBytes } from "@/lib/ebooks/run-text";
 import type { ReviewDetail, ReviewOutcome, ReviewQueueRow, ReviewSectionKey } from "@/lib/ebooks/review-queue/types";
 import type { ReviewUnlinkMode } from "@/lib/ebooks/review-queue/unlink-types";
 import { shortcutProps } from "@/lib/shortcuts/shortcuts";
+import { CoverThumb } from "@/components/books/cover-thumb";
 
 export type ReviewRowAction = "accept" | "choose" | "new" | "keep" | "exclude" | "rematch";
 const flags: Record<string, string> = { omnibus: "Omnibus", sample: "Sample", periodical: "Periodical",
@@ -52,8 +52,7 @@ export function ReviewRow({ row, section, detail, selected, focused, busy, retur
     <div className="grid gap-5 sm:grid-cols-2 sm:gap-6">
       <div className="min-w-0">
         <div className="flex items-start gap-3">
-          {row.hasCover && <Image src={`/api/reader/${row.id}/cover?w=240`} width={60} height={88} alt="" unoptimized
-            loading="lazy" className="h-22 w-15 shrink-0 rounded-sm object-cover" />}
+          <CoverThumb src={row.hasCover ? `/api/reader/${row.id}/cover?w=240` : null} title={row.title} className="w-15" />
           <div className="min-w-0 flex-1"><CardHeading title={row.title} subtitle={row.subtitle ?? row.authors.join(" & ")}
             action={<label className="inline-flex h-8 w-8 items-center justify-center pointer-coarse:h-11 pointer-coarse:w-11">
               <input type="checkbox" checked={selected} disabled={!pending || !row.stamp || busy}

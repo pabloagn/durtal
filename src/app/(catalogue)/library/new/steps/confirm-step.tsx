@@ -21,6 +21,7 @@ import {
   type WorkDraft,
 } from "../wizard-model";
 import { countLabel } from "@/lib/utils/format";
+import { CoverThumb } from "@/components/books/cover-thumb";
 
 type BadgeVariant = "default" | "blue" | "sage" | "muted" | "gold";
 
@@ -151,11 +152,7 @@ export function ConfirmStep({
                 {Number(edition.pageCount) > 0 && <span>{countLabel(Number(edition.pageCount), "page")}</span>}
               </div>
               {edition.coverUrl && (
-                <img
-                  src={edition.coverUrl}
-                  alt="Cover preview"
-                  className="mt-3 h-24 w-16 rounded-sm object-cover"
-                />
+                <CoverThumb src={edition.coverUrl} title={work.title} alt="Cover preview" className="mt-3 block w-16" />
               )}
             </div>
             <Button
