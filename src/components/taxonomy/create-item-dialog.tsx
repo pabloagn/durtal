@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { TaxonomyColorPicker } from "./taxonomy-color-picker";
 import { ParentPicker, type ParentChoice } from "./parent-picker";
+import { NameTwinNotice, useTaxonomyNameTwin } from "./name-twin-notice";
 
 interface CreateItemDialogProps {
   open: boolean;
@@ -38,6 +39,9 @@ export function CreateItemDialog({
   const [parentId, setParentId] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // The sibling this name repeats, accents and case aside: the dialog names
+  // it and offers it, and Create becomes Create anyway (SLN-1016, SLN-1159)
+  const twin = useTaxonomyNameTwin(familySlug, name, { parentId: parentId || null }, open);
 
   const resetForm = useCallback(() => {
     setName("");
@@ -74,6 +78,7 @@ export function CreateItemDialog({
           description: describable ? description.trim() || null : null,
           color,
           parentId: parentId || null,
+          ...(twin?.saveAnyway ? { allowDuplicateName: true } : {}),
         });
         toast.success(`Created "${trimmedName}"`);
         resetForm();
@@ -88,7 +93,7 @@ export function CreateItemDialog({
         setSubmitting(false);
       }
     },
-    [name, description, describable, color, parentId, familySlug, resetForm, onCreated, onClose],
+    [name, description, describable, color, parentId, twin, familySlug, resetForm, onCreated, onClose],
   );
 
   return (
@@ -110,6 +115,7 @@ export function CreateItemDialog({
           placeholder="Enter item name"
           error={error && !name.trim() ? "Name is required" : undefined}
         />
+        {twin && <NameTwinNotice familySlug={familySlug} twin={twin} hierarchical={hierarchical} />}
 
         {/* Color */}
         <div className="space-y-1.5">
@@ -163,10 +169,10 @@ export function CreateItemDialog({
             type="submit"
             variant="primary"
             size="sm"
-            disabled={!name.trim()}
+            disabled={!name.trim() || (!!twin && !twin.saveAnyway)}
             busy={submitting}
           >
-            Create
+            {twin?.saveAnyway ? "Create anyway" : "Create"}
           </Button>
         </div>
       </form>
