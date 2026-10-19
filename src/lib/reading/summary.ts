@@ -137,6 +137,19 @@ export function readingRatingSql(readingAlias: string) {
 }
 
 /**
+ * `readingRatingSql` with the book's finished readings counted by a window
+ * instead of a subquery per row (SLN-1309). Only where the rows hold every
+ * reading, before any filter, as `rereadSql` needs.
+ */
+export function readingRatingOverAllSql(readingAlias: string) {
+  const r = sql.raw(readingAlias);
+  return sql<number | null>`coalesce(${r}.rating::float8,
+    case when ${r}.status = 'finished'
+      and count(*) filter (where ${r}.status = 'finished') over (partition by ${r}.work_id) = 1
+    then (select w.rating::float8 from works w where w.id = ${r}.work_id) end)`;
+}
+
+/**
  * Taste evidence: the book's rating of a book with at least one finished
  * reading (else the latest finished reading's rating). A rating on a book
  * never finished is never evidence: it may be a seed priority.

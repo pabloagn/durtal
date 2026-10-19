@@ -94,6 +94,8 @@ import { linkedBookIds } from "@/lib/catalogue/linked-work-ebooks";
 import { catalogueStatusLabel, priorityLabel } from "@/lib/utils/labels";
 import { languageName } from "@/lib/utils/language";
 import { mediaUrl } from "@/lib/s3/media-url";
+import { readFingerprint } from "@/lib/catalogue/work-store";
+import { bookEditFingerprint } from "@/lib/catalogue/book-fingerprint";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -202,6 +204,7 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
     estimates,
     predictionContext,
     collectionCovers,
+    editFingerprint,
   ] = await Promise.all([
     getOrdersForWork(work.id),
     getEbookSuggestionCount(work.id),
@@ -235,6 +238,8 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
     collectionsOfWork.then((found) =>
       getCollectionCoverPreviews(found.filter((c) => !collectionPoster(c.media)).map((c) => c.id)),
     ),
+    // What Edit work saves against: a change since then is refused (SLN-1243)
+    readFingerprint(bookEditFingerprint(work.id)),
   ]);
   const readingRows = readingOverview.rows;
   const zone = appTimeZone();
@@ -477,6 +482,7 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
                       recommenderIds: work.workRecommenders.map(
                         (wr) => wr.recommender.id,
                       ),
+                      fingerprint: editFingerprint,
                     }}
                     workAuthors={work.workAuthors.map((wa) => ({
                       id: wa.author.id,

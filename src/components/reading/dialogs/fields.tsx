@@ -81,6 +81,7 @@ export function DialogFooter({
   saveLabel = "Save",
   disabled = false,
   notice,
+  hint = null,
 }: {
   /** The id of the form Save submits */
   form: string;
@@ -90,10 +91,13 @@ export function DialogFooter({
   disabled?: boolean;
   /** What a press of Save turned up (a duplicate), over the buttons and in view */
   notice?: ReactNode;
+  /** What a disabled save waits for, said beside it: "Write the passage to add it" (SLN-945) */
+  hint?: string | null;
 }) {
   return (
     <SharedDialogFooter outside="pt-2">
       {notice}
+      {hint && <p className="mr-auto text-xs text-fg-secondary">{hint}</p>}
       <Button data-dismiss="" type="button" variant="ghost" onClick={onCancel} className="pointer-coarse:h-11">
         Cancel
       </Button>

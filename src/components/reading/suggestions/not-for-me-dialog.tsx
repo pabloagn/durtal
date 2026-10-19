@@ -47,7 +47,7 @@ export function NotForMeDialog({ workId, title, onClose }: { workId: string; tit
           </div>
         </fieldset>
         <Textarea label="Note (optional)" value={note} onChange={(e) => setNote(e.target.value)} maxLength={FEEDBACK_NOTE_MAX} rows={3} />
-        <DialogFooter form={formId} onCancel={onClose} saving={saving} saveLabel="Hide it" disabled={!reasons.length} />
+        <DialogFooter form={formId} onCancel={onClose} saving={saving} saveLabel="Hide it" disabled={!reasons.length} hint={reasons.length ? null : "Choose at least one reason"} />
       </form>
     </Dialog>
   );

@@ -189,7 +189,8 @@ export function AddSeriesBooksDialog({
             from another series. A book belongs to one series.
           </p>
         )}
-        <div className="flex justify-end gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          {!chosen.length && <p className="mr-auto text-xs text-fg-secondary">Choose a book to add</p>}
           <Button data-dismiss="" type="button" disabled={saving} onClick={onClose}>
             Cancel
           </Button>

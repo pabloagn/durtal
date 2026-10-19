@@ -46,6 +46,7 @@ beforeEach(() => {
 afterEach(() => {
   act(() => root.unmount());
   host.remove();
+  vi.restoreAllMocks();
 });
 
 function press(key: string, init: KeyboardEventInit = {}) {
@@ -109,6 +110,8 @@ describe("a leader menu", () => {
   // SLN-1189: opened under a pointer at rest, the menu started on the item
   // under it, so G then Enter could go to Paintings
   it("starts on its first item under a resting pointer, and follows a moving one", () => {
+    let clock = performance.now();
+    vi.spyOn(performance, "now").mockImplementation(() => clock);
     press("g");
     const at = (x: number, y: number) =>
       act(() => {
@@ -124,6 +127,9 @@ describe("a leader menu", () => {
     expect(focused()).toBe(items()[0]);
     press("Enter");
     expect(menu()).toBeNull();
+    // A key straight after a pick is the rest of a typed word and is dropped
+    // (SLN-1190): the next G comes after a pause, as a person's would
+    clock += 1000;
     // A pointer that moves picks the item it is over
     press("g");
     at(720, 400);

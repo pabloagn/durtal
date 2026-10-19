@@ -1,4 +1,5 @@
 "use client";
+import { RequiredNameHint } from "@/components/shared/required-name-hint";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -248,7 +249,8 @@ export function CollectionControls({
             maxLength={5000}
             disabled={busy}
           />
-          <div className="flex justify-end gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <RequiredNameHint value={name} message="Give the collection a name" />
             <Button data-dismiss=""
               type="button"
               disabled={busy}

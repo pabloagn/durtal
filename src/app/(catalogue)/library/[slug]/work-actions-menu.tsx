@@ -63,6 +63,8 @@ interface WorkData {
   goodreadsUrl: string | null;
   storygraphUrl: string | null;
   recommenderIds: string[];
+  /** What Edit work saves against (SLN-1243) */
+  fingerprint: string | null;
 }
 
 interface WorkAuthorRow {
