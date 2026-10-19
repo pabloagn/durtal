@@ -45,7 +45,7 @@ vi.mock("@/lib/s3/covers", () => ({
   deleteFromS3: vi.fn(),
 }));
 import { findNamedDuplicates, type NamedKind } from "@/lib/actions/named-duplicates";
-import { createTaxonomyItem, updateTaxonomyItem } from "@/lib/actions/taxonomy-families";
+import { createTaxonomyItem, findTaxonomyNameTwin, updateTaxonomyItem } from "@/lib/actions/taxonomy-families";
 import { createEdition, updateEdition } from "@/lib/actions/editions";
 import { fastTrackBook } from "@/lib/actions/fast-track";
 import { createBookFromWizard } from "@/lib/actions/wizard";
@@ -119,7 +119,7 @@ describe.skipIf(!url)("duplicate names and numbers with PostgreSQL", () => {
       await createTaxonomyItem("keywords", { name: "Melancholy" });
       const other = await createTaxonomyItem("keywords", { name: "Walking" });
       expect(await rejection(updateTaxonomyItem("keywords", other.id, { name: "Melancholy" }))).toBe(
-        "This family already has an item with this name",
+        'This family already has "Melancholy"',
       );
       // Nothing changed
       const names = await db.select({ name: schema.keywords.name }).from(schema.keywords);
@@ -129,8 +129,25 @@ describe.skipIf(!url)("duplicate names and numbers with PostgreSQL", () => {
     it("a create with a name another item has gets the same message", async () => {
       await createTaxonomyItem("keywords", { name: "Melancholy" });
       expect(await rejection(createTaxonomyItem("keywords", { name: "Melancholy" }))).toBe(
-        "This family already has an item with this name",
+        'This family already has "Melancholy"',
       );
+    });
+
+    it("refuses a name that differs only by accents, case or punctuation, and names the item (SLN-1016)", async () => {
+      const original = await createTaxonomyItem("keywords", { name: "Décadentisme" });
+      for (const name of ["Decadentisme", "DÉCADENTISME", "décadentisme."])
+        expect(await rejection(createTaxonomyItem("keywords", { name }))).toBe('This family already has "Décadentisme"');
+      expect(await findTaxonomyNameTwin("keywords", "decadentisme")).toMatchObject({ name: "Décadentisme", slug: original.slug });
+      // An item renamed to its own name with accents is no twin of itself
+      const plain = await createTaxonomyItem("keywords", { name: "Spleen" });
+      await updateTaxonomyItem("keywords", plain.id, { name: "Spléen" });
+      expect(await rejection(updateTaxonomyItem("keywords", plain.id, { name: "Decadentisme" }))).toBe(
+        'This family already has "Décadentisme"',
+      );
+      // Another family, or a name of symbols only, is not a twin
+      expect(await findTaxonomyNameTwin("subjects", "Decadentisme")).toBeNull();
+      await createTaxonomyItem("keywords", { name: "★" });
+      await createTaxonomyItem("keywords", { name: "☆" });
     });
   });
 

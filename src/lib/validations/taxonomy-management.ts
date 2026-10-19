@@ -62,6 +62,8 @@ export const createTaxonomyItemSchema = z.object({
   description: z.string().max(2000).nullable().optional(),
   color: z.string().max(7).nullable().optional(),
   parentId: z.string().uuid().nullable().optional(),
+  /** Save beside a sibling of the same name, accents and case aside (SLN-1159) */
+  allowDuplicateName: z.boolean().optional(),
 });
 
 /** Partial update: unknown keys rejected (see toUpdateSchema). */

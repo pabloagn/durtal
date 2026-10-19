@@ -51,7 +51,7 @@ interface TaxonomyTreeProps {
   onSelectionChange: (ids: Set<string>) => void;
   onReorder: (ids: string[]) => Promise<void>;
   onColorChange: (id: string, color: string | null) => Promise<void>;
-  onRename: (id: string, name: string) => Promise<void>;
+  onRename: (id: string, name: string, item?: TaxonomyItemData) => Promise<void>;
   onDelete: (id: string, item?: TaxonomyItemData) => void;
   onMerge: (id: string, item?: TaxonomyItemData) => void;
   onEdit?: (id: string, item?: TaxonomyItemData) => void;
@@ -492,7 +492,7 @@ export function TaxonomyTree({
                         onColorChange(id, color);
                       }}
                       onRename={(id, name) => {
-                        onRename(id, name);
+                        onRename(id, name, item);
                       }}
                       onDelete={(id) => onDelete(id, item)}
                       onMerge={(id) => onMerge(id, item)}
