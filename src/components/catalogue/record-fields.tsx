@@ -4,11 +4,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Plus, X } from "lucide-react";
 import { CapAligned } from "@/components/shared/cap-aligned";
 import { TaxonomyItemSearch } from "@/components/taxonomy/taxonomy-assignments";
-import { getOrganizations, saveOrganization } from "@/lib/actions/organizations";
-import { createPerson, getPeople } from "@/lib/actions/people";
+import { getOrganizations } from "@/lib/actions/organizations";
+import { getPeople } from "@/lib/actions/people";
 import type { WorkKind } from "@/lib/catalogue/kinds";
 import type { OrganizationRole } from "@/lib/catalogue/organizations";
 import { SearchPicker, type PickerChoice } from "./search-picker";
+import { saveOrganization, createPerson } from "@/lib/actions/catalogue-client";
 import { lifeDates } from "@/lib/utils/format";
 
 /*

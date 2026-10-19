@@ -1,5 +1,6 @@
 "use server";
 
+import { ExpectedActionError } from "@/lib/actions/expected-error";
 import { bookCondition, requireBookWorks } from "@/lib/catalogue/book-boundary";
 
 import { z } from "zod";
@@ -25,7 +26,7 @@ export async function updateHuntAssessment(
     .set({ ...assessment, updatedAt: new Date() })
     .where(and(bookCondition, eq(works.id, id)))
     .returning({ id: works.id });
-  if (!updated) throw new Error("Book not found");
+  if (!updated) throw new ExpectedActionError("Book not found");
   recordActivity("work", id, "work.hunt_assessment_changed", {
     newValue: assessment.isRare ? `Rare · ${assessment.huntAssessedOn}` : null,
   });

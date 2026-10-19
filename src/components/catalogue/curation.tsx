@@ -11,8 +11,9 @@ import { FavouriteToggle } from "@/components/shared/favourite-toggle";
 import { SectionHeading } from "@/components/shared/section-heading";
 import { useEscapeToCancel } from "@/components/shared/escape-to-cancel";
 import { Prose } from "@/components/shared/prose";
-import { updateWorkCuration } from "@/lib/actions/curation";
 import type { CurationOwner, CurationPatch } from "@/lib/catalogue/curation";
+import { updateWorkCuration } from "@/lib/actions/catalogue-client";
+import { refusalMessage } from "@/lib/actions/refusal";
 
 const CurationContext = createContext<{
   save: (patch: CurationPatch) => Promise<boolean>;
@@ -56,7 +57,7 @@ export function CurationProvider({
           router.refresh();
           return true;
         } catch (err) {
-          toast.error(err instanceof Error ? err.message : "Could not save");
+          toast.error(refusalMessage(err, "Could not save"));
           return false;
         }
       });

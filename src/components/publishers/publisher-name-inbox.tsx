@@ -7,14 +7,14 @@ import { Button } from "@/components/ui/button";
 import { CapAligned } from "@/components/shared/cap-aligned";
 import { EditionImageBox } from "@/components/books/edition-cover";
 import { PublisherSearch } from "./publisher-picker";
+import type { getPublisherNameInbox, PublisherNameRow } from "@/lib/actions/publisher-names";
 import {
   applySafePublisherDecisions,
   resolvePublisherNames,
   restorePublisherName,
   undoAutomaticPublisherDecision,
-  type getPublisherNameInbox,
-  type PublisherNameRow,
-} from "@/lib/actions/publisher-names";
+} from "@/lib/actions/catalogue-client";
+import { refusalMessage } from "@/lib/actions/refusal";
 import { SectionHeading } from "@/components/shared/section-heading";
 import { Ban, Plus, RotateCcw, Search, Undo2 } from "lucide-react";
 
@@ -258,7 +258,7 @@ export function PublisherNameInbox({
         if (message) toast.success(message);
         router.refresh();
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : "Could not save");
+        toast.error(refusalMessage(err, "Could not save"));
       }
     });
   }

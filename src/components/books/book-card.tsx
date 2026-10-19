@@ -175,6 +175,7 @@ export function BookCard({
 
   return (
     <div
+      data-focus-row=""
       className={`${WORK_CARD} ${selectionRing}`}
       onClick={handleCardClick}
     >

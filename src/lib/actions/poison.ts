@@ -1,5 +1,6 @@
 "use server";
 
+import { ExpectedActionError } from "@/lib/actions/expected-error";
 import { bookCondition, requireBookWorks } from "@/lib/catalogue/book-boundary";
 
 import { z } from "zod";
@@ -24,7 +25,7 @@ export async function setPoison(workId: string, isPoison: boolean) {
       where: and(bookCondition, eq(works.id, id)),
       columns: { id: true },
     });
-    if (!found) throw new Error("Book not found");
+    if (!found) throw new ExpectedActionError("Book not found");
     return { isPoison: value };
   }
   recordActivity("work", id, "work.poison_changed", {

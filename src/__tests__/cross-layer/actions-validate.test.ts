@@ -57,7 +57,18 @@ describe("server action input validation", () => {
       expect(target && hasParserCall(target)).toBe(true);
     } else {
       const proof = validation.prove(`${action.file} ${action.name}`);
-      expect(proof.error, proof.chain.join(" → ")).toBeUndefined();
+      // A UI adapter's chain may end at a reviewed delegation (SLN-1033)
+      const end = proof.chain.at(-1)!;
+      const delegated = proof.error ? DELEGATES[end] : undefined;
+      if (delegated) {
+        const [file, name] = end.split(" ");
+        const forwarded = actions.find((fn) => fn.file === file && fn.name === name)!;
+        expect(callsNamedFunction(forwarded, delegated)).toBe(true);
+        const target = actions.find((fn) => fn.file === file && fn.name === delegated);
+        expect(target && hasParserCall(target)).toBe(true);
+      } else {
+        expect(proof.error, proof.chain.join(" → ")).toBeUndefined();
+      }
     }
   });
 

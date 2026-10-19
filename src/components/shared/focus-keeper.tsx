@@ -22,7 +22,8 @@ import { useEffect } from "react";
 const FOCUSABLE =
   'a[href], button, input:not([type="hidden"]), select, textarea, [tabindex]:not([tabindex="-1"])';
 
-type Place = { list: string; index: number; control: number; verb: string; row: Element };
+/** `listEl`: the list itself, when a page has two of one name (two grids of books) */
+type Place = { list: string; index: number; control: number; verb: string; row: Element; listEl?: Element };
 
 let place: Place | null = null;
 
@@ -64,14 +65,18 @@ function placeOf(el: Element): Place | null {
     control: controls(row).indexOf(el as HTMLElement),
     verb: verb(el),
     row,
+    listEl: list,
   };
 }
 
 /** The control to take the focus once `gone`'s row has been removed */
 export function focusSuccessor(gone: Place): HTMLElement | null {
-  const list = [...document.querySelectorAll(`[data-focus-list]`)].find(
-    (el) => el.getAttribute("data-focus-list") === gone.list && shown(el),
-  );
+  const list =
+    gone.listEl?.isConnected && shown(gone.listEl)
+      ? gone.listEl
+      : [...document.querySelectorAll(`[data-focus-list]`)].find(
+          (el) => el.getAttribute("data-focus-list") === gone.list && shown(el),
+        );
   const left = list ? rows(list).filter(shown) : [];
   const row = left[Math.min(gone.index, left.length - 1)];
   if (row) {

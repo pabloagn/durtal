@@ -98,7 +98,7 @@ export function WantedSection({
         count={targets.length || undefined}
         action={
           canAdd && (
-            <Button variant="ghost" size="sm" onClick={() => setDialog({ kind: "add" })}>
+            <Button variant="ghost" size="sm" data-focus-empty="wanted" onClick={() => setDialog({ kind: "add" })}>
               <Plus className="h-3.5 w-3.5" strokeWidth={1.5} />
               Add
             </Button>
@@ -110,10 +110,11 @@ export function WantedSection({
       ) : targets.length === 0 ? (
         <p className="text-sm text-fg-secondary">Nothing on your list</p>
       ) : (
-        <ul className="space-y-2">
+        <ul data-focus-list="wanted" className="space-y-2">
           {targets.map((t) => (
             <li
               key={t.id}
+              data-focus-row=""
               className="flex items-start gap-3 rounded-sm border border-glass-border bg-bg-secondary/40 px-3 py-2.5"
             >
               <div className="min-w-0 flex-1">

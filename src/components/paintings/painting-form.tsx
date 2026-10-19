@@ -16,7 +16,9 @@ import { TitleInput } from "@/components/shared/title-input";
 import { CatalogueDateField } from "@/components/shared/catalogue-date-field";
 import { TermListField, type TermEntry } from "@/components/catalogue/record-fields";
 import { ChoiceListField, type Choice } from "@/components/films/film-fields";
-import { createPainting, updatePainting, type PaintingChoices } from "@/lib/actions/paintings";
+import type { PaintingChoices } from "@/lib/actions/paintings";
+import { createPainting, updatePainting } from "@/lib/actions/catalogue-client";
+import { refusalMessage } from "@/lib/actions/refusal";
 import type { CatalogueDateInput } from "@/lib/catalogue/dates";
 import {
   PAINTING_FAMILIES,
@@ -120,7 +122,7 @@ export function PaintingForm(props: Props) {
         props.onSaved();
       }
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Could not save the painting";
+      const message = refusalMessage(err, "Could not save the painting");
       setError(message);
       toast.error(message);
       setSaving(false);
