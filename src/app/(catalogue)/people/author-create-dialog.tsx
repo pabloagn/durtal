@@ -12,7 +12,9 @@ import {
   EMPTY_AUTHOR_FORM,
   authorPayload,
 } from "@/components/authors/author-form";
-import { createAuthor, getCountries } from "@/lib/actions/authors";
+import { getCountries } from "@/lib/actions/authors";
+import { createAuthor } from "@/lib/actions/catalogue-client";
+import { refusalMessage } from "@/lib/actions/refusal";
 import { shortcutProps } from "@/lib/shortcuts/shortcuts";
 
 /**
@@ -84,7 +86,7 @@ export function AuthorCreateDialog({
         router.refresh();
       } catch (err) {
         toast.error(
-          err instanceof Error ? err.message : "Could not add the person",
+          refusalMessage(err, "Could not add the person"),
         );
       }
     });

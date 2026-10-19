@@ -8,10 +8,6 @@ import { toast } from "@/lib/notifications/toast";
 import { CapAlignedControls } from "@/components/shared/cap-aligned";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  removeWorkFromSeries,
-  setSeriesPosition,
-} from "@/lib/actions/series";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
 import { mediaImageStyle, type MediaCrop } from "@/lib/utils/media-style";
 import { mediaUrl } from "@/lib/s3/media-url";
@@ -22,6 +18,8 @@ import { COVER_CORNER } from "@/components/books/cover-chip";
 import { COVER_BLANK, CoverLetter } from "@/components/books/cover-letter";
 import { FadeImage } from "@/components/shared/fade-image";
 import { CatalogueReadLink } from "@/components/ebooks/catalogue-read-action";
+import { removeWorkFromSeries, setSeriesPosition } from "@/lib/actions/catalogue-client";
+import { refusalMessage } from "@/lib/actions/refusal";
 
 /** A volume's reading: "Reading 44%", "Read", "Read 2×", "Abandoned" */
 const badge = (book: SeriesBook) =>
@@ -121,8 +119,8 @@ export function SeriesBooks({
       toast.success(`${book.title} removed from the series. Book kept.`);
       triggerActivityRefresh();
       router.refresh();
-    } catch {
-      toast.error("Could not update the series");
+    } catch (error) {
+      toast.error(refusalMessage(error, "Could not update the series"));
     } finally {
       setBusy(null);
     }

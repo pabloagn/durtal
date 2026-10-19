@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef, type PointerEvent } from "react";
 import { CapAligned } from "@/components/shared/cap-aligned";
 import type { LucideIcon } from "lucide-react";
 import { Kbd } from "@/components/shortcuts/kbd";
@@ -39,6 +39,15 @@ export function LeaderMenu({
 }) {
   const menuRef = useRef<HTMLDivElement>(null);
   const activeRef = useRef<HTMLButtonElement>(null);
+  // The menu opens from the keyboard, often under a pointer at rest: the
+  // browser then reports the pointer over an item, and that item would take
+  // the focus from the first one (SLN-1189). Only a pointer that moves picks.
+  const pointer = useRef<{ x: number; y: number } | null>(null);
+  const pointerMoved = (event: PointerEvent) => {
+    const last = pointer.current;
+    pointer.current = { x: event.clientX, y: event.clientY };
+    return last !== null && (last.x !== event.clientX || last.y !== event.clientY);
+  };
   useEffect(() => {
     activeRef.current?.focus({ preventScroll: true });
     activeRef.current?.scrollIntoView({ block: "nearest" });
@@ -81,7 +90,9 @@ export function LeaderMenu({
                 ref={i === active ? activeRef : undefined}
                 tabIndex={i === active ? 0 : -1}
                 data-active={i === active || undefined}
-                onMouseEnter={() => onActiveChange(i)}
+                onPointerMove={(event) => {
+                  if (pointerMoved(event) && i !== active) onActiveChange(i);
+                }}
                 onClick={() => onPick(i)}
                 className="flex w-full items-center gap-2.5 rounded-sm px-2 py-2 pointer-coarse:min-h-11 text-left text-sm text-fg-secondary outline-none transition-colors data-[active]:bg-selection-bg/60 data-[active]:text-fg-primary"
               >

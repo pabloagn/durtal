@@ -2,9 +2,10 @@
 
 import * as actions from "./taxonomy-ui";
 import type { ActionResult } from "./action-result";
+import { ActionRefusal } from "./action-refusal";
 async function value<T>(promise: Promise<ActionResult<T>>): Promise<T> {
   const result = await promise;
-  if (!result.ok) throw new Error(result.error);
+  if (!result.ok) throw new ActionRefusal(result.error, result.href);
   return result.value;
 }
 
@@ -54,4 +55,8 @@ export async function setTaxonomyApplicability(...args: Parameters<typeof action
 
 export async function replaceTaxonomyAssignments(...args: Parameters<typeof actions.replaceTaxonomyAssignments>) {
   return value(actions.replaceTaxonomyAssignments(...args));
+}
+
+export async function searchTaxonomyItems(...args: Parameters<typeof actions.searchTaxonomyItems>) {
+  return value(actions.searchTaxonomyItems(...args));
 }

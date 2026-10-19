@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { CapAligned } from "@/components/shared/cap-aligned";
 import { PoisonBadge } from "@/components/books/poison-badge";
-import { addToQueue } from "@/lib/actions/reading-queue";
 import type { SuggestionRow } from "@/lib/reading/suggest/view";
 import { showError } from "../reading-client";
 import { useReadingDialogs } from "../reading-dialogs-provider";
@@ -17,6 +16,7 @@ import { NotForMeDialog } from "./not-for-me-dialog";
 import { useSuggestionFeedback } from "./use-feedback";
 import { WhyThis } from "./why-this";
 import { toast } from "@/lib/notifications/toast";
+import { addToQueue } from "@/lib/actions/catalogue-client";
 
 const menuButton =
   "action-icon";

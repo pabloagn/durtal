@@ -9,8 +9,8 @@ import { SectionHeading } from "@/components/shared/section-heading";
 import { CapAlignedControls } from "@/components/shared/cap-aligned";
 import { EntityActionMenu, type EntityActionItem } from "@/components/shared/entity-action-menu";
 import { ConfirmDeleteDialog } from "@/components/catalogue/confirm-delete-dialog";
-import { updateFilm } from "@/lib/actions/films";
-import { deleteFilmVersion } from "@/lib/actions/catalogue-client";
+import { deleteFilmVersion, updateFilm } from "@/lib/actions/catalogue-client";
+import { refusalMessage } from "@/lib/actions/refusal";
 import { VersionDialog, type EditableVersion } from "./version-dialog";
 import { CopyDialog, type CopyLocation, type VersionChoice } from "./copy-dialog";
 import type { Choice } from "./film-fields";
@@ -74,7 +74,7 @@ export function VersionsSection({
       await updateFilm(film.id, { versionOrder: order }, film.fingerprint);
       router.refresh();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not move the version");
+      toast.error(refusalMessage(err, "Could not move the version"));
     } finally {
       setMoving(false);
     }
@@ -87,7 +87,7 @@ export function VersionsSection({
         title="Versions"
         count={versions.length || undefined}
         action={
-          <Button variant="ghost" size="sm" onClick={() => setDialog({ kind: "add" })}>
+          <Button variant="ghost" size="sm" data-focus-empty="film-versions" onClick={() => setDialog({ kind: "add" })}>
             <Plus className="h-3.5 w-3.5" strokeWidth={1.5} />
             Add version
           </Button>
@@ -100,7 +100,7 @@ export function VersionsSection({
           releases. A remake is a film of its own.
         </p>
       ) : (
-        <ol className="space-y-2">
+        <ol data-focus-list="film-versions" className="space-y-2">
           {versions.map((v, index) => {
             const items: EntityActionItem[] = [
               { label: "Edit", icon: Pencil, onClick: () => setDialog({ kind: "edit", version: v }) },
@@ -121,6 +121,7 @@ export function VersionsSection({
             return (
               <li
                 key={v.id}
+                data-focus-row=""
                 className="flex items-start gap-3 rounded-sm border border-glass-border bg-bg-secondary/40 px-3 py-2.5"
               >
                 <div className="min-w-0 flex-1">
@@ -192,7 +193,7 @@ export function VersionsSection({
             close();
             router.refresh();
           } catch (err) {
-            toast.error(err instanceof Error ? err.message : "Could not delete the version");
+            toast.error(refusalMessage(err, "Could not delete the version"));
           }
         }}
       />

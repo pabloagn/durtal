@@ -18,7 +18,8 @@ import {
   type AcquisitionDraft,
   type StorageLocation,
 } from "@/components/catalogue/holding-fields";
-import { addPerfumeBottle, updatePerfumeBottle } from "@/lib/actions/perfumes";
+import { addPerfumeBottle, updatePerfumeBottle } from "@/lib/actions/catalogue-client";
+import { refusalMessage } from "@/lib/actions/refusal";
 import { PERFUME_CONTAINERS } from "@/lib/catalogue/perfumes";
 import { PERSONAL_HOLDING_STATUSES } from "@/lib/catalogue/holdings";
 import {
@@ -198,7 +199,7 @@ function BottleForm({
       onDone();
       router.refresh();
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Could not save";
+      const message = refusalMessage(err, "Could not save");
       setError(message);
       toast.error(message);
       setSaving(false);

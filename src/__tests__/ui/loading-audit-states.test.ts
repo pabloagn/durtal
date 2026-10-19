@@ -85,7 +85,7 @@ describe("loading screens", () => {
 describe("Harmonize with no findings to show", () => {
   // A failed scan offered "Clear filters", which does nothing for it
   it("offers to scan again when the scan failed", () => {
-    const empty = html(createElement(HarmonizeWorkspace, { initialScan: null, initialError: "The database could not complete this action." })).querySelector(".h-empty")!;
+    const empty = html(createElement(HarmonizeWorkspace, { initialScan: null, initialError: "The database could not complete this action.", timeZone: "Europe/Amsterdam" })).querySelector(".h-empty")!;
     expect(empty.querySelector("h2")!.textContent).toBe("Scan unavailable");
     expect([...empty.querySelectorAll("button")].map((b) => b.textContent)).toEqual(["Scan library"]);
   });

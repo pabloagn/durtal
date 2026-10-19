@@ -123,6 +123,12 @@ export function createDelegationProof(sources: Record<string, string>) {
     }
     return null;
   }
+  /** `Error`, or the client's `ActionRefusal` from lib/actions/action-refusal.ts (SLN-1033) */
+  function isRefusalError(file: string, name: string) {
+    if (name === "Error") return true;
+    const from = imported(file, name, false);
+    return from?.file === "lib/actions/action-refusal.ts" && from.name === "ActionRefusal";
+  }
   function isUnwrapper(file: string, name: string) {
     const helper = modules.get(file)?.source.statements.find(statement =>
       ts.isFunctionDeclaration(statement) && statement.name?.text === name);
@@ -143,9 +149,11 @@ export function createDelegationProof(sources: Record<string, string>) {
       && ts.isPrefixUnaryExpression(refusal.expression) && refusal.expression.operator === ts.SyntaxKind.ExclamationToken
       && property(refusal.expression.operand, "ok") && ts.isThrowStatement(refusal.thenStatement)
       && ts.isNewExpression(refusal.thenStatement.expression) && ts.isIdentifier(refusal.thenStatement.expression.expression)
-      && ["Error", "ActionRefusal"].includes(refusal.thenStatement.expression.expression.text)
-      && refusal.thenStatement.expression.arguments?.length === 1
-      && property(refusal.thenStatement.expression.arguments[0], "error")
+      && isRefusalError(file, refusal.thenStatement.expression.expression.text)
+      && [1, 2].includes(refusal.thenStatement.expression.arguments?.length ?? 0)
+      && property(refusal.thenStatement.expression.arguments![0], "error")
+      && (refusal.thenStatement.expression.arguments!.length === 1
+        || property(refusal.thenStatement.expression.arguments![1], "href"))
       && ts.isReturnStatement(returned) && property(returned.expression, "value");
   }
   function targetOf(action: CheckedAction): { target?: string; error?: string } {

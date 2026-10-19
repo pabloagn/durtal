@@ -66,7 +66,7 @@ export function RetailersSection({
         title="Retailers"
         count={listings.length || undefined}
         action={
-          <Button variant="ghost" size="sm" onClick={() => setDialog({ kind: "add" })}>
+          <Button variant="ghost" size="sm" data-focus-empty="perfume-retailers" onClick={() => setDialog({ kind: "add" })}>
             <Plus className="h-3.5 w-3.5" strokeWidth={1.5} />
             Note a retailer
           </Button>
@@ -75,7 +75,7 @@ export function RetailersSection({
       {listings.length === 0 ? (
         <p className="text-sm text-fg-secondary">No retailers noted</p>
       ) : (
-        <ul className="space-y-2">
+        <ul data-focus-list="perfume-retailers" className="space-y-2">
           {listings.map((listing) => {
             const o = listing.observation;
             const offer = [
@@ -89,6 +89,7 @@ export function RetailersSection({
             return (
               <li
                 key={listing.link.id}
+                data-focus-row=""
                 className="flex items-start gap-3 rounded-sm border border-glass-border bg-bg-secondary/40 px-3 py-2.5"
               >
                 <div className="min-w-0 flex-1">

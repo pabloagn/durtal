@@ -286,15 +286,17 @@ describe.skipIf(!url)("legacy book adapters with all four work kinds", () => {
     expect((await getRecommenderList()).rows[0].bookCount).toBe(1);
     expect(ids((await getRecommender(recommender))!.books)).toEqual([books[0]]);
     expect((await getSubjectsWithWorkCounts())[0].workCount).toBe(1);
+    // A family's items and its card count the records of every open
+    // collection it applies to: the book, the perfume, the film and the
+    // painting (SLN-1157)
+    const tagged = [books[0], ...others.map((r) => r.id)].sort();
     for (const slug of ["subjects", "mood"]) {
-      expect((await getTaxonomyItems(slug))[0].entityCount).toBe(1);
+      expect((await getTaxonomyItems(slug))[0].entityCount).toBe(4);
       expect(
         (await getTaxonomyItem(slug, slug === "subjects" ? "art" : "dark"))
-          ?.entityIds,
-      ).toEqual([books[0]]);
+          ?.entityIds.sort(),
+      ).toEqual(tagged);
     }
-    // A family's card counts the records of every open collection (the book,
-    // the perfume, the film and the painting); its items above count books only.
     expect(
       (await getTaxonomyFamilies())
         .filter((f) => ["subjects", "mood"].includes(f.slug))

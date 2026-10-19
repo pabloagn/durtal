@@ -412,6 +412,33 @@ dialog::backdrop {
   @apply relative aspect-[2/3] overflow-hidden bg-bg-tertiary;
 }
 
+/* A mark on a cover (cover-chip.ts), one class each, as a shelf repeats them
+   on every rare or poison card (SLN-1163). A mark's stroke is 3 in Lucide's
+   24-unit box: 1.25px at 10px, 1.5px at 12px; the usual 1.5 would draw a
+   faint 0.6px line at this size */
+@utility cover-chip {
+  @apply flex h-4 min-w-4 shrink-0 items-center justify-center rounded-sm border-0 glass-chip [--glass-chip-blur:3px] @[220px]:h-5 @[220px]:min-w-5 @[220px]:[--glass-chip-blur:4px];
+}
+@utility cover-chip-icon {
+  @apply h-2.5 w-2.5 @[220px]:h-3 @[220px]:w-3;
+}
+@utility cover-corner-tl {
+  @apply absolute left-1 top-1 flex items-center gap-1 @[220px]:left-2 @[220px]:top-2;
+}
+@utility cover-corner-tr {
+  @apply absolute right-1 top-1 flex items-center gap-1 @[220px]:right-2 @[220px]:top-2;
+}
+@utility cover-corner-bl {
+  @apply absolute bottom-1 left-1 flex items-center gap-1 @[220px]:bottom-2 @[220px]:left-2;
+}
+@utility cover-mark {
+  @apply cover-chip-icon;
+  stroke: currentColor;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 /* Badge (ui/badge.tsx): the shape and one class per variant (page weight) */
 @utility badge {
   @apply inline-flex items-center rounded-sm px-1.5 py-0.5 font-mono text-micro tracking-wider;
@@ -524,6 +551,11 @@ dialog::backdrop {
 @utility work-card {
   container-type: inline-size;
   @apply catalogue-card relative rounded-sm border border-glass-border bg-bg-secondary;
+}
+/* The letter on a blank cover (CoverLetter), one class: it repeats on every
+   card without a cover, in the HTML and again in the page's data (SLN-939) */
+@utility cover-letter {
+  @apply font-serif text-xs leading-none text-fg-muted/30 [text-box:trim-both_cap_alphabetic] @[56px]/cover:text-lg @[120px]/cover:text-3xl;
 }
 @utility cover-image {
   @apply absolute inset-0 h-full w-full object-cover group-hover:scale-[1.02];
@@ -1249,6 +1281,15 @@ dialog::backdrop {
     right: -6px;
     width: 44px;
     height: 44px;
+  }
+  /* Its action (Undo, Open that book) is a 44px tall target too */
+  :root [data-sonner-toaster] [data-sonner-toast][data-styled="true"] :is([data-button], [data-cancel]) {
+    position: relative;
+  }
+  :root [data-sonner-toaster] [data-sonner-toast][data-styled="true"] :is([data-button], [data-cancel])::after {
+    content: "";
+    position: absolute;
+    inset: -10px 0;
   }
 }
 

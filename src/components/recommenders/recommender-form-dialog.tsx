@@ -8,11 +8,9 @@ import { toast } from "@/lib/notifications/toast";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import {
-  createRecommender,
-  updateRecommender,
-} from "@/lib/actions/recommenders";
 import { parseWebsite } from "@/lib/utils/website";
+import { createRecommender, updateRecommender } from "@/lib/actions/catalogue-client";
+import { refusalMessage } from "@/lib/actions/refusal";
 
 interface Existing {
   id: string;
@@ -85,8 +83,8 @@ export function RecommenderFormDialog({
         close();
         if (isEdit) router.refresh();
         else router.push(`/recommenders/${result.recommender.id}`);
-      } catch {
-        toast.error("Could not save the recommender. Try again.");
+      } catch (error) {
+        toast.error(refusalMessage(error, "Could not save the recommender. Try again."));
       }
     });
   }

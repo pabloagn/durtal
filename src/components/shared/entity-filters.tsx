@@ -21,6 +21,9 @@ import { useListBusy, useListNavigate } from "@/components/shared/list-pending";
 export const FILTER_ROW_CLASSES =
   "flex flex-wrap items-center gap-3 [&>div:first-child]:min-w-0 [&>div:first-child]:basis-full sm:[&>div:first-child]:basis-48 [&>div:nth-child(2)]:flex-wrap [&>div:nth-child(2)>button]:whitespace-nowrap";
 
+/** More sorts than this pick from a menu at every width, not chips */
+const MAX_SORT_CHIPS = 6;
+
 export interface SortOption {
   value: string;
   label: string;
@@ -67,6 +70,7 @@ export function EntityFilters({
   const effectiveOrder =
     currentOrder ?? defaultSortOrders?.[currentSort] ?? "asc";
   const currentQuery = searchParams.get("q") ?? "";
+  const sortMenu = sortOptions.length > MAX_SORT_CHIPS;
 
   // The input is uncontrolled so typing never fights the URL. When the URL
   // changes from outside (a "clear" link, back/forward), copy the new query
@@ -165,13 +169,15 @@ export function EntityFilters({
 
       {/* Sort: chips from sm up, outlined like a segmented control (SLN-693); on
           a phone one menu for the field and one button for the direction, so
-          eight sorts take one row (SLN-639) */}
+          eight sorts take one row (SLN-639). A list with more than six sorts
+          (Books) keeps the menu at every width, so its toolbar fits one row
+          at 1440 as every other list's does (SLN-1025) */}
       <div className="flex items-center gap-1 pointer-coarse:gap-2">
         <select
           aria-label="Sort by"
           value={currentSort}
           onChange={(e) => pickSort(e.target.value)}
-          className="h-8 rounded-sm border border-glass-border bg-bg-primary px-2 text-xs text-fg-primary pointer-coarse:h-11 sm:hidden"
+          className={`h-8 rounded-sm border border-glass-border bg-bg-primary px-2 text-xs text-fg-primary pointer-coarse:h-11 ${sortMenu ? "" : "sm:hidden"}`}
         >
           {sortOptions.map((opt) => (
             <option key={opt.value} value={opt.value}>
@@ -184,7 +190,7 @@ export function EntityFilters({
           onClick={() => pickSort(currentSort)}
           aria-label={effectiveOrder === "asc" ? "Ascending, reverse the order" : "Descending, reverse the order"}
           data-tooltip="Reverse the order"
-          className="flex h-8 w-8 items-center justify-center rounded-sm border border-glass-border text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary pointer-coarse:h-11 pointer-coarse:w-11 sm:hidden"
+          className={`flex h-8 w-8 items-center justify-center rounded-sm border border-glass-border text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary pointer-coarse:h-11 pointer-coarse:w-11 ${sortMenu ? "" : "sm:hidden"}`}
         >
           {effectiveOrder === "asc" ? (
             <ArrowUp className="h-3.5 w-3.5" strokeWidth={1.5} />
@@ -192,7 +198,7 @@ export function EntityFilters({
             <ArrowDown className="h-3.5 w-3.5" strokeWidth={1.5} />
           )}
         </button>
-        {sortOptions.map((opt) => (
+        {!sortMenu && sortOptions.map((opt) => (
           <button
             key={opt.value}
             type="button"

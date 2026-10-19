@@ -272,7 +272,7 @@ describe("descriptor-driven catalogue eBook controls", () => {
       ),
     );
     const mark = host.querySelector('[aria-label="eBook available"]')!;
-    expect(mark.className).toContain("glass-chip");
+    expect(mark.className.split(" ")).toContain("cover-chip");
     expect(mark.getAttribute("data-tooltip")).toBe("eBook available");
     const read = host.querySelector<HTMLAnchorElement>(
       `a[data-reader-entry][aria-hidden="true"]`,

@@ -12,12 +12,13 @@ import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { addOrganization, updateOrganizationProfile } from "@/lib/actions/organization-directory";
 import {
   ORGANIZATION_ROLE_LABELS,
   type DirectoryRole,
   type NON_PUBLISHING_ROLES,
 } from "@/lib/catalogue/organizations";
+import { addOrganization, updateOrganizationProfile } from "@/lib/actions/catalogue-client";
+import { refusalMessage } from "@/lib/actions/refusal";
 
 type Role = (typeof NON_PUBLISHING_ROLES)[number];
 
@@ -140,7 +141,7 @@ function OrganizationForm({
         if (created) router.push(`/organizations/${created.slug}`);
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not save the organization");
+      setError(refusalMessage(e, "Could not save the organization"));
     } finally {
       setSaving(false);
     }

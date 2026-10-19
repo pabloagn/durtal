@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button";
 import { SectionHeading } from "@/components/shared/section-heading";
 import { CapAlignedControls } from "@/components/shared/cap-aligned";
 import { EntityActionMenu } from "@/components/shared/entity-action-menu";
-import { deletePerfumeBottle } from "@/lib/actions/perfumes";
+import { deletePerfumeBottle } from "@/lib/actions/catalogue-client";
+import { refusalMessage } from "@/lib/actions/refusal";
 import { ConfirmDeleteDialog } from "@/components/catalogue/confirm-delete-dialog";
 import { BottleDialog, type EditableBottle, type StorageLocation } from "./bottle-dialog";
 
@@ -86,7 +87,7 @@ export function BottlesSection({
         description={summary ?? undefined}
         action={
           canAdd && (
-            <Button variant="ghost" size="sm" onClick={() => setDialog({ kind: "add" })}>
+            <Button variant="ghost" size="sm" data-focus-empty="perfume-bottles" onClick={() => setDialog({ kind: "add" })}>
               <Plus className="h-3.5 w-3.5" strokeWidth={1.5} />
               Add
             </Button>
@@ -101,10 +102,11 @@ export function BottlesSection({
       ) : bottles.length === 0 ? (
         <p className="text-sm text-fg-secondary">None kept yet</p>
       ) : (
-        <ul className="space-y-2">
+        <ul data-focus-list="perfume-bottles" className="space-y-2">
           {bottles.map((b) => (
             <li
               key={b.id}
+              data-focus-row=""
               className={`flex items-start gap-3 rounded-sm border border-glass-border bg-bg-secondary/40 px-3 py-2.5 ${
                 b.disposed ? "opacity-70" : ""
               }`}
@@ -154,7 +156,7 @@ export function BottlesSection({
             close();
             router.refresh();
           } catch (err) {
-            toast.error(err instanceof Error ? err.message : "Could not delete");
+            toast.error(refusalMessage(err, "Could not delete"));
           }
         }}
       />

@@ -14,6 +14,7 @@ import { dateFromColumns } from "./dates";
 import { orderWithin, organizationRoleQueries, uuids, type Db } from "./work-store";
 import { textSearchCondition } from "@/lib/actions/utils/text-search";
 import { resultRows } from "@/lib/harmonization/store";
+import { systemWorkTaxonomyMatch } from "./taxonomy-storage";
 import type {
   perfumeNoteInputSchema,
   perfumeOrganizationInputSchema,
@@ -123,13 +124,13 @@ type PerfumeQuery = z.output<typeof perfumeQuerySchema>;
 
 /** An item or any narrower item, on the fragrance or on one of its formulations. */
 function taxonomyMatch(itemId: string) {
-  return sql`exists(with recursive narrower(id) as (
+  return sql`(exists(with recursive narrower(id) as (
       select ${itemId}::uuid union select i.id from custom_taxonomy_items i join narrower n on i.parent_id=n.id)
     select 1 from narrower n where
       exists(select 1 from custom_taxonomy_item_works t where t.work_id=${works.id} and t.item_id=n.id)
       or exists(select 1 from perfume_notes pn where pn.work_id=${works.id} and pn.item_id=n.id)
       or exists(select 1 from perfume_variant_taxa vt join perfume_variants v on v.id=vt.variant_id where v.work_id=${works.id} and vt.item_id=n.id)
-      or exists(select 1 from perfume_variant_notes vn join perfume_variants v on v.id=vn.variant_id where v.work_id=${works.id} and vn.item_id=n.id))`;
+      or exists(select 1 from perfume_variant_notes vn join perfume_variants v on v.id=vn.variant_id where v.work_id=${works.id} and vn.item_id=n.id)) or ${systemWorkTaxonomyMatch(works.id, itemId)})`;
 }
 function activeContainers(containers?: readonly string[]) {
   return sql`exists(select 1 from perfume_bottles b join perfume_variants v on v.id=b.variant_id

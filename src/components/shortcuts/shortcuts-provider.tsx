@@ -171,6 +171,15 @@ export function useReadingActions(items: EditItem[]) {
 
 /** How long A waits for the key that says what to add (SLN-632) */
 const ADD_PREFIX_MS = 1500;
+/**
+ * After a leader key's pick (N then A, A then P, E then W...), the rest of a
+ * word typed fast is dropped while its keys keep coming less than this far
+ * apart, so "nandu" typed at the page makes no person "du" (SLN-1190). Keys
+ * typed one at a time, after a pause, act as ever.
+ */
+const SETTLE_MS = 350;
+/** However fast the keys keep coming, the dropping ends this long after the pick */
+const SETTLE_MAX_MS = 2000;
 /** Keys that only modify another: they neither end nor cancel A */
 const MODIFIER_KEYS = new Set(["Shift", "Control", "Alt", "Meta", "CapsLock", "Fn"]);
 
@@ -246,6 +255,12 @@ export function ShortcutsProvider({
   const [menuIndex, setMenuIndex] = useState(0);
   // When A was pressed, while it waits for its second key (0: not waiting)
   const addPrefix = useRef(0);
+  // A leader key's pick: when it was, and until when a fast key is dropped
+  const settle = useRef({ from: 0, until: 0 });
+  const settleAfterPick = () => {
+    const now = performance.now();
+    settle.current = { from: now, until: now + SETTLE_MS };
+  };
   const [pageShortcuts, setPageShortcuts] = useState<PageShortcut[]>([]);
   const pageShortcutsRef = useRef(pageShortcuts);
   useEffect(() => {
@@ -362,6 +377,7 @@ export function ShortcutsProvider({
   const pickMenuItem = useCallback(
     (name: MenuName, index: number) => {
       setMenu(null);
+      settleAfterPick();
       if (name === "add") add(ADD[index].key);
       else if (name === "go") leavePage(() => router.push(GO_TO[index].href));
       else if (name === "edit") editItems()[index]?.run();
@@ -406,6 +422,26 @@ export function ShortcutsProvider({
     window.addEventListener("keydown", onKeyDown, true);
     return () => window.removeEventListener("keydown", onKeyDown, true);
   }, [menu, menuIndex, menuItems, pickMenuItem]);
+
+  // Right after a pick, a fast key is the rest of a typed word: it never saves
+  // the dialog the pick opened (capture phase, first)
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      const now = performance.now();
+      const { from, until } = settle.current;
+      if (now >= until || event.metaKey || event.ctrlKey || event.altKey || isComposing(event)) return;
+      if (event.key.length !== 1 && event.key !== "Enter") return;
+      settle.current = { from, until: Math.min(now + SETTLE_MS, from + SETTLE_MAX_MS) };
+      // A letter typed into the field the pick focused stays where the
+      // person can see it; only its Enter (the save) and keys that would
+      // act on the page are dropped
+      if (event.key !== "Enter" && isTyping(event.target)) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    }
+    window.addEventListener("keydown", onKeyDown, true);
+    return () => window.removeEventListener("keydown", onKeyDown, true);
+  }, []);
 
   // Typing changes a list: the ↑ ↓ choice starts over
   useEffect(() => {
@@ -570,6 +606,7 @@ export function ShortcutsProvider({
         event.preventDefault();
         if (event.shiftKey) return;
         const item = pageShortcuts.findLast((s) => s.prefix === "a" && s.key === key);
+        if (item || ADD.some((a) => a.key === key)) settleAfterPick();
         if (item) item.run();
         else if (ADD.some((a) => a.key === key)) add(key);
         return;
