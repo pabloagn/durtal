@@ -96,13 +96,16 @@ export function EbookFilesTable({
               // On touch a text command grows 44px tall around its line: a
               // wrapped command keeps its row clear of the one above it
               <div className="flex flex-wrap gap-2 pointer-coarse:gap-y-7">
+                {/* A plain link: a Next Link fetches its target ahead, and here that
+                    is the whole file, twice, before anyone asks for it (SLN-1036) */}
                 {file.download ? (
-                  <Link
+                  <a
                     href={`/api/ebooks/files/${file.id}?download=1`}
+                    download
                     className="touch-hit text-command"
                   >
                     Download
-                  </Link>
+                  </a>
                 ) : null}
                 {file.readable && !file.preferred && (
                   <button
