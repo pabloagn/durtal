@@ -188,7 +188,10 @@ describe.skipIf(!url)(
       const [copy] = await client!`insert into instances(edition_id, location_id, format) values (${edition.id}, ${shelf.id}, 'epub') returning id`;
       await client!`insert into ebooks(title, authors, author_sort, language, match_state, instance_id, import_source, search_text)
         values ('The Distant Orchard', array['Fixture'], 'Fixture', 'en', 'linked', ${copy.id}, 'folder', 'the distant orchard fixture')`;
-      for (const q of ["against nature", "a rebours", "huysmans"])
+      // An author outside Latin meets the book's fold, not the e-book's (SLN-1234)
+      const [russian] = await client!`insert into authors(name, slug) values ('Фёдор Достоевский', 'fyodor-dostoevsky') returning id`;
+      await client!`insert into work_authors(work_id, author_id) values (${work.id}, ${russian.id})`;
+      for (const q of ["against nature", "a rebours", "huysmans", "Достоевский", "достоевский orchard"])
         expect(
           (await getEbooksPage(parseEbookLibraryParams({ q }), database!)).map((book) => book.title),
           q,

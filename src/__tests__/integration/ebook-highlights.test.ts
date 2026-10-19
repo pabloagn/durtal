@@ -155,10 +155,14 @@ describe.skipIf(!url)("the all-highlights queries", () => {
     const other = await book("Песни");
     await mark(other, { text: "한강의 소년이 온다", note: "猫である, Достоевский" });
     const titles = async (q: string) => (await groups({ q })).map((group) => group.ebook.title);
-    expect(await titles("소년이")).toEqual(["Песни"]);
-    expect(await titles("猫である")).toEqual(["Песни"]);
-    expect(await titles("ДОСТОЕВСКИЙ")).toEqual(["Песни"]);
-    await c`update ebook_annotations set deleted_at = updated_at where ebook_id = ${other.id}`;
+    try {
+      expect(await titles("소년이")).toEqual(["Песни"]);
+      expect(await titles("猫である")).toEqual(["Песни"]);
+      expect(await titles("ДОСТОЕВСКИЙ")).toEqual(["Песни"]);
+    } finally {
+      // The later tests count every mark: this one goes whatever happened
+      await c`update ebook_annotations set deleted_at = updated_at where ebook_id = ${other.id}`;
+    }
   });
 
   it("filters by colour and kind", async () => {

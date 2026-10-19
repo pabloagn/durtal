@@ -148,10 +148,8 @@ describe.skipIf(!url)("search in every script, through the palette, Books and Pe
   }, 30000);
 
   async function book(title: string, by: string) {
-    const [author] =
-      (await db.select().from(schema.authors).where(eq(schema.authors.name, by))).length
-        ? await db.select().from(schema.authors).where(eq(schema.authors.name, by))
-        : await db.insert(schema.authors).values({ name: by, slug: `p-${Math.random().toString(36).slice(2)}` }).returning();
+    const [found] = await db.select().from(schema.authors).where(eq(schema.authors.name, by));
+    const author = found ?? (await db.insert(schema.authors).values({ name: by, slug: `p-${Math.random().toString(36).slice(2)}` }).returning())[0];
     const [work] = await db.insert(schema.works).values({ title, slug: `w-${Math.random().toString(36).slice(2)}` }).returning();
     await db.insert(schema.workAuthors).values({ workId: work.id, authorId: author.id });
     return work;

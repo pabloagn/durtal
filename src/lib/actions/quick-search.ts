@@ -337,7 +337,7 @@ async function searchTaxonomy(q: string, kinds: WorkKind[]): Promise<QuickSearch
  * NUL character, which Postgres refuses, is dropped: "nad\0ja" finds Nadja.
  */
 export async function quickSearch(query: string): Promise<QuickSearchResult> {
-  const q = query.replaceAll(" ", "").trim().slice(0, 200);
+  const q = query.replaceAll("\0", "").trim().slice(0, 200);
   // One Chinese, Japanese or Korean character is enough; symbols alone are not
   if (!isSearchableQuery(q)) return EMPTY;
   const kinds = getEnabledWorkKinds();

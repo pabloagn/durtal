@@ -74,6 +74,13 @@ describe("searchWords", () => {
     expect(searchWords("한강 猫である Достоевский प्रेमचंद")).toEqual(["한강", "猫である", "Достоевский", "प्रेमचंद"]);
   });
 
+  it("drops what stored text drops, and folds compatibility forms (SLN-1393)", () => {
+    expect(searchWords("W. G. Se\u00adbald")).toEqual(["W", "G", "Sebald"]);
+    expect(searchWords("\uff28\uff55\uff58\uff4c\uff45\uff59")).toEqual(["Huxley"]);
+    // Never a LIKE wildcard: "%" and "_" split words
+    expect(searchWords("100%_pure")).toEqual(["100", "pure"]);
+  });
+
   it("drops a NUL character, which Postgres refuses (SLN-1137)", () => {
     expect(searchWords("nad\u0000ja")).toEqual(["nadja"]);
     expect(searchWords("\u0000")).toEqual([]);

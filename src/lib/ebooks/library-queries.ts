@@ -14,6 +14,7 @@ import {
   isEbookFileNativeReadable,
 } from "./conditions";
 import type { EbookLibraryParams } from "./library-params";
+import { searchTokens, searchWords } from "@/lib/utils/search-text";
 import type { MatchEbook } from "./match/types";
 import { reviewTimestampSql } from "./review/store-sql";
 import { ebookReviewStampSchema } from "@/lib/validations/ebook-review";
@@ -148,22 +149,30 @@ export function ebookLibraryWhere(params: EbookLibraryParams): SQL {
       : sql`e.match_state <> 'excluded'`,
   ];
   if (params.normalizedSearch)
-    for (const word of params.normalizedSearch.split(" ").filter(Boolean))
+    for (const typed of searchWords(params.q)) {
+      // An e-book's own search text is the browser fold; its book's title and
+      // authors are search_normalize() text, so the typed word meets each in
+      // its own fold (SLN-1234)
+      const own = searchTokens(typed).map(
+        (word) => sql`(e.search_text ilike ${`%${word}%`} or ${word} <% e.search_text)`,
+      );
       clauses.push(
         // A linked e-book is also found by its book's title and authors (SLN-683).
         // The copies are one uncorrelated set per word: correlated subqueries
         // made the planner's estimate cross Postgres's JIT thresholds, and a
         // three-word search spent 2 s compiling (SLN-688).
-        sql`(e.search_text ilike ${`%${word}%`} or ${word} <% e.search_text
-          or (e.match_state = 'linked' and e.instance_id in (
+        sql`((${own.length ? sql.join(own, sql` and `) : sql`false`})
+          or (e.match_state = 'linked' and public.search_normalize(${typed}) <> '' and e.instance_id in (
             select copy.id from instances copy join editions edition on edition.id = copy.edition_id
               join works w on w.id = edition.work_id
-              where public.search_normalize(w.title || ' ' || coalesce(w.original_title, '')) ilike ${`%${word}%`}
+              where public.search_normalize(w.title || ' ' || coalesce(w.original_title, ''))
+                like '%' || public.search_normalize(${typed}) || '%'
             union all
             select copy.id from instances copy join editions edition on edition.id = copy.edition_id
               join work_authors wa on wa.work_id = edition.work_id join authors a on a.id = wa.author_id
-              where a.search_text ilike ${`%${word}%`})))`,
+              where a.search_text like '%' || public.search_normalize(${typed}) || '%')))`,
       );
+    }
   if (params.linked.length) {
     const states = params.linked.map((value) =>
       value === "unlinked" ? "pending" : value,

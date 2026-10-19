@@ -10,6 +10,7 @@
  * for SQL goes through `searchWords` and `search_normalize()` instead.
  */
 import { transliterate } from "@/lib/utils/slugify";
+import { cleanText } from "@/lib/utils/clean-text";
 
 /**
  * Normalize text for accent- and case-insensitive comparison. Compatibility
@@ -33,12 +34,13 @@ export function normalizeSearchText(text: string): string {
  * (SLN-1234). Folding first in the browser broke words apart: Hangul into
  * jamo, "で" into "て", "й" into "и". A piece with no letter or digit (an
  * emoji) is not a word. Holds no "%" or "_", so each is a plain substring,
- * and no NUL, which Postgres refuses (SLN-1137).
+ * and no NUL, which Postgres refuses (SLN-1137). Invisible characters go as
+ * they do from stored text, and compatibility forms fold, so a pasted
+ * "Se\u00adbald" or a fullwidth "Ｈｕｘｌｅｙ" still finds its record (SLN-1393).
  */
 export function searchWords(query: string): string[] {
-  return query
-    .replaceAll("\0", "")
-    .normalize("NFC")
+  return cleanText(query.replaceAll("\0", ""))
+    .normalize("NFKC")
     .split(/[\s\p{P}\p{S}]+/u)
     .filter((word) => /[\p{L}\p{N}]/u.test(word));
 }
@@ -49,7 +51,7 @@ const ONE_CHARACTER_WORD = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana
 /**
  * Whether a query is worth a search as you type: two characters, or one
  * Chinese, Japanese or Korean character, with a letter or digit among them.
- * A query of symbols alone ("🦉") searches nothing rather than everything.
+ * A query of symbols alone (an emoji) searches nothing rather than everything.
  */
 export function isSearchableQuery(query: string): boolean {
   const words = searchWords(query);
@@ -73,7 +75,7 @@ export function searchTokens(query: string): string[] {
  * better: 4 exact, 3 starts with the query, 2 a word starts with the query,
  * 1 every query word starts a word, 0 every query word appears somewhere.
  * A blank query scores 0 (matches everything); one of symbols or punctuation
- * alone ("🦉") matches nothing.
+ * alone (an emoji) matches nothing.
  */
 export function searchScore(query: string, text: string): number {
   const tokens = searchTokens(query);
