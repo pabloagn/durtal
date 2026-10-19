@@ -416,13 +416,14 @@ class ReleaseTests(unittest.TestCase):
             release.launchd_plan(config_path, plist)
         return str(root), str(plist)
 
-    def switching(self, healthy, stops=True, serving=None):
-        """Fake launchd: one loaded plan, serving when its release is in `healthy`."""
+    def switching(self, healthy, stops=True, serving=None, fault=None):
+        """Fake launchd: one loaded plan, serving when its release is in `healthy`; `fault` may raise for a call."""
         current, target = self.service('one', COMMIT), self.service('two', '2' * 40)
         state = {'loaded': current[0]}
         calls = []
         def launchctl(*args):
             calls.append(args[0])
+            if fault: fault(args[0], calls.count(args[0]))
             if args[0] == 'bootout':
                 if stops: state['loaded'] = None
             else:
@@ -480,10 +481,53 @@ class ReleaseTests(unittest.TestCase):
 
     def test_switch_stops_before_loading_when_the_old_release_will_not_stop(self):
         with patch.object(release, 'VOLATILE', ()):
+            # The job unloads but its server keeps the port: say so, and how back
             current, target, state, calls, run, receipts = self.switching(lambda c, t: {c[0]}, stops=False)
-            with self.assertRaisesRegex(release.Refusal, 'did not stop; nothing was switched'):
+            with self.assertRaisesRegex(release.Refusal, 'job is unloaded but port 3110 is still in use; .*load %s by hand' % current[1]):
                 run()
         self.assertEqual(calls, ['bootout']); self.assertEqual(self.receipt(receipts)['status'], 'OLD_RELEASE_DID_NOT_STOP')
+
+    def fault(self, name, nth, error):
+        def raise_on(call, count):
+            if call == name and count == nth: raise error
+        return raise_on
+
+    def test_switch_changes_nothing_when_launchctl_cannot_unload_the_old_release(self):
+        with patch.object(release, 'VOLATILE', ()):
+            current, target, state, calls, run, receipts = self.switching(
+                lambda c, t: {c[0]}, fault=self.fault('bootout', 1, OSError('launchctl missing')))
+            with self.assertRaisesRegex(release.Refusal, 'did not stop; nothing was switched'):
+                run()
+        self.assertEqual(calls, ['bootout']); self.assertEqual(state['loaded'], current[0])
+        self.assertEqual(self.receipt(receipts)['status'], 'OLD_RELEASE_DID_NOT_STOP')
+
+    def test_switch_loads_the_previous_release_when_launchctl_raises_loading_the_target(self):
+        with patch.object(release, 'VOLATILE', ()):
+            current, target, state, calls, run, receipts = self.switching(
+                lambda c, t: {c[0], t[0]}, fault=self.fault('bootstrap', 1, subprocess.TimeoutExpired('launchctl', 60)))
+            with self.assertRaisesRegex(release.Refusal, 'failed readiness; the previous release is serving again'):
+                run()
+        self.assertEqual(calls, ['bootout', 'bootstrap', 'bootout', 'bootstrap'])
+        self.assertEqual(state['loaded'], current[0]); self.assertEqual(self.receipt(receipts)['status'], 'ROLLED_BACK')
+
+    def test_switch_loads_the_previous_release_when_interrupted_while_the_target_starts(self):
+        waits = iter([True, KeyboardInterrupt()])
+        def serving(port):
+            # The precheck sees the current release; a Ctrl-C lands while the target starts
+            step = next(waits, None)
+            if isinstance(step, BaseException): raise step
+            return holder['loaded'] if step else (state['loaded'] if state['loaded'] == current[0] else None)
+        holder = {}
+        with patch.object(release, 'VOLATILE', ()):
+            current, target, state, calls, run, receipts = self.switching(lambda c, t: set(), serving=serving)
+            holder['loaded'] = current[0]
+            with self.assertRaisesRegex(release.Refusal, 'was interrupted; the previous release is serving again'):
+                run()
+        self.assertEqual(calls, ['bootout', 'bootstrap', 'bootout', 'bootstrap'])
+        self.assertEqual(state['loaded'], current[0])
+        receipt = self.receipt(receipts)
+        self.assertEqual(receipt['status'], 'ROLLED_BACK')
+        self.assertIn({'interrupted': 'KeyboardInterrupt'}, receipt['steps'])
 
     def test_switch_refuses_plans_in_volatile_folders_and_foreign_plists(self):
         with patch.object(release, 'VOLATILE', ()):

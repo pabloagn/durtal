@@ -95,7 +95,10 @@ def libpq_environment(url):
         raise Refusal('An encrypted connection (sslmode) is required')
     if options.get('channel_binding') != 'require':
         raise Refusal('Channel binding is required')
-    env = {'PGHOST': uri.hostname, 'PGPORT': str(uri.port or 5432), 'PGDATABASE': unquote(uri.path[1:]),
+    # Neon's pooled endpoint runs PgBouncer; pg_dump and DDL take the direct
+    # endpoint of the same compute, as Neon advises
+    host = re.sub(r'^(ep-[a-z0-9-]+?)-pooler\.', r'\1.', uri.hostname) if uri.hostname.endswith('.neon.tech') else uri.hostname
+    env = {'PGHOST': host, 'PGPORT': str(uri.port or 5432), 'PGDATABASE': unquote(uri.path[1:]),
            'PGUSER': unquote(uri.username), 'PGPASSWORD': unquote(uri.password or ''), 'PGCONNECT_TIMEOUT': '10'}
     env.update({LIBPQ_OPTIONS[key]: value for key, value in options.items()})
     env['PGAPPNAME'] = 'durtal-live-migrate'
@@ -229,6 +232,58 @@ class Scratch:
             raise Refusal('The dump did not restore into postgres:16; make it with this tool (pg_dump 16)')
 
 
+DOLLAR_TAG = re.compile(r'\$(?:[A-Za-z_][A-Za-z0-9_]*)?\$')
+
+
+def statement_heads(sql):
+    """The text of each top-level statement in a chunk, outside comments, strings and dollar-quoted bodies.
+
+    A COMMIT in the middle of a chunk would end the batch's transaction as
+    surely as one at its start, so every statement is looked at; an END
+    inside a DO $$ ... $$ body is not a statement of its own.
+    """
+    heads, current, i, n = [], [], 0, len(sql)
+    while i < n:
+        c = sql[i]
+        if sql.startswith('--', i):
+            end = sql.find('\n', i)
+            i = n if end < 0 else end + 1
+            current.append(' ')
+        elif sql.startswith('/*', i):
+            depth, i = 1, i + 2
+            while i < n and depth:
+                if sql.startswith('/*', i): depth, i = depth + 1, i + 2
+                elif sql.startswith('*/', i): depth, i = depth - 1, i + 2
+                else: i += 1
+            current.append(' ')
+        elif c == "'":
+            escapes = i > 0 and sql[i - 1] in 'Ee' and (i < 2 or not (sql[i - 2].isalnum() or sql[i - 2] == '_'))
+            i += 1
+            while i < n:
+                if escapes and sql[i] == '\\': i += 2; continue
+                if sql[i] == "'":
+                    if sql.startswith("''", i): i += 2; continue
+                    break
+                i += 1
+            i += 1
+            current.append("''")
+        elif c == '"':
+            end = sql.find('"', i + 1)
+            i = n if end < 0 else end + 1
+            current.append('""')
+        elif c == '$' and (i == 0 or not (sql[i - 1].isalnum() or sql[i - 1] == '_')) and DOLLAR_TAG.match(sql, i):
+            tag = DOLLAR_TAG.match(sql, i).group()
+            end = sql.find(tag, i + len(tag))
+            i = n if end < 0 else end + len(tag)
+            current.append('$$')
+        elif c == ';':
+            heads.append(''.join(current).strip()); current = []; i += 1
+        else:
+            current.append(c); i += 1
+    heads.append(''.join(current).strip())
+    return [head for head in heads if head]
+
+
 def journal(source):
     """The build's migrations in journal order, each with its SQL statements."""
     folder = Path(source) / 'src/lib/db/migrations'
@@ -243,7 +298,7 @@ def journal(source):
             raise Refusal('A migration contains a psql metacommand or the ledger check tag')
         statements = sql.split(BREAKPOINT)
         # Its own transaction control would commit part of the batch
-        if any(TRANSACTION_CONTROL.match(re.sub(r'^(\s*--[^\n]*\n)*\s*', '', statement)) for statement in statements):
+        if any(TRANSACTION_CONTROL.match(head) for statement in statements for head in statement_heads(statement)):
             raise Refusal('A migration controls its own transaction')
         entries.append({**entry, 'statements': statements})
     return entries
@@ -421,8 +476,11 @@ def migrate(config_path, config_hash, preparation, rehearsal_receipt, receipts, 
               'pending': [entry['tag'] for entry in pending], 'automaticRetry': False}
     receipt = folder / 'migration.json'
     def save():
-        receipt.unlink(missing_ok=True)
-        private_json(receipt, record)
+        # Written beside it and renamed over it, so a crash never leaves the
+        # receipt missing or half written
+        staged = folder / ('.migration-%s.json' % os.urandom(4).hex())
+        private_json(staged, record)
+        os.replace(staged, receipt)
     save()
     if pending:
         expected = appended(rows, pending)

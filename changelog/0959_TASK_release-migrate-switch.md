@@ -28,14 +28,16 @@ Nothing in the repository could migrate the live database for the next release. 
   - After it, `migrate` reads the ledger back. On a failure it reads the ledger once to record whether the transaction rolled back or committed with its acknowledgement lost, and never retries. It writes the `live-migrations.json` evidence that `transition-plan` takes.
   - `status`: the live ledger against the release's journal.
   - Pending follows Drizzle's own rule: every entry newer than the ledger's newest `created_at`. The newest row must be one of the journal's entries with the same hash. Older rows are not compared, since the live ledger does not line up one to one with the journal (the SLN-646 adapter pinned 81 rows for its first 82 entries).
-  - A migration with a psql metacommand line or its own transaction control is refused.
+  - A migration with a psql metacommand line or its own transaction control is refused. Every statement of a chunk is looked at, outside comments, strings and dollar-quoted bodies, so a COMMIT after another statement is refused while an END inside a DO $$ body is not.
+  - It connects to Neon's direct endpoint (the URL's host without `-pooler`), not PgBouncer's, for the dump and the DDL.
+  - The migration receipt is written beside itself and renamed over, so a crash never leaves it missing.
   - The live URL comes from the packaged, reviewed helper exactly as the launcher reads it. Database messages go to a redacted private log, never the terminal.
   - Dumps, receipts and the switch's plists are refused under `/tmp` and `/private/tmp`, which macOS empties.
 - `scripts/deploy/mac_release.py`:
   - `migration_state(entries, latest)`: the shared pending rule.
   - `package` now packages `live_migrate.py` with the other deploy tools.
   - `switch` (SLN-1319): re-verifies both plans (plist, config hash, release), and requires the current release to be the one serving. Then it boots out the job, waits for the port to free, bootstraps the target, and waits up to 180 s until a healthy Durtal answers from a listener whose working directory is the target release.
-  - If the target is not serving in time, `switch` boots it out and bootstraps the previous plan again. It writes a receipt: `SWITCHED`, `ROLLED_BACK`, `ROLLBACK_FAILED` (naming the plist to load by hand) or `OLD_RELEASE_DID_NOT_STOP`.
+  - If the target is not serving in time, `switch` boots it out and bootstraps the previous plan again. It does the same when launchctl raises or times out, or a Ctrl-C lands while the target starts. It writes a receipt: `SWITCHED`, `ROLLED_BACK`, `ROLLBACK_FAILED` (naming the plist to load by hand) or `OLD_RELEASE_DID_NOT_STOP` (saying whether the job was unloaded with its port still held, and naming the plist then).
 - `scripts/deploy/runtime_launcher.py` (SLN-1320): before the first spawn, `require_migrated` reads the ledger's newest row and refuses to start when the database lacks any of the release's migrations, logging which.
   - It reads the way the app does: one read-only batch to Neon's HTTP SQL endpoint, the request `@neondatabase/serverless` 1.0.2 sends (checked against the installed driver's code).
   - A database ahead of the release starts, as a rollback over additive migrations.
@@ -45,7 +47,7 @@ Nothing in the repository could migrate the live database for the next release. 
   - `scripts/qa/test_live_migrate.py`, pure:
     - the pending rule;
     - the transaction script;
-    - the journal refusals;
+    - the journal refusals, mid-chunk too, and quoted COMMITs that pass;
     - TLS and channel binding;
     - volatile folders and empty dumps;
     - every `migrate` gate;
@@ -60,12 +62,12 @@ Nothing in the repository could migrate the live database for the next release. 
     - the launcher's Neon request;
     - behind, ahead and failed reads;
     - no spawn when behind;
-    - the switch's four outcomes;
+    - the switch's four outcomes, a launchctl that raises, and a Ctrl-C while the target starts;
     - the switch's refusals.
 
 ## Completion Notes
 
-`python3 scripts/qa/test_live_migrate.py`: 13 tests, including the four database tests, in about 42 s. `python3 scripts/qa/test_mac_release.py`: 55 tests. Changing the ledger row the adapter writes makes the database test fail. Nothing ran against the live app, the live database or the Mac.
+`python3 scripts/qa/test_live_migrate.py`: 13 tests, including the four database tests, in about 42 s. `python3 scripts/qa/test_mac_release.py`: 58 tests. Changing the ledger row the adapter writes makes the database test fail. Nothing ran against the live app, the live database or the Mac.
 
 Still open on the Mac:
 - Moving the live release, rollback plist and receipts out of `/private/tmp` (SLN-1317). Until then, `switch` refuses the current plist if it is there.

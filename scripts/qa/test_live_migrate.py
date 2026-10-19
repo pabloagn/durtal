@@ -127,13 +127,20 @@ class PureTests(unittest.TestCase):
 
     def test_journal_refuses_metacommands_and_transaction_control(self):
         for index, sql in enumerate(('\\! rm -rf /', 'CREATE TABLE a (id int);\n--> statement-breakpoint\nCOMMIT;',
-                                     '-- note\nBEGIN;', 'SELECT 1;\n--> statement-breakpoint\n  ROLLBACK;')):
+                                     '-- note\nBEGIN;', 'SELECT 1;\n--> statement-breakpoint\n  ROLLBACK;',
+                                     # Mid-chunk, after a statement or a comment, it would end the batch just the same
+                                     'CREATE TABLE a (id int);\nCOMMIT;\nCREATE TABLE b (id int);',
+                                     "SELECT 'x'; /* note */ end;")):
             source = write_source(self.root / f'bad{index}', [('0000_bad', 1, sql)])
             with self.assertRaises(release.Refusal):
                 live.journal(source)
         # Function bodies keep their own BEGIN and END
         body = 'CREATE FUNCTION f() RETURNS void AS $$\nBEGIN\n  PERFORM 1;\nEND;\n$$ LANGUAGE plpgsql;'
         self.assertEqual(len(live.journal(write_source(self.root / 'body', [('0000_body', 1, body)]))), 1)
+        # Nor does a COMMIT in a string, a comment or a tagged body
+        quoted = "SELECT 'a; COMMIT'; -- COMMIT;\nDO $tag$ BEGIN PERFORM 1; END $tag$; /* END; */ SELECT E'it\\'s; END';"
+        self.assertEqual(len(live.journal(write_source(self.root / 'quoted', [('0000_quoted', 1, quoted)]))), 1)
+        # The current migrations, with END; inside their DO $$ bodies, all pass
         self.assertEqual(len(live.journal(ROOT)), len(release.migrations(ROOT)['entries']))
 
     def test_live_connection_requires_tls_and_channel_binding(self):
@@ -141,6 +148,9 @@ class PureTests(unittest.TestCase):
         env = live.libpq_environment(url)
         self.assertEqual((env['PGPASSWORD'], env['PGSSLMODE'], env['PGCHANNELBINDING']), ('p@ss', 'require', 'require'))
         self.assertNotIn(url, env.values())
+        # The dump and the DDL take Neon's direct endpoint, not PgBouncer's
+        pooled = live.libpq_environment(url.replace('ep-x.', 'ep-x-pooler.'))
+        self.assertEqual(pooled['PGHOST'], 'ep-x.eu-central-1.aws.neon.tech')
         for weaker in ('postgresql://o:p@h/d?sslmode=require', 'postgresql://o:p@h/d?channel_binding=require',
                        'postgresql://o:p@h/d?sslmode=prefer&channel_binding=require',
                        'postgresql://o:p@h/d?sslmode=require&channel_binding=require&host=/tmp', 'mysql://o:p@h/d'):

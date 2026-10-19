@@ -550,7 +550,12 @@ def port_free(port):
 
 
 def launchctl(*args):
-    return subprocess.run(['/bin/launchctl', *args], capture_output=True, timeout=60).returncode == 0
+    # A launchctl that hangs or cannot run counts as failed, so a switch goes
+    # on to load the previous release
+    try:
+        return subprocess.run(['/bin/launchctl', *args], capture_output=True, timeout=60).returncode == 0
+    except (OSError, subprocess.SubprocessError):
+        return False
 
 
 def switch(current_plist, target_plist, receipts, serving=serving_release, launchctl=launchctl, port_free=port_free,
@@ -582,28 +587,49 @@ def switch(current_plist, target_plist, receipts, serving=serving_release, launc
             sleep(1)
         return ready()
 
+    def run(*args):
+        try:
+            return launchctl(*args)
+        except Exception:
+            return False
+
     def stop(plan):
-        record['steps'].append({'bootout': plan['commit'], 'ok': launchctl('bootout', service)})
+        unloaded = run('bootout', service)
+        record['steps'].append({'bootout': plan['commit'], 'ok': unloaded})
         stopped = wait(lambda: port_free(plan['port']), STOP_SECONDS)
         record['steps'].append({'portFree': stopped})
-        return stopped
+        return unloaded, stopped
 
     def start(plan):
-        loaded = launchctl('bootstrap', 'gui/%d' % os.getuid(), plan['plist'])
+        loaded = run('bootstrap', 'gui/%d' % os.getuid(), plan['plist'])
         ready = loaded and wait(lambda: serving(plan['port']) == plan['release'], READY_SECONDS)
         record['steps'].append({'bootstrap': plan['commit'], 'loaded': loaded, 'serving': ready})
         return ready
 
     try:
-        if not stop(current):
+        unloaded, stopped = stop(current)
+        if not stopped:
             record['status'] = 'OLD_RELEASE_DID_NOT_STOP'
+            if unloaded:
+                # The server runs in its own session, so it can outlive its job
+                raise Refusal('The job is unloaded but port %d is still in use; stop what holds it, then load %s by hand'
+                              % (current['port'], current['plist']))
             raise Refusal('The current release did not stop; nothing was switched')
-        if start(target):
-            record['status'] = 'SWITCHED'
-            return record
-        if stop(target) and start(current):
+        interrupted = None
+        try:
+            if start(target):
+                record['status'] = 'SWITCHED'
+                return record
+        except BaseException as error:
+            # A Ctrl-C while the target comes up still puts the previous
+            # release back before the switch ends
+            interrupted = error
+            record['steps'].append({'interrupted': type(error).__name__})
+        record['status'] = 'ROLLING_BACK'
+        if stop(target)[1] and start(current):
             record['status'] = 'ROLLED_BACK'
-            raise Refusal('The new release failed readiness; the previous release is serving again')
+            raise Refusal('The new release %s; the previous release is serving again'
+                          % ('was interrupted' if interrupted else 'failed readiness'))
         record['status'] = 'ROLLBACK_FAILED'
         raise Refusal('The new release failed and the previous one is not serving: load %s by hand' % current['plist'])
     finally:
