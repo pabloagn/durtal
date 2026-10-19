@@ -11,6 +11,7 @@ export interface ReaderPlugin {
   Component: ComponentType<{ data: unknown }>;
   /** Eager functional subscriber; secondary UI may still be lazy. */
   controller?: true;
+  /** Built here on the server, so it reads the host's code and Retry with useReaderControllerFailureProps */
   Failure?: ComponentType<ReaderControllerFailureProps>;
 }
 /** The readiness fields are consumed by the shared controller loader (SLN-493). */

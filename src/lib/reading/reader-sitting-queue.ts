@@ -38,10 +38,11 @@ export function createReaderSittingQueue(options: {
   };
   // One entry that can't be read moves to the recovery key, kept and never
   // silently erased; the rest load and send as usual (SLN-1231).
-  const keys: string[] = [];
+  const keys: string[] = [], kept: string[] = [];
   for (let n = 0; n < options.storage.length; n++) {
     const key = options.storage.key(n);
     if (key?.startsWith(prefix)) keys.push(key);
+    else if (key?.startsWith(recovery)) kept.push(key);
   }
   let setAside = 0;
   for (const key of keys) {
@@ -61,6 +62,24 @@ export function createReaderSittingQueue(options: {
     }
   }
   if (setAside) options.setAside?.(setAside);
+  // A sitting set aside by another release may read in this one: it goes back
+  // in the queue. One that still doesn't read stays, and isn't counted again.
+  for (const key of kept) {
+    const text = options.storage.getItem(key);
+    if (!text) continue;
+    let item: ReaderSittingWire;
+    try { item = decode(text); } catch { continue; }
+    const current = pending.get(item.sittingId);
+    try {
+      if (!current || current.revision < item.revision) {
+        options.storage.setItem(prefix + item.sittingId, text);
+        pending.set(item.sittingId, item);
+      }
+      options.storage.removeItem(key);
+    } catch {
+      // Full storage: it stays set aside, and is tried again next time
+    }
+  }
 
   const storedRevision = (text: string) => { try { return decode(text).revision; } catch { return null; } };
   async function send() {
