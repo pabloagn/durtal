@@ -138,7 +138,7 @@ List works with pagination, search and the library's filters. The library page a
 |---|---|---|---|
 | `q` | string | — | Search term (title, author, ISBN) |
 | `reading` | list | — | `unread`, `reading`, `paused`, `read`, `abandoned`, and `queued` (in Up Next, SLN-452; a queued book can be read or unread): any of them |
-| `holding` | string | — | `owned` (a copy not deaccessioned) or `not_owned`; both is no filter |
+| `holding` | string | — | `owned` (a copy not deaccessioned), `not_owned`, or `lent_out` (a copy out on loan); more than one is no filter |
 | `readFrom`, `readTo` | year | — | A finished reading in these years, at any precision; reversed years are swapped |
 | `reread` | `true` | — | Two finished readings or more |
 | `status` | list | — | The catalogue status: `tracked`, `shortlisted`, `wanted`, `on_order`, `accessioned`, `deaccessioned` |
