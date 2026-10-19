@@ -373,8 +373,9 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
                   </div>
                 )}
                 <PaginatedSection {...paging} noun="books">
-                {/* Two cards a row on a phone, as every other cover grid */}
-                <PhonePairGrid>
+                {/* Two cards a row on a phone, as every other cover grid;
+                    every book shows, as the pager counts them (SLN-1019) */}
+                <PhonePairGrid endOnFullRow={false}>
                   {bookCards.map((work) => {
                     // The active poster, else the first edition's cover, as in the library
                     const workActivePoster = work.media[0];
@@ -432,10 +433,12 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
             {otherCollections.map((group) => (
               <section key={group.kind} className="mb-8">
                 <SectionHeading title={group.label} count={group.cards.length} />
-                <PhonePairGrid>
+                <PhonePairGrid endOnFullRow={false}>
                   {group.cards.map(({ id, card }) => (
-                    <div key={id}>
-                      {card}
+                    // The card fills the cell above its caption, so the
+                    // caption stays in the cell, not over the next row (SLN-1019)
+                    <div key={id} className="grid h-full grid-rows-[1fr_auto]">
+                      <div className="min-h-0">{card}</div>
                       {/* The person's roles on it, as a related row's caption */}
                       <p className="mt-1.5 lines-2 text-micro text-fg-secondary">
                         {creditRoles.get(id)?.join(", ")}

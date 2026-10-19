@@ -25,11 +25,16 @@ export function fullRowAttributes(count: number): Record<string, number> {
  *
  * A shelf ends on a full row: the cards that would sit alone on a last row
  * are left out, at whatever column count the width gives (the dashboard).
+ * A record of everything, such as a person's credits, passes
+ * `endOnFullRow={false}` and keeps every card (SLN-1019).
  */
-export function PhonePairGrid({ children }: { children: ReactNode }) {
+export function PhonePairGrid({ children, endOnFullRow = true }: { children: ReactNode; endOnFullRow?: boolean }) {
   return (
     <div className="@container">
-      <div className="catalogue-grid catalogue-density-compact full-rows" {...fullRowAttributes(Children.toArray(children).length)}>
+      <div
+        className={`catalogue-grid catalogue-density-compact${endOnFullRow ? " full-rows" : ""}`}
+        {...(endOnFullRow ? fullRowAttributes(Children.toArray(children).length) : {})}
+      >
         {children}
       </div>
     </div>

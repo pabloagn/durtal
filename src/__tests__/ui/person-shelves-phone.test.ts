@@ -9,7 +9,7 @@ const read = (file: string) => readFileSync(path.resolve(__dirname, "../../app/(
 it("keeps two cards a row on a phone on a person's shelves and their loading screen", () => {
   const page = read("page.tsx");
   expect(page).not.toContain('className="catalogue-grid"');
-  expect(page.match(/<PhonePairGrid>/g)).toHaveLength(2);
+  expect(page.match(/<PhonePairGrid endOnFullRow={false}>/g)).toHaveLength(2);
   const loading = read("loading.tsx");
   expect(loading).not.toContain('className="catalogue-grid"');
   expect(loading).toContain("<PhonePairGrid>");
