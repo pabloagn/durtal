@@ -1355,7 +1355,8 @@ dialog::backdrop {
   padding-inline: 12px;
   max-height: var(--menu-height, calc(100dvh - 16px));
 }
-.dropdown-list:has([data-menu-icon]) {
+/* Set by the menu when an item has an icon: never :has(), which restyles every page on each change (SLN-1249) */
+.dropdown-list[data-icons] {
   grid-template-columns: 16px minmax(0, 1fr) max-content;
   --menu-icon-gap: 10px;
 }
