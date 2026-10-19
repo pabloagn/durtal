@@ -33,7 +33,7 @@ import { LIST_PREFERENCES } from "@/lib/preferences";
 import { enumLabel } from "@/lib/utils/labels";
 import { formatPersonRoles, type PersonRole } from "@/lib/catalogue/person-roles";
 import type { WorkKind } from "@/lib/catalogue/kinds";
-import { lifeDates } from "@/lib/utils/format";
+import { lifeDates, lifeYear } from "@/lib/utils/format";
 
 const AuthorsMap = dynamic(
   () =>
@@ -153,9 +153,9 @@ function renderAuthorCell(author: AuthorItem, key: string, filteredRoles: string
     case "gender":
       return author.gender ? enumLabel(author.gender) : "—";
     case "birthYear":
-      return author.birthYear ?? "—";
+      return author.birthYear != null ? lifeYear(author.birthYear, author.birthYearIsApproximate) : "—";
     case "deathYear":
-      return author.deathYear ?? "—";
+      return author.deathYear != null ? lifeYear(author.deathYear, author.deathYearIsApproximate) : "—";
     case "bio":
       return author.bio ? (
         <span className="line-clamp-1">{author.bio}</span>

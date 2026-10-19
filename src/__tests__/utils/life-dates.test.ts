@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync, readdirSync, statSync } from "fs";
 import path from "path";
-import { lifeDates, lifeEvent } from "@/lib/utils/format";
+import { lifeDates, lifeEvent, lifeYear } from "@/lib/utils/format";
 
 // SLN-1006: the person page wrote "1848 - 1907" and "1950 - " for the living,
 // the cards "1848–1907" with no "c.", and a death year alone showed nowhere.
@@ -26,6 +26,9 @@ describe("lifeDates", () => {
 
   it("writes years before the common era as BC", () => {
     expect(lifeDates({ birthYear: -70, deathYear: -19 })).toBe("70 BC–19 BC");
+    // A life across the era marks its second year, or it would read as 19 BC
+    expect(lifeDates({ birthYear: -70, deathYear: 19, birthYearIsApproximate: true })).toBe("c. 70 BC–AD 19");
+    expect(lifeDates({ birthYear: -4, deathYear: 65, deathYearIsApproximate: true })).toBe("4 BC–c. AD 65");
   });
 
   it("is null with neither year, and never prints a question mark", () => {
@@ -69,7 +72,8 @@ function sourceFiles(dir: string): string[] {
 }
 
 it("leaves no copy of the life-dates text outside lifeDates", () => {
-  const copy = /`[^`\n]*birthYear[^`\n]*deathYear[^`\n]*`|(birth|death)Year \?\? "\?"/;
+  // Nor a raw year in a cell, which drops "c." and prints 428 BC as -428
+  const copy = /`[^`\n]*birthYear[^`\n]*deathYear[^`\n]*`|(birth|death)Year \?\? "[?—]"/;
   const helper = path.join(SRC, "lib/utils/format.ts");
   const copies = sourceFiles(SRC)
     .filter((file) => file !== helper && copy.test(readFileSync(file, "utf8")))
@@ -85,4 +89,13 @@ it("gives the person page a Born and a Died line with places", () => {
   const actions = readFileSync(path.join(SRC, "lib/actions/authors.ts"), "utf8");
   const bySlug = actions.slice(actions.indexOf("export async function getAuthorBySlug"));
   expect(bySlug.slice(0, bySlug.indexOf("withSafeBio"))).toMatch(/birthPlace:[\s\S]*deathPlace:/);
+});
+
+describe("lifeYear", () => {
+  it("writes one year as the People table's Born and Died columns show it", () => {
+    expect(lifeYear(1848)).toBe("1848");
+    expect(lifeYear(1450, true)).toBe("c. 1450");
+    expect(lifeYear(-428)).toBe("428 BC");
+    expect(lifeYear(-428, true)).toBe("c. 428 BC");
+  });
 });

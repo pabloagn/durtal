@@ -108,18 +108,26 @@ export interface LifeYears {
   deathYearIsApproximate?: boolean | null;
 }
 
-const lifeYear = (year: number, approximate?: boolean | null) =>
-  `${approximate ? "c. " : ""}${displayYear(year)}`;
+/** One life year: "1848", "c. 1450", "428 BC" */
+export function lifeYear(year: number, approximate?: boolean | null): string {
+  return `${approximate ? "c. " : ""}${displayYear(year)}`;
+}
 
 /**
  * A person's life dates, the same on their page, the cards, the rows, the
  * map and the timeline (SLN-1006): "1848–1907", "b. 1950" for the living,
- * "d. 1890" when only the death is known, "c. 1450–1500"; null with neither.
+ * "d. 1890" when only the death is known, "c. 1450–1500", "70 BC–AD 19";
+ * null with neither.
  */
 export function lifeDates(person: LifeYears): string | null {
   const { birthYear, deathYear } = person;
-  if (birthYear != null && deathYear != null)
-    return `${lifeYear(birthYear, person.birthYearIsApproximate)}–${lifeYear(deathYear, person.deathYearIsApproximate)}`;
+  if (birthYear != null && deathYear != null) {
+    // A life that crosses the era marks its second year "AD", or "70 BC–19"
+    // would read as 19 BC
+    const era = birthYear < 0 && deathYear > 0 ? "AD " : "";
+    const death = lifeYear(deathYear, person.deathYearIsApproximate).replace(/(\d)/, `${era}$1`);
+    return `${lifeYear(birthYear, person.birthYearIsApproximate)}–${death}`;
+  }
   if (birthYear != null) return `b. ${lifeYear(birthYear, person.birthYearIsApproximate)}`;
   if (deathYear != null) return `d. ${lifeYear(deathYear, person.deathYearIsApproximate)}`;
   return null;
