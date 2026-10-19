@@ -14,6 +14,7 @@ import {
 import {
   collectionCountLine,
   collectionCreatedMessage,
+  EMPTY_COUNT_LINE,
   memberTally,
 } from "@/lib/collections/counts";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
@@ -366,7 +367,7 @@ export function AddToCollectionDialog({
                       </span>
                       {/* At most half the row, so a long count never hides the name */}
                       <span className="max-w-[50%] shrink-0 text-right text-xs pt-0.5 text-fg-secondary">
-                        <CountParts line={collectionCountLine(c) ?? "Empty"} />
+                        <CountParts line={collectionCountLine(c) ?? EMPTY_COUNT_LINE} />
                       </span>
                     </button>
                   );

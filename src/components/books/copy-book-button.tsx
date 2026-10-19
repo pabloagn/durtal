@@ -15,9 +15,11 @@ interface Props {
   glass?: boolean;
   /** Dense rows use sm; mixed header actions use md. */
   size?: "sm" | "md";
+  /** What it copies, for its name and toast: a film's title and director (SLN-1059) */
+  what?: string;
 }
 
-export function CopyBookButton({ title, authorNames, authorName, className = "", glass = false, size = "sm" }: Props) {
+export function CopyBookButton({ title, authorNames, authorName, className = "", glass = false, size = "sm", what = "book title and author" }: Props) {
   const [copied, setCopied] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
@@ -28,7 +30,7 @@ export function CopyBookButton({ title, authorNames, authorName, className = "",
     try {
       await copyBookText(title, authorNames ?? (authorName ? [authorName] : []));
       setCopied(true);
-      toast.success("Book title and author copied");
+      toast.success(`${what[0].toUpperCase()}${what.slice(1)} copied`);
       if (timer.current) clearTimeout(timer.current);
       timer.current = setTimeout(() => setCopied(false), 1500);
     } catch {
@@ -37,7 +39,7 @@ export function CopyBookButton({ title, authorNames, authorName, className = "",
     }
   }
 
-  const label = copied ? "Copied" : "Copy book title and author";
+  const label = copied ? "Copied" : `Copy ${what}`;
 
   return <button type="button" onClick={handleCopy} aria-label={label} data-tooltip={label}
     className={`inline-flex ${glass ? "chip-button glass-chip" : (size === "sm" ? "action-icon-sm" : "action-icon")} ${className}`}>

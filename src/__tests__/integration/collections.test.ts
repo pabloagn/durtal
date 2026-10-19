@@ -384,6 +384,26 @@ describe.skipIf(!url)("collection workflows with PostgreSQL", () => {
       { collectionId: c.id, s3Key: "edition-thumb.jpg" },
     ]);
   });
+  it("sorts the list by name, by when made and by size, either way (SLN-1059)", async () => {
+    const b = await book("Sized", 2);
+    const film = await work("Persona", "film");
+    const big = await createCollection({ name: "Big" }, [b.editions[0].id, b.editions[1].id], undefined, [film.id]);
+    const small = await createCollection({ name: "Small" }, [b.editions[0].id]);
+    const empty = await createCollection({ name: "Alone" });
+    // Made in the order Small, Big, Alone
+    for (const [id, days] of [[small.id, 3], [big.id, 2], [empty.id, 1]] as const)
+      await db.update(schema.collections).set({ createdAt: new Date(Date.now() - days * 86_400_000) }).where(eq(schema.collections.id, id));
+    const names = async (sort?: string, order?: string) =>
+      (await getCollections({ limit: 48, offset: 0, sort, order })).map((c) => c.name);
+    expect(await names()).toEqual(["Alone", "Big", "Small"]);
+    expect(await names("name", "desc")).toEqual(["Small", "Big", "Alone"]);
+    expect(await names("recent")).toEqual(["Alone", "Big", "Small"]);
+    expect(await names("recent", "asc")).toEqual(["Small", "Big", "Alone"]);
+    expect(await names("size")).toEqual(["Big", "Small", "Alone"]);
+    expect(await names("size", "asc")).toEqual(["Alone", "Small", "Big"]);
+    // An unknown sort reads as Name
+    expect(await names("nonsense")).toEqual(["Alone", "Big", "Small"]);
+  });
   it("rolls membership changes back when the paired activity write fails", async () => {
     const b = await book();
     const c = await createCollection({ name: "Collection" });

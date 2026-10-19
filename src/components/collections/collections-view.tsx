@@ -9,7 +9,7 @@ import { Mosaic, MosaicImage, mosaicPerRow } from "@/components/shared/mosaic";
 import { CoverFan } from "@/components/shared/no-photo";
 import { COVER_BLANK, CoverLetter } from "@/components/books/cover-letter";
 import { mediaCrop } from "@/lib/utils/media-style";
-import { collectionCountLine } from "@/lib/collections/counts";
+import { collectionCountLine, EMPTY_COUNT_LINE } from "@/lib/collections/counts";
 import { CollectionCard, collectionPoster, type CollectionCardData } from "./collection-card";
 import { mediaUrl } from "@/lib/s3/media-url";
 
@@ -62,7 +62,7 @@ export function CollectionsView({
             key: collection.id,
             href: `/collections/${collection.id}`,
             title: collection.name,
-            subtitle: collection.countLine ?? collectionCountLine(collection) ?? "Empty",
+            subtitle: collection.countLine ?? collectionCountLine(collection) ?? EMPTY_COUNT_LINE,
             aspect: 2 / 3,
             media: (
               <MosaicImage

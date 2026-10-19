@@ -23,7 +23,7 @@ import {
 import { getEnabledWorkKinds } from "@/lib/catalogue/domains";
 import { WORK_KINDS, type WorkKind } from "@/lib/catalogue/kinds";
 import { textContains, textSearchCondition } from "@/lib/actions/utils/text-search";
-import { eq, asc, count, ilike, or, sql, inArray, and } from "drizzle-orm";
+import { eq, asc, desc, count, ilike, or, sql, inArray, and } from "drizzle-orm";
 import { containsPattern } from "@/lib/utils/like";
 import { authorSearchCondition } from "@/lib/actions/utils/author-search";
 import {
@@ -89,20 +89,35 @@ function rows<T>(result: unknown): T[] {
 
   return Array.isArray(result) ? result : (result as { rows: T[] }).rows;
 }
+/** The collections list's sorts (SLN-1059): Name keeps the curated order first */
+export type CollectionSort = "name" | "recent" | "size";
+const COLLECTION_SORTS: readonly CollectionSort[] = ["name", "recent", "size"];
+
+/** Every member row, editions and whole works, for the Size sort */
+const memberCount = sql`((select count(*) from collection_editions ce where ce.collection_id = "collections"."id")
+  + (select count(*) from collection_works cw where cw.collection_id = "collections"."id"))`;
+
 export async function getCollections(pagination?: {
   limit: number;
   offset: number;
   query?: string;
   favourites?: boolean;
+  sort?: string;
+  order?: string;
 }) {
   const search = (pagination?.query ?? "").trim().slice(0, 160);
+  const sort = COLLECTION_SORTS.find((s) => s === pagination?.sort) ?? "name";
+  // Name reads A to Z, the others newest or largest first, unless reversed
+  const dir = (pagination?.order ?? (sort === "name" ? "asc" : "desc")) === "asc" ? asc : desc;
+  const tieBreak = [asc(collections.name), asc(collections.id)];
   return db.query.collections.findMany({
     where: collectionListCondition(search, pagination?.favourites),
-    orderBy: [
-      asc(collections.sortOrder),
-      asc(collections.name),
-      asc(collections.id),
-    ],
+    orderBy:
+      sort === "recent"
+        ? [dir(collections.createdAt), ...tieBreak]
+        : sort === "size"
+          ? [dir(memberCount), ...tieBreak]
+          : [dir(collections.sortOrder), dir(collections.name), dir(collections.id)],
     limit: pagination?.limit,
     offset: pagination?.offset,
     with: { media: activeArtwork },
