@@ -192,9 +192,9 @@ describe.skipIf(!url)("reading stats with PostgreSQL", () => {
       expect(year.bars.map((b) => b.pages)).toEqual([0, 0, 300, 200, 0, 0, 0, 0, 0, 0, 0, 0]);
       expect(year.unknown).toEqual({ key: null, books: 1, pages: 100 });
 
-      // All time: the undated book is in the totals, in no bar, and named in the footnote
+      // All time: the undated book is in the totals, in no bar, and counted once, under the numbers (SLN-1173)
       expect(await yearNumbers(null)).toMatchObject({ books: 4, pages: 1000, undated: 1 });
-      expect(await overTheYear(null)).toEqual({ bars: [{ key: YEAR, books: 3, pages: 600 }], unknown: null, undated: 1 });
+      expect(await overTheYear(null)).toEqual({ bars: [{ key: YEAR, books: 3, pages: 600 }], unknown: null });
     });
   });
 
