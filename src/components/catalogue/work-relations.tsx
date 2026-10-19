@@ -219,7 +219,7 @@ function RelationForm({ work, onDone }: { work: RelatedWorkOwner; onDone: () => 
               label="New source"
               value={sourceName}
               onChange={(e) => setSourceName(e.target.value)}
-              placeholder="The film's opening credits, an interview"
+              placeholder="e.g. the film’s credits"
               maxLength={1000}
               disabled={!fromId}
             />
@@ -228,7 +228,8 @@ function RelationForm({ work, onDone }: { work: RelatedWorkOwner; onDone: () => 
               type="url"
               value={sourceUrl}
               onChange={(e) => setSourceUrl(e.target.value)}
-              placeholder="https:// (none for a book or a box)"
+              placeholder="https://"
+              hint="None for a book or a box"
               maxLength={4000}
               disabled={!fromId}
               error={validUrl ? undefined : "Enter an address that starts with http:// or https://"}

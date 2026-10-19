@@ -71,7 +71,7 @@ export function FamilyForm({
         maxLength={200}
         value={value.name}
         onChange={(e) => set({ name: e.target.value })}
-        placeholder="e.g. Reading mood, Shelf section"
+        placeholder="e.g. Reading mood"
         error={nameError}
       />
       <Textarea

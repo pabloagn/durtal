@@ -236,16 +236,16 @@ export function NoteDialog({ data, request, home, onClose, changed, open }: Read
         {data.editions.length > 0 && (
           <Select
             label="Edition"
+            wrap
             value={editionId}
             onChange={(e) => changeEdition(e.target.value, "manual")}
-            className="pointer-coarse:h-11"
             options={[
               ...(editing && !editing.editionId ? [{ value: "", label: "Not recorded" }] : []),
               ...data.editions.map((ed) => ({ value: ed.id, label: ed.label })),
             ]}
           />
         )}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="space-y-1">
             <Input
               label={byPercent ? "Percent" : "Page"}

@@ -270,7 +270,8 @@ export function AuthorForm({
                 label="Sort name"
                 value={values.sortName}
                 onChange={(e) => set("sortName", e.target.value)}
-                placeholder={mode === "create" ? "Last, First (auto-generated if empty)" : "Last, First"}
+                placeholder="Last, First"
+                hint={mode === "create" ? "Left empty, it is made from the name" : undefined}
               />
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <Input

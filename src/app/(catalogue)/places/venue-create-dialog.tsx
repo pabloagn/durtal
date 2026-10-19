@@ -238,7 +238,7 @@ export function VenueCreateDialog({
                   required
                   autoFocus
                 />
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <Select
                     id="venue-type"
                     label="Type"
@@ -379,7 +379,7 @@ export function VenueCreateDialog({
                   label="Specialties"
                   value={specialties}
                   onChange={(e) => setSpecialties(e.target.value)}
-                  placeholder="e.g. rare books, first editions, art books"
+                  placeholder="e.g. rare books, first editions"
                 />
                 <Textarea
                   label="Personal notes"

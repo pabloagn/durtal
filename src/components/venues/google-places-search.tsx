@@ -24,7 +24,7 @@ const MIN_QUERY_LENGTH = 2;
 
 export function GooglePlacesSearch({
   onSelect,
-  placeholder = "Search for a venue, bookshop, café…",
+  placeholder = "Search for a place…",
   disabled = false,
 }: GooglePlacesSearchProps) {
   const [query, setQuery] = useState("");
