@@ -57,7 +57,7 @@ Settings > Display had four problems:
   - a view, grid size and page size chosen in Settings show on `/films`,
     `/perfumes` and `/paintings`: List, three a row, and `?perPage=96`.
 - **Three browsers at 1440, 1024, 768, 390 and 320:**
-  - all thirteen lists show;
+  - all fourteen lists show, Organizations among them;
   - no grid label is cut;
   - the sidebar switch shows from 768 up and not on phones (in headless
     WebKit on Linux a 6px scrollbar leaves 762px at 768, so the switch hides
