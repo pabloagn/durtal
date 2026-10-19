@@ -81,6 +81,7 @@ export function PipelineOrderCard({
     <button
       ref={setNodeRef}
       type="button"
+      data-order-card={isDragOverlay ? undefined : order.id}
       onClick={() => onClick(order)}
       {...listeners}
       {...attributes}

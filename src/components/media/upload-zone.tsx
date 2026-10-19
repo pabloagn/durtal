@@ -5,6 +5,7 @@ import { uploadMediaFile, mediaResponseError } from "@/lib/utils/media-upload";
 import { Upload } from "lucide-react";
 import type { MediaType } from "@/lib/types";
 import type { MonochromeParams } from "@/lib/validations/media";
+import { IMAGE_ACCEPT, imageFileRefusal } from "@/lib/validations/media-security";
 
 interface ZoneOptions {
   onUploadComplete?: () => void;
@@ -119,7 +120,7 @@ export function UploadZone({
   mediaType,
   onUploadComplete,
   className = "",
-  accept = "image/*",
+  accept = IMAGE_ACCEPT,
   multiple = false,
   processingParams,
   noun,
@@ -132,6 +133,12 @@ export function UploadZone({
   const processFile = useCallback(
     async (file: File) => {
       const id = crypto.randomUUID();
+      // Too large, or a type the server refuses: said at once, nothing sent
+      const refused = imageFileRefusal(file);
+      if (refused) {
+        setUploads((prev) => [...prev, { id, filename: file.name, status: "error", error: refused }]);
+        return;
+      }
       setUploads((prev) => [
         ...prev,
         { id, filename: file.name, status: "uploading" },
@@ -277,7 +284,9 @@ export function UploadZone({
 
   return (
     <div className={className}>
-      <div
+      {/* A button, so the keyboard reaches it: Enter or Space opens the file picker (SLN-904) */}
+      <button
+        type="button"
         onDragOver={(e) => {
           e.preventDefault();
           setIsDragging(true);
@@ -285,31 +294,32 @@ export function UploadZone({
         onDragLeave={() => setIsDragging(false)}
         onDrop={handleDrop}
         onClick={() => inputRef.current?.click()}
-        className={`flex cursor-pointer flex-col items-center justify-center rounded-sm border-2 border-dashed px-4 py-6 transition-colors ${
+        className={`flex w-full cursor-pointer flex-col items-center justify-center rounded-sm border-2 border-dashed px-4 py-6 transition-colors ${
           isDragging
             ? "border-accent-primary bg-accent-primary/5"
             : "border-glass-border hover:border-fg-muted/30"
         }`}
       >
         <Upload className="mb-2 h-5 w-5 text-fg-muted" strokeWidth={1.5} />
-        <p className="text-xs text-fg-secondary">
-          Drop {noun ?? mediaType} image{multiple ? "s" : ""} here or click to browse
-        </p>
-        <p className="mt-0.5 text-micro text-fg-secondary">
+        <span className="block text-xs text-fg-secondary">
+          {/* "Drop poster image here"; a main image called an image is not said twice */}
+          Drop {(noun ?? mediaType) === "image" ? "" : `${noun ?? mediaType} `}image{multiple ? "s" : ""} here or click to browse
+        </span>
+        <span className="mt-0.5 block text-micro text-fg-secondary">
           Drag from browser or file system
-        </p>
-        <input
-          ref={inputRef}
-          type="file"
-          accept={accept}
-          multiple={multiple}
-          className="hidden"
-          onChange={(e) => {
-            handleFiles(e.target.files);
-            e.target.value = "";
-          }}
-        />
-      </div>
+        </span>
+      </button>
+      <input
+        ref={inputRef}
+        type="file"
+        accept={accept}
+        multiple={multiple}
+        className="hidden"
+        onChange={(e) => {
+          handleFiles(e.target.files);
+          e.target.value = "";
+        }}
+      />
 
       {/* Upload progress */}
       {activeUploads.length > 0 && (

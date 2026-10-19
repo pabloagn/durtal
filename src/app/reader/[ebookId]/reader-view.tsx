@@ -1886,7 +1886,7 @@ function ReaderSession({
         location={relocation}
         speechPhase={speech?.state.phase ?? "stopped"}
       />
-      <ReaderNotice bridge={bridge}>
+      <ReaderNotice bridge={bridge} quiet={!bars.visible}>
         {notice ??
           (offer && file ? (
             <div className="flex flex-wrap items-start gap-2">
