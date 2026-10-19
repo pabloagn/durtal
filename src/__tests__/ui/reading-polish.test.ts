@@ -64,9 +64,15 @@ describe("reading polish (SLN-932)", () => {
     const wrapped = html(createElement(Select, { label: "Edition", wrap: true, value: "e", options })).querySelector('[role="combobox"]')!;
     expect(wrapped.className).toContain("min-h-8");
     expect(wrapped.querySelector("span")!.className).not.toContain("truncate");
+    // The chevron stays on the first line, centred on its 20px
+    expect(wrapped.className).toContain("items-start");
+    expect(wrapped.className).not.toContain("items-center");
+    expect(wrapped.querySelector("svg")!.getAttribute("class")).toContain("mt-[3px]");
     const plain = html(createElement(Select, { label: "Edition", value: "e", options })).querySelector('[role="combobox"]')!;
     expect(plain.className).toContain("h-8");
     expect(plain.querySelector("span")!.className).toContain("truncate");
+    expect(plain.className).toContain("items-center");
+    expect(plain.querySelector("svg")!.getAttribute("class")).not.toContain("mt-[3px]");
   });
 
   it("writes the dateline in the zone it is given", () => {

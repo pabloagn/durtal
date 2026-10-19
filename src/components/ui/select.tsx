@@ -230,16 +230,17 @@ export function Select({
             }
           }}
           onKeyDown={handleKeyDown}
-          className={`flex items-center justify-between rounded-sm border border-glass-border bg-bg-primary/80 text-left text-xs transition-colors duration-150 focus:border-accent-primary focus:outline-none focus:glass-input-focus disabled:cursor-not-allowed disabled:opacity-60 pointer-coarse:text-sm ${
-            compact ? "h-5 px-1.5 leading-5 pointer-coarse:h-11 pointer-coarse:min-w-11 pointer-coarse:px-2"
-              : wrap ? "min-h-8 w-full px-3 py-[5px] leading-5 pointer-coarse:min-h-11 pointer-coarse:py-[11px]"
-              : "h-8 w-full px-3 pointer-coarse:h-11"
+          className={`flex justify-between rounded-sm border border-glass-border bg-bg-primary/80 text-left text-xs transition-colors duration-150 focus:border-accent-primary focus:outline-none focus:glass-input-focus disabled:cursor-not-allowed disabled:opacity-60 pointer-coarse:text-sm ${
+            compact ? "h-5 items-center px-1.5 leading-5 pointer-coarse:h-11 pointer-coarse:min-w-11 pointer-coarse:px-2"
+              // A wrapped value keeps the chevron on its first line
+              : wrap ? "min-h-8 w-full items-start px-3 py-[5px] leading-5 pointer-coarse:min-h-11 pointer-coarse:py-[11px]"
+              : "h-8 w-full items-center px-3 pointer-coarse:h-11"
           } ${
             error ? "border-accent-red" : ""
           } ${isOpen ? "border-accent-primary" : ""} ${className}`}
         >
-          {/* One line: a narrow trigger cuts the label with an ellipsis (the
-              tooltip shows it whole) instead of wrapping out of its 32px */}
+          {/* One line unless it wraps: a narrow trigger cuts the label with an
+              ellipsis (the tooltip shows it whole) instead of wrapping out of its 32px */}
           <span
             className={`min-w-0 ${compact ? "whitespace-nowrap" : wrap ? "[overflow-wrap:anywhere]" : "truncate"} ${
               value === "" || value === undefined
@@ -250,7 +251,7 @@ export function Select({
             {displayLabel}
           </span>
           <ChevronDown
-            className={`${compact ? "ml-1 h-3 w-3" : "ml-2 h-3.5 w-3.5"} shrink-0 text-fg-secondary transition-transform duration-150 ${
+            className={`${compact ? "ml-1 h-3 w-3" : wrap ? "ml-2 mt-[3px] h-3.5 w-3.5" : "ml-2 h-3.5 w-3.5"} shrink-0 text-fg-secondary transition-transform duration-150 ${
               isOpen ? "rotate-180" : ""
             }`}
             strokeWidth={1.5}

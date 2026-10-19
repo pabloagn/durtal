@@ -59,12 +59,12 @@ export function startPosition(
   return { value: { startPage: n }, error: null };
 }
 
-/** Start a reading: where, which edition and copy, the format, the pages, when and from where */
 /** The title the book's menu led here by: "Start a re-read" after a finished read, "Start again" after an abandoned one (SLN-932) */
 export function startTitle(state: BookReadingState) {
   return state === "read" ? READING_ACTION_LABELS.reread : state === "abandoned" ? READING_ACTION_LABELS.startAgain : "Start reading";
 }
 
+/** Start a reading: where, which edition and copy, the format, the pages, when and from where */
 export function StartReadingDialog({ data, request, home: storedHome, setHome, onClose, changed }: ReadingDialogProps) {
   const lastEditionId = data.defaults.lastEditionId;
   const [home, setHomeState] = useState<string>(storedHome ?? data.homes[0]?.id ?? NOT_HOME);
