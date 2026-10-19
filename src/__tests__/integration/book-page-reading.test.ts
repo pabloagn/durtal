@@ -99,6 +99,11 @@ describe.skipIf(!url)("the book page's reading rules with PostgreSQL", () => {
     expect((await nextToRead(seriesId))?.id).toBe(v1);
     await q(`insert into readings(work_id, status, started_precision, finished_on, finished_precision) values ($1, 'finished', 'unknown', '2020-01-01', 'year')`, [v1]);
     expect((await nextToRead(seriesId))?.id).toBe(v2);
+    // A volume under way is not the next to read: the one after it is (SLN-918)
+    await q(`insert into readings(work_id, status, started_precision) values ($1, 'reading', 'unknown')`, [v2]);
+    expect((await nextToRead(seriesId))?.id).toBe(v10);
+    await q(`delete from readings where work_id = $1`, [v2]);
+    expect((await nextToRead(seriesId))?.id).toBe(v2);
     await q(`insert into readings(work_id, status, started_precision, finished_on, finished_precision) values ($1, 'finished', 'unknown', '2021-01-01', 'year')`, [v10]);
     expect((await nextToRead(seriesId))?.id).toBe(blank);
     // Where La Curée's copy is, from the finished first volume's page

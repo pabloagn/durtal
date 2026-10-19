@@ -3,6 +3,7 @@ import {
   Component,
   cloneElement,
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useLayoutEffect,
@@ -211,6 +212,11 @@ export function useBeforeReaderLeave(handler: () => Promise<unknown>) {
     latest.current = handler;
   });
   useEffect(() => bridge.registerLeave(() => latest.current()), [bridge]);
+}
+/** Moves the reader to a share of the book (0 to 100), as Go to page does */
+export function useReaderJump(): (percent: number) => Promise<boolean> {
+  const bridge = useBridge();
+  return useCallback((percent: number) => bridge.jump(percent), [bridge]);
 }
 export function useReaderContext(): ReaderContext {
   const bridge = useBridge();

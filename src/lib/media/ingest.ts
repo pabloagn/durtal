@@ -116,6 +116,19 @@ export async function mediaOwnerKind(owner: IngestInput["owner"]): Promise<WorkK
 }
 
 /**
+ * A file sent as an image that is not one (a text file named .jpg, a damaged
+ * download) is refused with a reason, not as a failed upload (SLN-903)
+ */
+export async function readableImage(buffer: Buffer) {
+  const sharp = (await import("sharp")).default;
+  try {
+    await sharp(buffer).metadata();
+  } catch {
+    throw new MediaIngestError("This file is not an image Durtal can read.", 400);
+  }
+}
+
+/**
  * The one path from a received image to stored files and a media row. Sizes
  * follow the owner's image policy. A poster or background becomes the active
  * one in the same transaction that records it. If storing or recording fails,
@@ -127,6 +140,7 @@ export async function ingestMedia(input: IngestInput) {
   if (!supportsMediaType(owner.type, mediaType))
     throw new MediaIngestError("This owner does not accept that image type", 400);
   const attribution = mediaAttributionSchema.parse(input.attribution ?? {});
+  await readableImage(input.buffer);
   const kind = await mediaOwnerKind(owner);
   const policy = imagePolicy({ type: owner.type, kind }, mediaType);
   const params = policy.monochrome

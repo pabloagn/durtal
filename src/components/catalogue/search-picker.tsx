@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { normalizeSearchText } from "@/lib/utils/search-text";
 
 export interface PickerChoice {
   id: string;
@@ -56,8 +57,9 @@ export function SearchPicker({
 
   const shown = (choices ?? []).filter((c) => !exclude?.has(c.id));
   const name = query.trim();
+  // "Emile Zola" is "Émile Zola": no Create beside the record it would repeat
   const exact = (choices ?? []).some(
-    (c) => c.label.toLowerCase() === name.toLowerCase(),
+    (c) => normalizeSearchText(c.label) === normalizeSearchText(name),
   );
 
   async function create() {

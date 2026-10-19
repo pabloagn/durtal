@@ -2,8 +2,8 @@
 
 import { db } from "@/lib/db";
 import { places, countries } from "@/lib/db/schema";
-import { eq, ilike, and, isNull, sql } from "drizzle-orm";
-import { containsPattern, escapeLike } from "@/lib/utils/like";
+import { eq, and, isNull, sql } from "drizzle-orm";
+import { containsPattern } from "@/lib/utils/like";
 import { textContains } from "@/lib/actions/utils/text-search";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
 import {
@@ -99,16 +99,18 @@ export async function getOrCreatePlaceChain(
       .where(
         parentId
           ? and(
-              ilike(places.name, escapeLike(name)),
+              sql`search_normalize(${places.name}) = search_normalize(${name})`,
               eq(places.type, type),
               eq(places.parentId, parentId),
             )
           : and(
-              ilike(places.name, escapeLike(name)),
+              sql`search_normalize(${places.name}) = search_normalize(${name})`,
               eq(places.type, type),
               isNull(places.parentId),
             ),
       )
+      // "Zurich" reuses "Zürich"; the spelling as given first, if both exist
+      .orderBy(sql`${places.name} = ${name} desc`)
       .limit(1);
 
     const existing = existingRows[0];

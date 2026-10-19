@@ -179,7 +179,7 @@ only those drawn:
 5. **Highest rated** (`#highest-rated`), **Wanted** (`#wanted`) and **Recent
    people** (`#people`): book sections.
 
-**Statistics** (SLN-742): pages on the shelves, languages, authors' countries and the share read, then the year with the most books as five of its covers, then when the books were written (years or decades), with "View all" to `/statistics`. Its body (`DashboardStatistics`, `src/components/statistics/dashboard-statistics.tsx`) loads in its own Suspense boundary; the dashboard draws the section and its heading.
+**Statistics** (SLN-742): pages on the shelves, languages, authors' countries and the share read, then the year with the most books as five of its covers, then when the books were written (years or decades), with "View all" to `/statistics`. Its body (`DashboardStatistics`, `src/components/statistics/dashboard-statistics.tsx`) loads in its own Suspense boundary; the dashboard draws the section and its heading. Its reads (`statisticsReads`) start with the dashboard's first ones (SLN-795).
 
 The card shelves (Recent additions, Collections, Highest rated, Wanted, Recent
 people) end on a full row (`PhonePairGrid`): a shelf takes 10 books (12
@@ -187,6 +187,13 @@ people), two full rows at five columns, and at another column count the
 cards that would sit alone on a last row are left out. A shelf no longer than
 one row keeps all its cards. `getLibraryStats` takes the shelf size; the API
 keeps 8.
+
+The dashboard reads in two round trips (SLN-795). Every read starts at once;
+those that need another's result wait for that one alone. The library's
+reads come apart (`libraryStatsReads`, `src/lib/actions/utils/library-stats.ts`):
+the counts and the recent, highest rated and people shelves, the wanted
+shelf's ids, then its cards. So the e-book marks, author covers and roles go
+out in the second round trip with the wanted cards.
 
 ### Statistics (`/statistics`)
 
@@ -554,6 +561,8 @@ The detail page for a single work. Displays the work and all its editions and in
 - Quick actions: move, update condition, mark as lent, remove
 
 **Actions**: Edit work metadata, add edition, add instance, re-fetch metadata, manage collections, delete work.
+
+**Delete** (SLN-1112): the book page, the card menu and the library's bulk delete count what goes when the dialog opens (`getWorkDeleteSummary`, `src/lib/catalogue/delete-summary.ts`) and say it in one message (`workDeleteCascadeMessage`): "This will also delete 2 editions, 1 copy, 3 readings (41 sessions), 12 quotes, 2 notes, 1 order with its status history, 1 acquisition target and 3 images. The linked eBook returns to review; its files, reading positions and annotations are kept." A book with an order marked Delivered, Purchased or Received keeps it as its acquisition record, which an order delete refuses too: the dialog names the order ("from Shakespeare and Company, 25 September 2026"), says to mark it Returned first, and Delete stays off; the server refuses the same delete with the same words. A copy's Delete names its status history and acquisition-target links, its eBook's return to review, and the readings and orders that stay with the book without it.
 
 **Edit menu** (`E`): `E W` edits the work, `E M` opens the media manager, `E T` edits the taxonomy. The actions menu shows these keys. Plain `E` and `T` open no dialog.
 

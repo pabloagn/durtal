@@ -44,7 +44,7 @@ vi.mock("@/lib/cache", () => ({
   CACHE_TAGS: new Proxy({}, { get: (_, prop) => String(prop) }),
 }));
 vi.mock("@/lib/activity/record", () => ({ recordActivity: vi.fn() }));
-import { getAuthor, getAuthorBySlug } from "@/lib/actions/authors";
+import { getAuthor, getAuthorBySlug, getPersonBookCards, getPersonBooks } from "@/lib/actions/authors";
 import {
   getWorks,
   getWorksByAuthorId,
@@ -99,11 +99,12 @@ describe.skipIf(!url)("alphabetical browsing with PostgreSQL", () => {
 
   it("sorts all author works before pagination through both author lookups", async () => {
     const { author } = await volumes();
-    for (const found of [
-      await getAuthor(author.id),
-      await getAuthorBySlug(author.slug!),
-    ]) {
-      const works = found!.workAuthors.map((wa) => wa.work);
+    // The person page's books (SLN-1078), and the API's record of the person
+    const lists: { title: string }[][] = [
+      await getPersonBooks(author.slug!),
+      (await getAuthor(author.id))!.workAuthors.map((wa) => wa.work),
+    ];
+    for (const works of lists) {
       expect(titles(works)).toEqual(
         Array.from({ length: 30 }, (_, i) => `Volume: ${i + 1}`),
       );
@@ -112,6 +113,32 @@ describe.skipIf(!url)("alphabetical browsing with PostgreSQL", () => {
       ).toBe("Volume: 25");
     }
     expect(await getAuthorBySlug("missing")).toBeUndefined();
+  });
+
+  it("builds a person's book cards for one page only, as the library does (SLN-1078)", async () => {
+    const { author, books } = await volumes();
+    const [first, second] = [books.at(-1)!, books.at(-2)!];
+    expect([first.title, second.title]).toEqual(["Volume: 1", "Volume: 2"]);
+    // The oldest edition is the card's, whatever was added since
+    const [oldest] = await db.insert(schema.editions).values({ workId: first.id, title: "First", createdAt: new Date("2001-01-01") }).returning();
+    await db.insert(schema.editions).values({ workId: first.id, title: "Later", createdAt: new Date("2020-01-01") });
+    // Only the active poster leaves the database, never the gallery
+    await db.insert(schema.media).values([
+      { workId: first.id, type: "gallery", isActive: false, s3Key: "gallery.webp" },
+      { workId: first.id, type: "poster", isActive: false, s3Key: "old.webp" },
+      { workId: first.id, type: "poster", isActive: true, s3Key: "poster.webp" },
+      { authorId: author.id, type: "gallery", isActive: false, s3Key: "portrait-gallery.webp" },
+      { authorId: author.id, type: "poster", isActive: true, s3Key: "portrait.webp" },
+    ]);
+    const cards = await getPersonBookCards([second.id, first.id]);
+    expect(cards.map((card) => card.title)).toEqual(["Volume: 2", "Volume: 1"]);
+    const card = cards[1];
+    expect(card.editions.map((edition) => edition.id)).toEqual([oldest.id]);
+    expect(card.media.map((m) => m.s3Key)).toEqual(["poster.webp"]);
+    expect(card.workAuthors.map((wa) => wa.author.name)).toEqual(["Solvej Balle"]);
+    expect(card).not.toHaveProperty("description");
+    // The person's own images: the portrait, not the gallery
+    expect((await getAuthorBySlug(author.slug!))!.media.map((m) => m.s3Key)).toEqual(["portrait.webp"]);
   });
 
   it("defaults the library to title order across pages, retaining filters and descending title", async () => {

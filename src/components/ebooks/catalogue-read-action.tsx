@@ -40,7 +40,11 @@ export function EbookReadMenuItem({
   );
 }
 
-/** Secondary palette action; the selected-row shortcut is wired by the palette adapter. */
+/**
+ * Secondary palette action; the selected-row shortcut is wired by the palette
+ * adapter. A link inside an option is hidden from a screen reader, which
+ * hears ⌘/Ctrl Enter in the option's description instead (SLN-965).
+ */
 export function PaletteEbookReadAction({
   ebook,
   returnTo,
@@ -56,7 +60,8 @@ export function PaletteEbookReadAction({
     <ReaderEntryLink
       readerPath={ebook.readerPath}
       returnTo={returnTo}
-      aria-label={`Read ${ebook.title}`}
+      aria-hidden="true"
+      tabIndex={-1}
       data-tooltip="Read eBook"
       {...shortcutProps("mod enter", mac)}
       className="inline-flex min-h-8 shrink-0 items-center gap-2 rounded-sm px-2 text-xs text-fg-secondary hover:bg-bg-tertiary hover:text-fg-primary pointer-coarse:min-h-11"

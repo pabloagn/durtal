@@ -275,7 +275,7 @@ describe("descriptor-driven catalogue eBook controls", () => {
     expect(mark.className.split(" ")).toContain("cover-chip");
     expect(mark.getAttribute("data-tooltip")).toBe("eBook available");
     const read = host.querySelector<HTMLAnchorElement>(
-      `a[aria-label="Read Nadja"]`,
+      `a[data-reader-entry][aria-hidden="true"]`,
     )!;
     expect(new URL(read.href).searchParams.has("returnTo")).toBe(false);
     act(() =>
