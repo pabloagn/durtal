@@ -67,4 +67,15 @@ Only clearing the site's data got out of it.
   the alignment, design and touch audits report nothing; Reload's target is
   44 px. Reload put the new release in control, with only its caches and the
   downloaded books left.
+- After main's per-request page policy (SLN-1240), with main's own worker
+  installed (2e4fe7cc) and this change served, in persistent profiles: the
+  offer showed in 3.2-4.3 s at 1440 in Chromium, Firefox and WebKit, and in
+  3.0-3.8 s at 390 in Chromium and WebKit. Reload put the new release in
+  control with only its two caches; `/ebooks/offline` ran 15 of 15 of the
+  server's scripts, and stayed on the new release after reopening. No
+  policy refusal or page error in any engine. The alignment, design and
+  touch audits report nothing with the offer shown. Offline, Chromium and
+  Firefox open `/ebooks/offline` from the worker with its scripts running;
+  Playwright's WebKit refuses offline navigations in this harness.
+- Page weight passes on every measured route.
 - `src/__tests__/reader/offline/offline-update.test.ts`, 8 tests.
