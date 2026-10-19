@@ -15,15 +15,18 @@ export function SettingsGroup({
   title,
   description,
   action,
+  className = "",
   children,
 }: {
   title: string;
   description?: React.ReactNode;
   action?: React.ReactNode;
+  /** For the section, such as `max-md:hidden` for a group that does nothing on a phone */
+  className?: string;
   children: React.ReactNode;
 }) {
   return (
-    <section className="mb-8">
+    <section className={`mb-8 ${className}`.trim()}>
       <SectionHeading
         title={title}
         description={description}
