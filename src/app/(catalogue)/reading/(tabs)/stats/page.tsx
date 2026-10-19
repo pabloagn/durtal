@@ -191,15 +191,27 @@ export default async function ReadingStatsPage({ searchParams }: { searchParams:
               {(["books", "pages"] as const).map((metric) => {
                 // The Month unknown bar only for a metric it holds something of
                 const unknown = months.unknown && months.unknown[metric] > 0 ? months.unknown : null;
-                const bars = [...months.bars, ...(unknown ? [unknown] : [])].map((b) => ({
+                const noun = metric === "books" ? "book" : "page";
+                const when = (b: (typeof months.bars)[number]) => (b.key === null ? `Month unknown, ${year}` : year === null ? String(b.key) : `${MONTHS[b.key - 1]} ${year}`);
+                const all = [...months.bars, ...(unknown ? [unknown] : [])];
+                const bars = all.map((b) => ({
                   label: b.key === null ? "?" : year === null ? String(b.key) : MONTHS_SHORT[b.key - 1],
                   value: b[metric],
-                  text: `${b.key === null ? `Month unknown, ${year}` : year === null ? b.key : `${MONTHS[b.key - 1]} ${year}`}: ${count(b[metric], metric === "books" ? "book" : "page")}`,
+                  text: `${when(b)}: ${count(b[metric], noun)}`,
                 }));
+                // The caption before a bar has focus: the total, and the first of the highest bars when there are two to compare
+                const peak =
+                  all.filter((b) => b.key !== null && b[metric] > 0).length > 1
+                    ? all.reduce<(typeof all)[number] | null>((best, b) => (b.key !== null && b[metric] > (best?.[metric] ?? 0) ? b : best), null)
+                    : null;
+                const total = all.reduce((sum, b) => sum + b[metric], 0);
+                const title = metric === "books" ? "Books finished" : "Pages read";
                 return (
                   <BarChart
                     key={metric}
-                    label={`${metric === "books" ? "Books finished" : "Pages read"} by ${year === null ? "year" : "month"}`}
+                    title={title}
+                    brief={`${count(total, noun)} in all${peak ? `; the most in ${when(peak)}, ${count(peak[metric], noun)}` : ""}`}
+                    label={`${title} by ${year === null ? "year" : "month"}`}
                     bars={bars}
                     tone={metric === "books" ? "sage" : "blue"}
                     columns={[year === null ? "Year" : "Month", metric === "books" ? "Books" : "Pages"]}
