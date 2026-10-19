@@ -45,3 +45,24 @@ leaving it froze the page for up to 1 s after Escape.
   audits clean while selecting and after.
 - The 4x CPU timing at 192 cards needs the 5,000-book scale seed, which this
   container could not load; the render counts stand in for it.
+- Review (findings/review-pr-563.md): most of each slow frame was a forced
+  restyle of the whole page, caused by six `:has()` rules in the shared
+  layout that matched nothing while selecting. All six are replaced:
+  - a menu's icon column: an item with an icon tells its menu
+    (`showIcon` in `DropdownMenuContext`, before paint), which sets
+    `data-icons` on the list, and `.dropdown-list[data-icons]` makes the
+    16px column;
+  - the sidebar's timer slot: the rail and expanded timer chips are 100px
+    themselves, so the slot needs no rule;
+  - the phone's card size control: the rows holding the view switch
+    (`EntityFilters`, the e-book filters, `CollectionsViewSwitcher`) carry
+    `data-view`, and the four phone rules read `[data-view="grid"]`.
+- After the change, with the reviewer's scripts on 192 cards at 4x CPU
+  (about 400 imported books): the forced restyle is 18-48 ms on a pick
+  (300-670 ms before), 163-248 ms on Enter and 374-453 ms on Select all;
+  INP is 240-256 ms for a pick (616-688 ms on main in the review). Menus
+  with icons keep a 16px column and menus without one none; the phone's
+  card size control is chosen in the server's HTML on /library and /films
+  at 390 and 320; the timer slot is 100px with a running timer, expanded
+  and rail, and empty without one; Chromium, Firefox and WebKit, audits
+  clean.
