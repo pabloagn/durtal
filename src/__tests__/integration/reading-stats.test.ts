@@ -309,6 +309,23 @@ describe.skipIf(!url)("reading stats with PostgreSQL", () => {
       );
     });
 
+    it("counts a Goodreads reading with no copy as format not recorded, never print (SLN-1171)", async () => {
+      const imported = await past(await book("Imported"), { on: `${YEAR}-05-01`, pages: 120 });
+      await q(`update readings set source = 'import', source_key = 'goodreads:test#1' where id = $1`, [imported]);
+      const w = await book("Imported with its copy");
+      const e = await edition(w);
+      const linked = await past(w, { on: `${YEAR}-05-02`, pages: 80, format: "ebook", editionId: e, instanceId: await copy(e, { at: kindle }) });
+      await q(`update readings set source = 'import', source_key = 'goodreads:test#2' where id = $1`, [linked]);
+      await past(await book("Read by hand"), { on: `${YEAR}-05-03`, pages: 50 });
+      expect((await whereAndHow(YEAR)).formats).toEqual(
+        expect.arrayContaining([
+          { format: "unknown", minutes: 0, pages: 120, readings: 1 },
+          { format: "ebook", minutes: 0, pages: 80, readings: 1 },
+          { format: "print", minutes: 0, pages: 50, readings: 1 },
+        ]),
+      );
+    });
+
     it("groups Where by the reading's home, so moving a copy later changes nothing", async () => {
       const a = await book("At home");
       // A reading names a copy of its own edition

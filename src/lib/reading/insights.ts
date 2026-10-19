@@ -102,7 +102,7 @@ export function insights(input: InsightInputs, year: number | null): Insight[] {
         a: "own",
         b: "borrowed",
         higherA: "Books from your own shelves get higher ratings",
-        higherB: "Borrowed books get higher ratings than your own copies",
+        higherB: "Books with no copy recorded get higher ratings than your own copies",
         numbers: "{a} rated from your copies, {b} rated with no copy",
       },
       journal("status=finished"),
