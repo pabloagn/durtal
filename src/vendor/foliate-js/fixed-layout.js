@@ -291,6 +291,12 @@ export const applyOverlayerViewBox = (frame, overlayer) => {
     }
 }
 
+// A page let go of while its zoom paint ran (a resize rebuilt the spread) has
+// no one left to paint for, so the paint's cancellation is expected; any other
+// failure, or one of a page still shown, goes on (SLN-1169)
+export const zoomRetired = (frame, error) =>
+    error?.name === 'AbortError' && !frame?.iframe?.isConnected
+
 export class FixedLayout extends HTMLElement {
     static observedAttributes = ['zoom', 'scale-factor', 'spread', 'flow', 'scroll-gap', 'scroll-direction', 'lock-pan-x']
     #root = this.attachShadow({ mode: 'open' })
@@ -791,7 +797,7 @@ export class FixedLayout extends HTMLElement {
                             frame.width = size.width; frame.height = size.height
                             this.#render()
                         }
-                    })
+                    }, error => { if (!zoomRetired(frame, error)) throw error })
                     renderPromises.push(refreshed)
                 }
             }
@@ -1449,7 +1455,7 @@ export class FixedLayout extends HTMLElement {
                     frame.width = size.width; frame.height = size.height
                     this.#renderScrollMode()
                 }
-            })
+            }, error => { if (!zoomRetired(frame, error)) throw error })
             Object.assign(frame.iframe.style, {
                 width: `${vw * scale}px`,
                 height: `${vh * scale}px`,

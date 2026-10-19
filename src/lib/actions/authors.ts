@@ -11,7 +11,7 @@ import { deletePerson, getPersonMergePreview, mergePeople } from "./people";
 import { db } from "@/lib/db";
 import { SLUG_RACE_MESSAGE, withReadableErrors } from "@/lib/db/errors";
 import { compareWorks } from "@/lib/utils/title-order";
-import { authors, workAuthors, editionContributors, countries, comments, activityEvents, galleryLayouts } from "@/lib/db/schema";
+import { authors, workAuthors, editionContributors, countries, comments, activityEvents, galleryLayouts, media, works } from "@/lib/db/schema";
 import { authorObjects, deleteUnusedObjects } from "@/lib/s3/cleanup";
 import { eq, and, asc, desc, inArray, count, sql, isNotNull, min, max } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
@@ -34,7 +34,9 @@ import { refreshAuthorWorkSlugs } from "@/lib/works/slug";
 import { computeZodiacSign } from "@/lib/utils/zodiac";
 import { recordActivity } from "@/lib/activity/record";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
-import { posterTone, workReadingExtras } from "@/lib/actions/utils/work-card-query";
+import { posterTone, workCardExtras, workCardWith } from "@/lib/actions/utils/work-card-query";
+import { PAGE_SIZES } from "@/lib/utils/pagination";
+import { lastReadAtSql, readCountSql, readingStateSql } from "@/lib/reading/summary";
 import { cleanBioForStorage, sanitizeDescriptionHtml, stripHtmlToText } from "@/lib/utils/sanitize";
 import { z } from "zod";
 import { mediaUrl } from "@/lib/s3/media-url";
@@ -499,38 +501,6 @@ export async function getAuthorBySlug(slug: string) {
     where: eq(authors.slug, slug),
     with: {
       country: { columns: { id: true, name: true, alpha2: true } },
-      workAuthors: {
-        with: {
-          work: {
-            // Reading (SLN-449): the cards, "Read 7 of 12" and the Reading record
-            extras: workReadingExtras,
-            with: {
-              editions: {
-                columns: {
-                  id: true,
-                  title: true,
-                  thumbnailS3Key: true,
-                  publicationYear: true,
-                  language: true,
-                },
-                limit: 1,
-                with: {
-                  instances: { columns: { id: true } },
-                },
-              },
-              media: {
-                columns: { s3Key: true, thumbnailS3Key: true, type: true, isActive: true, cropX: true, cropY: true, cropZoom: true, brightness: true, contrast: true },
-                extras: posterTone,
-              },
-              workAuthors: {
-                with: { author: { columns: { name: true } } },
-                orderBy: asc(workAuthors.sortOrder),
-              },
-            },
-          },
-        },
-        orderBy: asc(workAuthors.sortOrder),
-      },
       editionContributors: {
         with: {
           edition: {
@@ -544,11 +514,71 @@ export async function getAuthorBySlug(slug: string) {
         },
         orderBy: asc(editionContributors.sortOrder),
       },
-      media: true,
+      // The portrait and the backdrop: the gallery reads its own rows
+      media: {
+        where: inArray(media.type, ["poster", "background"]),
+        columns: { type: true, isActive: true, s3Key: true, thumbnailS3Key: true, cropX: true, cropY: true, cropZoom: true, brightness: true, contrast: true },
+        orderBy: [desc(media.isActive), asc(media.id)],
+      },
     },
   });
-  author?.workAuthors.sort((a, b) => compareWorks(a.work, b.work));
   return withSafeBio(author);
+}
+
+/**
+ * Every book a person wrote, in title order, with only what the reading record
+ * and the reading tabs need (SLN-1078): the cards load for one page at a time
+ * (`getPersonBookCards`), never a book's description or gallery. By slug, so
+ * the page reads it alongside the person.
+ */
+export async function getPersonBooks(slug: string) {
+  const personSlug = z.string().min(1).max(500).parse(slug);
+  // Qualified: a one-table select names its columns bare, and a bare "id"
+  // inside the readings subqueries would be the reading's own
+  const workId = sql`${works}.${sql.identifier("id")}`;
+  const rows = await db
+    .select({
+      id: works.id,
+      title: works.title,
+      rating: works.rating,
+      readingState: readingStateSql(workId),
+      timesRead: readCountSql(workId),
+      lastReadAt: sql<string | null>`${lastReadAtSql(workId)}::text`,
+    })
+    .from(works)
+    .where(
+      inArray(
+        works.id,
+        db.select({ id: workAuthors.workId }).from(workAuthors)
+          .innerJoin(authors, eq(authors.id, workAuthors.authorId))
+          .where(eq(authors.slug, personSlug)),
+      ),
+    );
+  return rows.sort(compareWorks);
+}
+
+/** One page of a person's book cards, in the order of `ids`, as /library builds them */
+export async function getPersonBookCards(ids: string[]) {
+  if (!ids.length) return [];
+  const rows = await db.query.works.findMany({
+    where: inArray(works.id, z.array(z.uuid()).max(PAGE_SIZES.at(-1)!).parse(ids)),
+    columns: {
+      id: true,
+      slug: true,
+      title: true,
+      rating: true,
+      catalogueStatus: true,
+      acquisitionPriority: true,
+      isRare: true,
+      huntAssessedOn: true,
+      isPoison: true,
+      isFavourite: true,
+    },
+    extras: workCardExtras,
+    with: workCardWith,
+  });
+  const order = new Map(ids.map((id, i) => [id, i]));
+  return rows.sort((a, b) => order.get(a.id)! - order.get(b.id)!);
 }
 
 export async function getCountries() {

@@ -14,7 +14,26 @@ import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
 import { SeriesFormDialog } from "./series-form-dialog";
 import { AddSeriesBooksDialog } from "./add-series-books-dialog";
 
-/** Add books, Edit and Delete for a series page. */
+const ADD_EVENT = "durtal:series-add";
+
+/**
+ * The empty series' own Add books: it opens the same dialog as the header's
+ * would, at once and with no round trip (SLN-918)
+ */
+export function AddSeriesBooksButton() {
+  return (
+    <Button
+      variant="secondary"
+      onClick={() => window.dispatchEvent(new CustomEvent(ADD_EVENT))}
+      data-focus-empty="series"
+    >
+      <Plus size={14} strokeWidth={1.5} />
+      Add books
+    </Button>
+  );
+}
+
+/** Add books (once it has some), Edit and Delete for a series page. */
 export function SeriesActions({
   series,
   bookCount,
@@ -34,12 +53,30 @@ export function SeriesActions({
   const router = useRouter();
   const [addOpen, setAddOpen] = useState(false);
   const addButton = useRef<HTMLButtonElement>(null);
-  // A new series opens on its Add books dialog: it opens from Add books, so
-  // the focus comes back there when it closes, not to the page body (SLN-920)
+  // Books added to an empty series: the empty state's Add, which opened the
+  // dialog, leaves with it, so the focus goes to the header's Add that takes
+  // its place, whether the page or the dialog goes first
+  const empty = bookCount === 0;
+  const focusAddIfLost = () => {
+    const active = document.activeElement;
+    if (!active || active === document.body || !active.isConnected) addButton.current?.focus();
+  };
+  const wasEmpty = useRef(empty);
   useEffect(() => {
-    if (!initialAdd) return;
-    addButton.current?.focus();
-    setAddOpen(true);
+    if (wasEmpty.current && !empty) focusAddIfLost();
+    wasEmpty.current = empty;
+  }, [empty]);
+  useEffect(() => {
+    // Empty, the header has no Add: the dialog opens from the empty state's
+    const onAdd = () => {
+      (addButton.current ?? document.querySelector<HTMLElement>('[data-focus-empty="series"]'))?.focus();
+      setAddOpen(true);
+    };
+    window.addEventListener(ADD_EVENT, onAdd);
+    // A new series opens on its Add books dialog: it opens from Add books, so
+    // the focus comes back there when it closes, not to the page body (SLN-920)
+    if (initialAdd) onAdd();
+    return () => window.removeEventListener(ADD_EVENT, onAdd);
     // Once, on arrival: initialAdd is the address it opened with
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -62,16 +99,18 @@ export function SeriesActions({
 
   return (
     <div className="flex items-center gap-2">
-      <Button
-        ref={addButton}
-        variant="secondary"
-        size="sm"
-        onClick={() => setAddOpen(true)}
-        data-focus-empty="series"
-      >
-        <Plus className="h-4 w-4" strokeWidth={1.5} />
-        Add books
-      </Button>
+      {!empty && (
+        <Button
+          ref={addButton}
+          variant="secondary"
+          size="sm"
+          onClick={() => setAddOpen(true)}
+          data-focus-empty="series"
+        >
+          <Plus className="h-4 w-4" strokeWidth={1.5} />
+          Add books
+        </Button>
+      )}
       <EntityActionMenu
         items={[
           { label: "Edit", icon: Pencil, onClick: () => setEditOpen(true), shortcut: editHint(EDIT_KEYS.series) },
@@ -87,6 +126,7 @@ export function SeriesActions({
         open={addOpen}
         onClose={() => {
           setAddOpen(false);
+          setTimeout(focusAddIfLost, 0);
           if (initialAdd)
             router.replace(`/series/${series.id}`, { scroll: false });
         }}
