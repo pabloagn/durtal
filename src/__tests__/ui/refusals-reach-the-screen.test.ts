@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { readdirSync, readFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import path from "node:path";
 
 // SLN-1033: a write the server refuses on purpose says why, wherever it is
@@ -15,6 +16,7 @@ import { actionResult } from "@/lib/actions/action-result";
 import { ExpectedActionError } from "@/lib/actions/expected-error";
 import { CONNECTION_SAVE_ERROR } from "@/lib/notifications/connection";
 import { deleteEdition } from "@/lib/actions/catalogue-client";
+import { hiddenRefusals } from "@/__tests__/helpers/refusal-reach";
 
 const SRC = path.resolve(__dirname, "../..");
 const read = (file: string) => readFileSync(path.join(SRC, file), "utf8");
@@ -124,10 +126,24 @@ function clientImports() {
 }
 
 /**
- * Called from the screen and refusing on purpose, but not routed: each says why.
- * The reading dialogs show their own "could not load" state for any failure.
+ * Called from the screen and able to refuse through some module, but not
+ * routed: each says why in its own way (SLN-1168, from the review of #519).
  */
-const UNROUTED_REFUSALS = new Set(["reading.getReadingDialogData"]);
+const UNROUTED_REFUSALS: Record<string, string> = {
+  "lib/actions/reading.ts:getReadingDialogData": "the reading dialogs show their own state for any failure",
+  "lib/actions/image-adjustments.ts:getImagePresentation": "a read; it refuses only when the image went meanwhile",
+  "lib/actions/ebook-differences.ts:decideEbookDifferences": "refusals are per item, with refusal()",
+  "lib/actions/ebook-differences.ts:undoEbookDifferences": "refusals are per item, with refusal()",
+  "lib/actions/harmonization.ts:getMergePreview": "attempt() returns { ok, error }",
+  "lib/actions/harmonization.ts:mergeRecords": "attempt() returns { ok, error }",
+  "lib/actions/film-sources.ts:applyFilmSource": "catches and returns { error }",
+  "lib/actions/painting-sources.ts:applyPaintingSource": "catches and returns { error }",
+  "lib/actions/perfume-sources.ts:applyPerfumeSource": "catches and returns { error }",
+  "lib/actions/perfume-sources.ts:reviewPerfumeSource": "catches and returns { error }",
+  "lib/actions/perfume-sources.ts:recordPerfumeEntrySource": "catches and returns { error }",
+  "lib/actions/reader-history.ts:commitReaderHistory": "the reader's own, in reader files",
+  "lib/actions/reader-tracking.ts:startReaderReading": "the reader's own, in reader files",
+};
 
 describe("the screens", () => {
   it("make every routed write through the client adapters, never from its own module", () => {
@@ -136,29 +152,31 @@ describe("the screens", () => {
       .filter(({ mod, name }) => routed.get(mod)?.has(name))
       .map(({ file, name }) => `${file}: ${name}`);
     expect(direct).toEqual([]);
-  });
+  }, 30_000);
 
-  it("route every write they call that refuses on purpose, so its reason is not hidden", () => {
-    const routed = routedWrites();
-    const unrouted = new Set<string>();
-    for (const { mod, name } of clientImports()) {
-      if (routed.get(mod)?.has(name)) continue;
-      let source: string;
-      try {
-        source = read(`lib/actions/${mod}.ts`);
-      } catch {
-        continue;
-      }
-      if (!/^\s*["']use server["']/.test(source)) continue;
-      const start = source.indexOf(`export async function ${name}(`);
-      if (start < 0) continue;
-      // Up to the next top-level declaration
-      const next = source.slice(start + 1).search(/\n(export |async function |function |const |let |type |interface |class )/);
-      const body = source.slice(start, next < 0 ? undefined : start + 1 + next);
-      if (body.includes("throw new ExpectedActionError(")) unrouted.add(`${mod}.${name}`);
+  it("route every write they call that can refuse, through any module, so its reason is not hidden", () => {
+    const hidden = hiddenRefusals(SRC);
+    const unexplained = [...hidden].filter(([key]) => !(key in UNROUTED_REFUSALS)).map(([key, chain]) => `${key} (${chain.join(" > ")})`);
+    expect(unexplained).toEqual([]);
+    // An allowance that no longer applies goes
+    expect(Object.keys(UNROUTED_REFUSALS).filter((key) => !hidden.has(key))).toEqual([]);
+    // It reads every source file: about 3 s alone, longer beside the database suites
+  }, 30_000);
+
+  it("find a refusal raised in another module, as the reading import's were", () => {
+    const root = mkdtempSync(path.join(tmpdir(), "refusal-reach-"));
+    const write = (file: string, text: string) => {
+      mkdirSync(path.dirname(path.join(root, file)), { recursive: true });
+      writeFileSync(path.join(root, file), text);
+    };
+    write("lib/import/store.ts", `export async function decideRow() { if (Math.random()) throw new ExpectedActionError("Choose a book first"); }\n`);
+    write("lib/actions/import.ts", `"use server";\nimport { decideRow } from "@/lib/import/store";\nexport async function decideImportRow() { await decideRow(); }\n`);
+    write("components/import-client.tsx", `"use client";\nimport { decideImportRow } from "@/lib/actions/import";\nexport const go = () => decideImportRow();\n`);
+    try {
+      expect([...hiddenRefusals(root)]).toEqual([["lib/actions/import.ts:decideImportRow", ["decideImportRow", "lib/import/store.ts:decideRow"]]]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
     }
-    expect([...unrouted].filter((key) => !UNROUTED_REFUSALS.has(key))).toEqual([]);
-    for (const key of UNROUTED_REFUSALS) expect(unrouted, key).toContain(key);
   });
 
   it("refuse with ExpectedActionError in every routed module, so the reason crosses as data", () => {

@@ -1,4 +1,5 @@
 import { requireDisposableDatabaseUrl, resetDisposableDatabase } from "./helpers/disposable-database";
+import { actionResult } from "@/lib/actions/action-result";
 import {
   beforeAll,
   afterAll,
@@ -534,7 +535,8 @@ describe.skipIf(!url)("shared people and domain-scoped credits", () => {
     ]);
     await c`insert into comments(entity_type,entity_id,content_html) values ('author',${p.id},'<p>Preserve</p>')`;
     await expect(deletePerson(p.id)).rejects.toThrow();
-    await expect(deleteAuthor(p.id)).rejects.toThrow();
+    // A book person with a film credit gets the credits sentence too (SLN-1168)
+    expect(await actionResult(() => deleteAuthor(p.id))).toEqual({ ok: false, error: "Remove this person's credits before deleting the identity" });
     expect(await getPerson(p.id)).toBeDefined();
     expect(
       await c`select * from comments where entity_id=${p.id}`,

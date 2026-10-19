@@ -1,3 +1,4 @@
+import { ExpectedActionError } from "@/lib/actions/expected-error";
 import { randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
 import { db } from "@/lib/db";
@@ -215,10 +216,10 @@ export async function decideNote(input: { importId: string; rowNo: number; decis
     await db.execute(sql`select r.data->>'privateNotes' is not null as "hasNote", r.written, r.work_id::text as "workId"
       from reading_import_rows r where r.import_id = ${input.importId}::uuid and r.row_no = ${input.rowNo}`),
   );
-  if (!row) throw new Error("This row is not in the import");
-  if (!row.hasNote) throw new Error("This row has no private note");
-  if (noteWritten(row.written)) throw new Error(NOTE_WRITTEN_MESSAGE);
-  throw new Error("Choose this row's book first");
+  if (!row) throw new ExpectedActionError("This row is not in the import");
+  if (!row.hasNote) throw new ExpectedActionError("This row has no private note");
+  if (noteWritten(row.written)) throw new ExpectedActionError(NOTE_WRITTEN_MESSAGE);
+  throw new ExpectedActionError("Choose this row's book first");
 }
 
 /** "Import all private notes": every note with a book and not imported yet, in one UPDATE */

@@ -792,6 +792,8 @@ export async function deleteAuthor(id: string) {
   const results = await atomic((d) => [
     d.execute(sql`select id from authors where id = ${id}::uuid for update`),
     d.execute(sql`select harmonization_assert(exists(select 1 from person_domains where person_id = ${id}::uuid and kind = 'book'), 'Book contributor not found')`),
+    // Film, painting and perfume credits keep the person: say so, as their own delete does
+    d.execute(sql`select harmonization_assert(not exists(select 1 from work_credits where person_id = ${id}::uuid) and not exists(select 1 from art_object_credits where person_id = ${id}::uuid) and not exists(select 1 from perfume_variant_perfumers where person_id = ${id}::uuid), 'Remove this person''s credits before deleting the identity')`),
     d.delete(comments).where(and(eq(comments.entityType, "author"), eq(comments.entityId, id))),
     d.delete(activityEvents).where(and(eq(activityEvents.entityType, "author"), eq(activityEvents.entityId, id))),
     d.delete(galleryLayouts).where(and(eq(galleryLayouts.entityType, "author"), eq(galleryLayouts.entityId, id))),

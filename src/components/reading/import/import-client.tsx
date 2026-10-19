@@ -17,7 +17,8 @@ import {
   decideImportSection,
   rematchImport,
   undoReadingImport,
-} from "@/lib/actions/reading-import";
+} from "@/lib/actions/catalogue-client";
+import { refusalMessage } from "@/lib/actions/refusal";
 import { rowsChanged, undoRemoves } from "@/lib/reading/import/action-words";
 import type { ImportDecision } from "@/lib/reading/import/match-rules";
 import type { ImportNoteView } from "@/lib/reading/import/notes";
@@ -152,14 +153,28 @@ export function ImportUpload() {
 function useAction() {
   const router = useRouter();
   const [pending, start] = useTransition();
-  const run = (action: () => Promise<unknown>, done?: (result: unknown) => void) =>
+  // A refusal says the server's reason (SLN-1168); any other failure says
+  // what did not happen. The page refreshes either way: an import that stopped
+  // partway then offers the rest.
+  const run = (
+    action: () => Promise<unknown>,
+    done?: (result: unknown) => void,
+    failed = "Not saved. Try again.",
+    undo?: () => void,
+  ) =>
     start(async () => {
       try {
         const result = await action();
         done?.(result);
         router.refresh();
       } catch (err) {
-        toast.error(message(err));
+        // A choice shown before it saved goes back. A refusal often comes
+        // from a page that was out of date, and its control can go as the
+        // page refreshes: focus then goes to the import's status line
+        undo?.();
+        keepFocus(() => summaryLine() ?? document.querySelector<HTMLElement>("[data-import-item] a"));
+        toast.error(refusalMessage(err, failed));
+        router.refresh();
       }
     });
   return { pending, run };
@@ -177,8 +192,9 @@ function RowActions({ importId, rowNo, title, actions }: { importId: string; row
     setCurrent(actions.decision);
   }
   const decide = (next: ImportDecision) => {
+    const was = current;
     setCurrent(next);
-    run(() => decideImportRow({ importId, rowNo, decision: next }));
+    run(() => decideImportRow({ importId, rowNo, decision: next }), undefined, undefined, () => setCurrent(was));
   };
   // A chosen candidate's chips go: focus moves to the row's next control
   const rowControl = () =>
@@ -333,8 +349,9 @@ function NoteActions({ importId, rowNo, decision }: { importId: string; rowNo: n
       aria-disabled={pending || undefined}
       onClick={() => {
         if (pending || current === value) return;
+        const was = current;
         setCurrent(value);
-        run(() => decideImportNote({ importId, rowNo, decision: value }));
+        run(() => decideImportNote({ importId, rowNo, decision: value }), undefined, undefined, () => setCurrent(was));
       }}
       data-import-note-decide={value}
     >
@@ -452,6 +469,7 @@ export function MatchAgain({ importId, show }: { importId: string; show: boolean
         const matched = (r as { matched: number }).matched;
         if (!quiet || matched) toast.info(matched ? `${matched} more ${matched === 1 ? "row" : "rows"} matched a book` : "No new matches");
       },
+      "Match again did not finish. Try again.",
     );
   const latest = useRef(again);
   useEffect(() => {
@@ -509,6 +527,7 @@ export function CommitImport({ importId, label, disabled }: { importId: string; 
                 .join(" · "),
             );
           },
+          "The import did not finish. Try again.",
         );
       }}
       busy={pending}
@@ -591,6 +610,7 @@ export function UndoImport({
                         .join(" · "),
                     );
                   },
+                  "The import was not undone. Try again.",
                 )
               }
             >

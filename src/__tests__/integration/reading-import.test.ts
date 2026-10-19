@@ -55,6 +55,7 @@ import { chooseBook, createLibraryReadingImport, createReadingImport } from "@/l
 import { getImportPreview, listReadingImports } from "@/lib/reading/import/page-data";
 import { commitReadingImport, decideImportRow, decideImportSection, rematchImport, undoReadingImport } from "@/lib/actions/reading-import";
 import { writeReadings } from "@/lib/reading/service";
+import { ExpectedActionError } from "@/lib/actions/expected-error";
 import { executeMerge, previewMerge } from "@/lib/harmonization/merge";
 import { deleteWork } from "@/lib/actions/works";
 import type { ImportMatch } from "@/lib/reading/import/match-rules";
@@ -413,7 +414,10 @@ describe.skipIf(!url)("the reading import with PostgreSQL", () => {
       vi.mocked(writeReadings).mockImplementationOnce(real).mockImplementationOnce(async () => {
         throw new Error("The connection dropped");
       });
-      await expect(commitReadingImport({ importId })).rejects.toThrow("The connection dropped");
+      // What went in stays in, and the person is told so (SLN-1168)
+      await expect(commitReadingImport({ importId })).rejects.toThrow(
+        new ExpectedActionError("The import stopped partway: 100 readings are in. Import again to add the rest."),
+      );
       const half = Number(await value(`select count(*) from readings where import_id = $1`, [importId]));
       expect(half).toBe(100);
       expect(await commitReadingImport({ importId })).toMatchObject({ written: 20 });
