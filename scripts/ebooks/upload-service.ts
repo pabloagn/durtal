@@ -167,6 +167,9 @@ async function start() {
   const service = await composeActualUploadService(config, (error) => {
     failed = true;
     log(`Failure: ${error instanceof Error ? error.message : String(error)}`);
+  }, (error) => {
+    const cause = error.cause instanceof Error ? error.cause.message : String(error.cause);
+    log(`One upload failed; the service carries on: ${error.failure.reason} (${cause})`);
   });
   let stopping: Promise<void> | null = null;
   const stop = (reason: string, code: number) => {

@@ -12,6 +12,7 @@ import { UploadAdmissionRefusal } from "@/lib/ebooks/upload/admission-refusal";
 import { uploadBatchViewSchema, uploadItemViewSchema, uploadOutcomeSchema, type UploadBatchView, type UploadItemView, type UploadItemSummary,
   type UploadTarget, type UploadCommand, type UploadOutcome, type CreateUploadBatch } from "@/lib/ebooks/upload/protocol";
 import { UPLOAD_LIMITS } from "@/lib/ebooks/upload/limits";
+import { browserUploadRefusal } from "@/lib/ebooks/upload/browser-sniff";
 import { formatBytes } from "@/lib/ebooks/run-text";
 import { readerEntryHref } from "@/lib/reader/entry-policy";
 import { Trash2 } from "lucide-react";
@@ -21,6 +22,8 @@ const stateLabel: Record<UploadItemView["state"], string> = {
   processing: "Checking the file", quiescing: "Waiting for the server", completed: "Added", failed: "Needs attention", canceled: "Canceled", expired: "Expired",
 };
 const SENDING: readonly UploadItemView["state"][] = ["queued", "admitted", "receiving"];
+/** Longer than the launchd agent takes to start a stopped service again (its 60 s throttle, then recovery) */
+const RESTART_WINDOW_MS = 120_000;
 /** About a minute of refreshes while the server's worker is busy, then the file waits for Preview */
 const AUTO_ADD_TRIES = 20;
 /** Plain words for what went wrong; never a schema dump (SLN-672) */
@@ -45,6 +48,8 @@ export function UploadWorkbench({ target, initialBatchId, available = true, acce
   const [loaded, setLoaded] = useState(false); const [batch, setBatch] = useState<UploadBatchView | null>(null);
   const [files, setFiles] = useState<File[]>([]); const [busy, setBusy] = useState(false); const [ready, setReady] = useState(false);
   const [now, setNow] = useState(0); const [canPause, setCanPause] = useState(false);
+  // Since when the service has not been ready: past the restart window it is stopped, not restarting (SLN-1388)
+  const [downSince, setDownSince] = useState<number | null>(null);
   const [message, setMessage] = useState<string | null>(null); const [progress, setProgress] = useState<Record<string, { generation: number; bytes: number }>>({});
   const [previews, setPreviews] = useState<Record<string, Preview>>({}); const abort = useRef<AbortController | null>(null);
   const refreshActive = useRef(false);
@@ -67,6 +72,7 @@ export function UploadWorkbench({ target, initialBatchId, available = true, acce
       if (result.batch.id !== id) throw new Error("The upload batch response differs.");
       if (sessionRef.current.batchId !== id) return;
       setBatch(result.batch); setReady(result.ready);
+      setDownSince((since) => result.ready ? null : since ?? Date.now());
     } finally { refreshActive.current = false; }
   }, []);
   useEffect(() => {
@@ -82,7 +88,9 @@ export function UploadWorkbench({ target, initialBatchId, available = true, acce
   useEffect(() => {
     if (!loaded || !session.batchId) return;
     let active = true;
-    const poll = () => { setNow(Date.now()); void refresh(session.batchId).catch((error) => { if (active) { setReady(false); setMessage((error as Error).message); } }); };
+    const poll = () => { setNow(Date.now()); void refresh(session.batchId).catch((error) => {
+      if (active) { setReady(false); setDownSince((since) => since ?? Date.now()); setMessage((error as Error).message); }
+    }); };
     poll(); const timer = setInterval(poll, 3000);
     return () => { active = false; clearInterval(timer); };
   }, [loaded, session.batchId, refresh]);
@@ -126,13 +134,16 @@ export function UploadWorkbench({ target, initialBatchId, available = true, acce
     finally { busyRef.current = false; setBusy(false); }
   };
   const command = (item: Pick<UploadItemView, "id">, input: UploadCommand) => request({ kind: "command", operationId: item.id, body: input });
-  const select = (selected: File[]) => {
+  const select = async (selected: File[]) => {
     if (!selected.length) return;
     if (selected.length > UPLOAD_LIMITS.filesPerBatch || target.kind !== "new" && selected.length !== 1) {
       setMessage(target.kind === "new" ? "Choose at most 50 files." : "Choose one file for this eBook."); return;
     }
     if (selected.some((file) => !file.size || file.size > UPLOAD_LIMITS.sourceBytes)) { setMessage("Each file must have something in it and be at most 4 GB."); return; }
-    setFiles(selected); setMessage(null);
+    // A file that is plainly not an e-book is refused here, before any of it is sent; an unreadable head leaves it to the server
+    const refusals = await Promise.all(selected.map((file) => browserUploadRefusal(file).catch(() => null)));
+    setFiles(selected.filter((_, index) => !refusals[index]));
+    setMessage(refusals.filter(Boolean).join(" ") || null);
   };
   const create = () => act(async () => {
     const checking = new AbortController(); abort.current = checking; setCanPause(true);
@@ -202,7 +213,7 @@ export function UploadWorkbench({ target, initialBatchId, available = true, acce
     } catch (error) { setMessage((error as Error).message); }
   };
   const holds = (item: UploadItemSummary) => !!previews[item.id] && Date.parse(previews[item.id].expiresAt) > now;
-  const previewable = batch?.items.filter((item) => item.state === "ready" && !holds(item)) ?? [];
+  const previewable = batch?.items.filter((item) => item.state === "ready" && !item.refused && !holds(item)) ?? [];
   const confirmable = batch?.items.filter(holds) ?? [];
   // A file sent from this page is added once its check is done, when the preview needs no decision. The preview and its
   // confirmation are the same two steps as by hand; a refusal (already in the library, a format clash) waits here with
@@ -210,7 +221,7 @@ export function UploadWorkbench({ target, initialBatchId, available = true, acce
   useEffect(() => {
     if (busy || !loaded || session.pending || !ready) return;
     const at = Date.now();
-    const item = batch?.items.find((entry) => entry.state === "ready" && (autoAdd.current.get(entry.id)?.notBefore ?? Infinity) <= at);
+    const item = batch?.items.find((entry) => entry.state === "ready" && !entry.refused && (autoAdd.current.get(entry.id)?.notBefore ?? Infinity) <= at);
     if (!item) return;
     const { tries } = autoAdd.current.get(item.id)!; autoAdd.current.delete(item.id);
     void act(async () => {
@@ -249,11 +260,11 @@ export function UploadWorkbench({ target, initialBatchId, available = true, acce
       <SectionHeading title="Choose files" description={target.kind === "new" ? "Up to 50 files, 4 GB each. Keep this page open while they send."
         : target.kind === "add_format" ? "One file, up to 4 GB. Keep this page open while it sends. It is added once it is checked."
           : "One file, up to 4 GB. Keep this page open while it sends. You confirm the replacement once it is checked."} />
-      <div onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); if (!blocked && available) select(Array.from(event.dataTransfer.files)); }}
+      <div onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); if (!blocked && available) void select(Array.from(event.dataTransfer.files)); }}
         className="flex flex-wrap items-center gap-3 rounded-sm border border-dashed border-border-control p-6 text-sm text-fg-secondary">
         <span>{target.kind === "new" ? "Drop eBook files here, or" : "Drop the file here, or"}</span>
         <input ref={picker} type="file" multiple={target.kind === "new"} accept={accept} disabled={blocked || !available} className="sr-only" tabIndex={-1} aria-label="Choose eBook files"
-          onChange={(event) => { select(Array.from(event.target.files ?? [])); event.target.value = ""; }} />
+          onChange={(event) => { void select(Array.from(event.target.files ?? [])); event.target.value = ""; }} />
         <Button disabled={blocked || !available} onClick={() => picker.current?.click()}>{target.kind === "new" ? "Choose files" : "Choose a file"}</Button>
       </div>
       {files.length > 0 && <ul className="my-4 space-y-2">{files.map((file, index) => <li key={index} className="break-words text-sm text-fg-secondary">{file.name} · {formatBytes(file.size)}</li>)}</ul>}
@@ -263,7 +274,9 @@ export function UploadWorkbench({ target, initialBatchId, available = true, acce
       onChange={(event) => { const file = event.target.files?.[0], item = reselecting.current; event.target.value = ""; if (file && item) void transfer(item, file); }} />
     {batch && <section>
       <SectionHeading title="This upload" action={<a className={buttonClass("secondary")} href={`/ebooks/runs/${batch.runId}`}>Details</a>} />
-      {!ready && <p className="mb-4 text-sm text-fg-secondary">The upload service is restarting. What was sent is kept, and you can resume once it is back.</p>}
+      {!ready && <p className="mb-4 text-sm text-fg-secondary">{downSince !== null && now - downSince > RESTART_WINDOW_MS
+        ? "Uploads are stopped on the server. What was sent is kept, and you can resume once they start again."
+        : "The upload service is restarting. What was sent is kept, and you can resume once it is back."}</p>}
       {(previewable.length > 1 || confirmable.length > 1) && <div className="mb-4 flex flex-wrap gap-3">
         {previewable.length > 1 && <Button disabled={blocked} onClick={() => void every(previewable, (item) => command(item, { action: "prepare", key: crypto.randomUUID() }))}>Preview all ({previewable.length})</Button>}
         {confirmable.length > 1 && <Button variant="primary" disabled={blocked} onClick={() => void every(confirmable, (item) => command(item, { action: "confirm", key: crypto.randomUUID(), previewToken: previews[item.id].token }))}>Confirm all ({confirmable.length})</Button>}
@@ -276,7 +289,7 @@ export function UploadWorkbench({ target, initialBatchId, available = true, acce
         const read = item.ebookId ? readerEntryHref(`/reader/${item.ebookId}`, returnTo) : null;
         return <li key={item.id} className="min-w-0 space-y-3 rounded-sm border border-border-subtle p-4">
           <SectionHeading as="h3" title={<span className="break-words">{item.name}</span>} />
-          <p className="text-sm text-fg-secondary">{stateLabel[item.state]} · {bytes >= item.bytes ? formatBytes(item.bytes) : `${formatBytes(bytes)} of ${formatBytes(item.bytes)}`}</p>
+          <p className="text-sm text-fg-secondary">{item.refused ? "Checked" : stateLabel[item.state]} · {bytes >= item.bytes ? formatBytes(item.bytes) : `${formatBytes(bytes)} of ${formatBytes(item.bytes)}`}</p>
           <UploadBar bytes={bytes} total={item.bytes} failed={item.state === "failed"} label={`Sent of ${item.name}`} />
           {item.message && <p className="break-words text-sm text-fg-secondary">{item.message}</p>}
           {item.retainedUntil && SENDING.includes(item.state) && <p className="text-sm text-fg-secondary">What was sent is kept until {new Date(item.retainedUntil).toLocaleString([], { dateStyle: "medium", timeStyle: "short" })}.</p>}
@@ -289,8 +302,8 @@ export function UploadWorkbench({ target, initialBatchId, available = true, acce
             {SENDING.includes(item.state) && (file
               ? <Button disabled={blocked || !ready} onClick={() => void transfer(item, file)}>Resume</Button>
               : <Button disabled={blocked || !ready} onClick={() => { reselecting.current = item; reselect.current?.click(); }}>Choose the file again</Button>)}
-            {item.state === "ready" && <Button disabled={blocked} onClick={() => void act(() => command(item, { action: "prepare", key: crypto.randomUUID() }))}>Preview</Button>}
-            {item.state === "failed" && <Button disabled={blocked} onClick={() => void act(() => command(item, { action: "retry", key: crypto.randomUUID() }))}>Try again</Button>}
+            {item.state === "ready" && !item.refused && <Button disabled={blocked} onClick={() => void act(() => command(item, { action: "prepare", key: crypto.randomUUID() }))}>Preview</Button>}
+            {item.state === "failed" && !item.refused && <Button disabled={blocked} onClick={() => void act(() => command(item, { action: "retry", key: crypto.randomUUID() }))}>Try again</Button>}
             {sending === item.id
               ? <Button variant="secondary" onClick={() => cancelSending(item)}>Cancel upload</Button>
               : !["completed", "canceled", "expired"].includes(item.state) && <Button variant="secondary" disabled={blocked} onClick={() => void act(() => command(item, { action: "cancel", key: crypto.randomUUID() }))}>Cancel upload</Button>}

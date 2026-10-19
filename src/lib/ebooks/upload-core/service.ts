@@ -21,7 +21,7 @@ import { commitTransportCommandOn } from "./commands";
 import { assertInspectionCurrentOn, settleInspectionOn, readStoredInspection } from "./inspection";
 import { readUploadSnapshotsOn, targetFingerprintFromRows, settledUploadSql } from "./snapshots";
 import { readUploadTargetSnapshotOn } from "../upload/atomic-snapshots";
-import { prepareUploadEffectOn, type UploadEffectPreview } from "./plans";
+import { prepareUploadEffectOn, quarantineMessage, type UploadEffectPreview } from "./plans";
 import { UploadPreviewCache } from "./preview-cache";
 import { commitUploadPreviewOn, confirmUploadEffectOn, bindConfirmationPreviewOn } from "./effect-store";
 
@@ -102,7 +102,11 @@ export class ActualUploadCoreAdapter implements UploadJobCoreAdapter {
         and a.event_key in ('ebook.upload.effect.v1','ebook.upload.restore.v1','ebook.upload.compensation.v1')
         and a.metadata #>> '{extra,ebookUpload,uploadId}'=${upload.id}
       order by o.effect_committed_at desc,o.id desc limit 1`));
-    if (!rows.length) return view;
+    if (!rows.length) {
+      // A checked file that can't be added says why on its own row, without Preview (SLN-1388)
+      const refused=view.state==="ready" ? quarantineMessage(readStoredInspection(upload)) : null;
+      return refused ? uploadItemViewSchema.parse({...view,message:refused,refused:true}) : view;
+    }
     const effect=rows[0],receipt=uploadOutcomeSchema.parse(effect.receipt);
     if (receipt.operationId!==effect.id || receipt.status!==200 || receipt.preview!==null) throw new Error("Upload effect view has invalid receipt");
     const bookRows=await readUploadTargetSnapshotOn(conn,{ebookIds:[effect.ebookId],runId:upload.run_id!});
