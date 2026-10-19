@@ -24,9 +24,9 @@ SLN-1174, from the statistics survey (findings/statistics-survey-2026-10-18.md, 
 ## Completion Notes
 
 - **Print**, on a private preview with 65 books finished in 2024 (38 in March): the screen shows 12 covers and "+26" for March. Chromium's A4 PDF lists all 65 titles (`pdftotext`), with no covers in the wall. Long titles wrap within their column.
-- **Statistics:** with every book set to tracked, the page shows "No books on your shelves yet", then Reading (65 finished) and the other collections (perfumes, films, paintings and their creators).
+- **Statistics:** with every book set to tracked, the page shows "No books on your shelves yet" with a purpose sentence and Add book (the Sixth reviewer's fix), then Reading (65 finished) and the other collections (perfumes, films, paintings and their creators).
 - **Alignment audit:** 0 issues and no overflow on /reading/year/2024 and /statistics, with and without owned books. Checked in Chromium, Firefox and WebKit at 1440, 390 and 320.
-- **`page-weight.js`:** exit 0. /reading/year/2024 is 156 KB with 65 books. The title list adds roughly 160 bytes a book, HTML and payload together.
+- **`page-weight.js`:** exit 0. /reading/year/2024 is 156 KB with 65 books. The title list adds about 300 bytes a book, HTML and payload together: /reading/year/2014 (306 titles) is 341,381 bytes against 250,035 on main, under its 400 KB budget (Sixth reviewer's measurement, after their lighter list markup).
 - **Tests:**
   - New `src/__tests__/statistics/statistics-no-books.test.ts`.
   - The reading stats DB suite checks that the year page's print lists name every book, month by month.

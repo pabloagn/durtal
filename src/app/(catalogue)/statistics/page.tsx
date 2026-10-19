@@ -3,6 +3,7 @@ import { BarChart3 } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { SectionHeading } from "@/components/shared/section-heading";
 import { EmptyState } from "@/components/ui/empty-state";
+import { DomainAddLink } from "@/components/domains/domain-add-link";
 import { BarChart } from "@/components/reading/charts/bar-chart";
 import { Footnote, NumberTiles, RankList, StatsSection } from "@/components/reading/stats-parts";
 import { CoverFrame, CoverStrip, YearCovers, bookHref } from "@/components/statistics/covers";
@@ -115,7 +116,13 @@ export default async function StatisticsPage() {
 
       {numbers.books === 0 ? (
         <div className="space-y-14">
-          <EmptyState icon={BarChart3} title="No books on your shelves yet" heading="h2" />
+          <EmptyState
+            icon={BarChart3}
+            title="No books on your shelves yet"
+            description="These numbers count the books you own: those with a copy in one of your locations."
+            action={<DomainAddLink kind="book" size="md" />}
+            heading="h2"
+          />
           {readingSection}
           {othersSection}
         </div>

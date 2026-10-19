@@ -157,9 +157,9 @@ export default async function YearInReviewPage({ params }: { params: Promise<{ y
                   )}
                 </ul>
                 {/* On paper "+38" opens nothing: every title of the month, as text (SLN-1174) */}
-                <ol className="hidden columns-2 gap-x-6 text-xs text-fg-primary print:block" data-review-print-list="">
+                <ol className="hidden columns-2 gap-x-6 text-xs text-fg-primary [overflow-wrap:break-word] print:block [&>li]:break-inside-avoid" data-review-print-list="">
                   {books.map((b) => (
-                    <li key={`${b.workId}-${b.finishedOn}`} className="break-inside-avoid [overflow-wrap:break-word]">
+                    <li key={`${b.workId}-${b.finishedOn}`}>
                       {b.title}
                       {b.rating !== null && <span className="text-fg-secondary"> · {formatRating(b.rating)}</span>}
                     </li>
