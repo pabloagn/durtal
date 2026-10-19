@@ -2,7 +2,7 @@
 
 import { readerUuid } from "@/lib/reader/uuid";
 
-import { useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { toast } from "@/lib/notifications/toast";
 import { ReaderSlotFill, useBeforeAnnotationDelete, useBeforeReaderLeave, useReaderContext, useReaderController, useReaderControllerFailure, useReaderSelectionCapture } from "@/components/reader/bridge";
 import type { ReaderControllerFailureProps } from "@/lib/reader/bridge-state";
@@ -23,6 +23,7 @@ import { browserZone } from "./reading-client";
 import { hoursWords } from "@/lib/reading/pace";
 import { formatPercent } from "@/lib/reader/place-label";
 import { saveQuoteWithRefresh } from "@/lib/reader/annotation-server-changes";
+import { onActivityRefresh } from "@/lib/activity/refresh-event";
 
 type Controller = ReturnType<typeof createReadingReaderController>;
 type Queue = ReturnType<typeof createReaderSittingQueue>;
@@ -168,6 +169,25 @@ function ActiveReaderTracking({ data: initial }: { data: ReaderTrackingData }) {
   }, [initial.ebookId, initial.deviceId, context.fileId]);
 
   useLayoutEffect(() => { controller.current?.suspend(timerOwns); }, [timerOwns]);
+
+  // A log, edit or finish saved here changes the reading, and the server retires
+  // the sitting under way with it, so later saves to it would be dropped. The
+  // reading from here on goes in a fresh sitting, and the bar takes the new
+  // reading (SLN-1192). The undo of a new reading holds its own sitting.
+  useEffect(() => onActivityRefresh(() => {
+    const active = controller.current;
+    if (!live.current || !active || undo.current) return;
+    const expected = generation.current;
+    const before = latest.current.data.linked?.reading?.id ?? null;
+    active.flush();
+    active.setReading(before);
+    void getReaderTracking(initial.ebookId).then((fresh) => {
+      if (!live.current || expected !== generation.current || controller.current !== active) return;
+      setData(fresh);
+      const after = fresh.linked?.reading?.id ?? null;
+      if (after !== before) active.setReading(after);
+    }).catch(showFailure);
+  }), [initial.ebookId]);
 
   const handle = <K extends keyof ReadingReaderEvents>(name: K, event: ReadingReaderEvents[K]) => {
     const active = controller.current;
