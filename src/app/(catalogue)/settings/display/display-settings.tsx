@@ -41,12 +41,15 @@ const PAGE_SIZE_OPTIONS = PAGE_SIZES.map((size) => ({
   label: `${size} per page`,
 }));
 /**
- * The list table's columns: the list, its view, its grid size (wider, for
- * "Up to 6 per row"), its page size. Narrower, the controls go two a row,
- * then one a row where "Up to 6 per row" would not fit in half (SLN-925).
+ * The list table's columns: the list, its view, its grid size, its page
+ * size. The value columns fit their longest choice at the 16px a touch
+ * screen draws ("Up to 6 per row", "192 per page"), and the table takes
+ * four columns only where the list's name keeps at least 10rem beside
+ * them. Narrower, the controls go two a row, then one a row where "Up to 6
+ * per row" would not fit in half (SLN-925).
  */
 const LIST_COLUMNS =
-  "@min-[400px]:grid-cols-2 @min-[640px]:grid-cols-[minmax(0,1fr)_8.5rem_10rem_8.5rem]";
+  "@min-[400px]:grid-cols-2 @min-[720px]:grid-cols-[minmax(0,1fr)_8.5rem_11rem_9.5rem]";
 
 function SidebarSetting() {
   const { width, toggle } = useSidebarPreference();
@@ -132,16 +135,16 @@ function PageSizeSelect({ list }: { list: ListPreference }) {
  */
 function ListRow({ list }: { list: ListPreference }) {
   const none = (
-    <span className="hidden text-sm text-fg-secondary @min-[640px]:block">
+    <span className="hidden text-sm text-fg-secondary @min-[720px]:block">
       <span aria-hidden>—</span>
       <span className="sr-only">None</span>
     </span>
   );
   return (
     <div
-      className={`grid grid-cols-1 items-center gap-3 px-5 py-3 ${LIST_COLUMNS} @min-[640px]:gap-4`}
+      className={`grid grid-cols-1 items-center gap-3 px-5 py-3 ${LIST_COLUMNS} @min-[720px]:gap-4`}
     >
-      <p className="text-sm text-fg-primary @min-[400px]:col-span-2 @min-[640px]:col-span-1">
+      <p className="text-sm text-fg-primary @min-[400px]:col-span-2 @min-[720px]:col-span-1">
         {list.label}
       </p>
       {list.view ? <ViewSelect list={list} view={list.view} /> : none}
@@ -226,7 +229,7 @@ export function DisplaySettings() {
         <div className="@container divide-y divide-glass-border">
           <div
             aria-hidden
-            className={`hidden gap-4 px-5 py-2.5 type-caption @min-[640px]:grid ${LIST_COLUMNS}`}
+            className={`hidden gap-4 px-5 py-2.5 type-caption @min-[720px]:grid ${LIST_COLUMNS}`}
           >
             <span>List</span>
             <span>View</span>
