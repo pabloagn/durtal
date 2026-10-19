@@ -671,6 +671,12 @@ export async function addPastReading(input: AddPastReadingInput) {
     throw err;
   }
   const [outcome] = outcomes;
+  // A resend that raced this id's first press may match that press's read as
+  // a duplicate: it is this save
+  if (outcome.outcome !== "written" && data.id) {
+    const raced = await savedReading(data.id, data.workId);
+    if (raced) return { outcome: "written" as const, reading: raced };
+  }
   if (outcome.outcome === "refused") throw new ExpectedActionError(outcome.reason ?? "This read could not be saved");
   if (outcome.outcome === "written") {
     const reading = (await loadReading(outcome.readingId!))!;

@@ -204,7 +204,9 @@ export async function createRecommender(
   };
   const { row, created } = await createOnce<Saved>(id, stored, async (key) => {
     const clash = await nameClash(data.name);
-    if (clash) return taken(clash);
+    // A resend that raced this id's first press finds that press's row by
+    // its name: it is this save, not a clash
+    if (clash) return (key && clash.id === key ? await stored(key) : null) ?? taken(clash);
     const rows = await unlessTaken(() =>
       db
         .insert(recommenders)

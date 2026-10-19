@@ -151,6 +151,16 @@ describe.skipIf(!url)("recommenders with PostgreSQL", () => {
     expect((await getRecommenders()).map((r) => r.name).sort()).toEqual(["Bookish", "Life on Books"]);
   });
 
+  it("never reports its own save as \"already exists\" when resends race, over many tries (SLN-1276)", async () => {
+    // One pair rarely hits the window between the id check and the name check
+    for (let n = 0; n < 20; n++) {
+      const id = crypto.randomUUID();
+      const results = await Promise.all([1, 2, 3].map(() => createRecommender({ name: `Race ${n}` }, id)));
+      for (const result of results) expect(result).toMatchObject({ ok: true, recommender: { id, name: `Race ${n}` } });
+    }
+    expect((await getRecommenders()).filter((r) => r.name.startsWith("Race "))).toHaveLength(20);
+  });
+
   it("deletes a recommender and its links, keeping the books", async () => {
     const r = await created({ name: "ChatGPT", url: "chatgpt.com" });
     const w = await book("Demons");

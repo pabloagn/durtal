@@ -39,3 +39,5 @@ images and the other creates the ticket lists follow in their own parts.
   separate Add a quote dialogs still store two quotes.
 - The lost answer still says "Not saved: Durtal could not be reached"; with
   the id, a later part can check whether it landed first.
+
+Review (19 Oct): a dated resend racing the first press could match that press's read as a duplicate and say "You already logged this read" (1 of 40 looped pairs). When the write is not a write, the save now looks for its own id before answering. A looped race test (20 dated pairs, no `allowPossibleDuplicate`) failed on every run before the fix and passes after.

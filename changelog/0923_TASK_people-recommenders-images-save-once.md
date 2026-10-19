@@ -50,3 +50,5 @@ to one record made two images.
   An existing recommender's name shows "already exists" with Open, which goes
   to it (1440, 390 and 320; alignment, design and overflow audits clean with
   the toast showing). Two openings of Add person add two people.
+
+Review (19 Oct): a resend racing the first press could find that press's row by its name and report "already exists" for its own save (32 of 60 looped pairs). The create now checks whether the clashing recommender is this id's own row before calling it a clash. A looped race test (20 rounds of three at once) failed on every run before the fix and passes after. docs/07 says one record can't hold the same picture twice.

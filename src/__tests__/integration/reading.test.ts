@@ -1304,6 +1304,19 @@ describe.skipIf(!url)("the reading tracker with PostgreSQL", () => {
       expect(await value(`select count(*)::int from reading_status_history h join readings r on r.id = h.reading_id where r.work_id = $1`, [workId])).toBe(2);
       await expect(addPastReading({ ...sent, workId: await book("Another") })).rejects.toThrow("This read was saved on another book");
     });
+
+    it("never reports its own read as already logged when resends race, over many tries (SLN-1276)", async () => {
+      const workId = await book("Raced read");
+      // Dated, and without allowPossibleDuplicate: the duplicate check sees the first press's row
+      for (let n = 0; n < 20; n++) {
+        const day = `2020-01-${String(n + 1).padStart(2, "0")}`;
+        const sent = { id: crypto.randomUUID(), workId, format: "print" as const, status: "finished" as const,
+          startedOn: day, startedPrecision: "day" as const, finishedOn: day, finishedPrecision: "day" as const };
+        const results = await Promise.all([addPastReading(sent), addPastReading(sent)]);
+        for (const result of results) expect(result).toMatchObject({ outcome: "written", reading: { id: sent.id } });
+      }
+      expect(await value(`select count(*)::int from readings where work_id = $1`, [workId])).toBe(20);
+    });
   });
 
   describe("delete, restore, history and other code", () => {
