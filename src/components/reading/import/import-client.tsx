@@ -19,7 +19,7 @@ import {
   undoReadingImport,
 } from "@/lib/actions/catalogue-client";
 import { refusalMessage } from "@/lib/actions/refusal";
-import { rowsChanged, undoRemoves } from "@/lib/reading/import/action-words";
+import { rowsChanged, undoDescription } from "@/lib/reading/import/action-words";
 import type { ImportDecision } from "@/lib/reading/import/match-rules";
 import type { ImportNoteView } from "@/lib/reading/import/notes";
 import type { RowLineKind, RowView } from "@/lib/reading/import/row-view";
@@ -545,20 +545,24 @@ export function UndoImport({
   queued = 0,
   notes = 0,
   goodreadsIds = 0,
+  pendingClaims = 0,
+  ratings = 0,
   size = "md",
 }: {
   importId: string;
   readings: number;
   queued?: number;
   notes?: number;
-  /** The Goodreads ids it recorded on editions matched by ISBN; most imports record none (SLN-956) */
+  /** New identifiers recorded by this import, with guarded ownership. */
   goodreadsIds?: number;
+  pendingClaims?: number;
+  ratings?: number;
   size?: "sm" | "md";
 }) {
   const { pending, run } = useAction();
   const [asking, setAsking] = useState(false);
   const trigger = useRef<HTMLButtonElement>(null);
-  const removes = undoRemoves({ readings, queued, notes, goodreadsIds });
+  const description = undoDescription({ readings, queued, notes, goodreadsIds, pendingClaims, ratings });
   return (
     <>
       <Button ref={trigger} variant="ghost" size={size} busy={pending} onClick={() => setAsking(true)} className={coarse} data-import-undo={importId}>
@@ -568,10 +572,7 @@ export function UndoImport({
       {asking && (
         <Dialog open onClose={() => setAsking(false)} title="Undo this import" className="max-w-md" expandable={false}>
           <p className="text-sm text-fg-secondary">
-            This removes {removes.slice(0, -1).join(", ")}
-            {removes.length > 1 ? ", and " : ""}
-            {removes[removes.length - 1]}. Readings{notes ? " and notes" : ""} you edited since, and Up next items you moved or edited, are kept. You can import it
-            again later.
+            {description}
           </p>
           <div className="flex justify-end gap-2 pt-4">
             <Button variant="ghost" onClick={() => setAsking(false)} className={coarse}>
@@ -590,13 +591,14 @@ export function UndoImport({
                     setAsking(false);
                     // Undo goes once nothing is left to remove: focus goes to the import's status
                     keepFocus(() => summaryLine() ?? document.querySelector<HTMLElement>(`[data-import-item="${importId}"] a`), trigger.current);
-                    const { removed, kept, queueRemoved, queueKept, notesRemoved, notesKept } = r as {
+                    const { removed, kept, queueRemoved, queueKept, notesRemoved, notesKept, identifiersKept } = r as {
                       removed: number;
                       kept: number;
                       queueRemoved: number;
                       queueKept: number;
                       notesRemoved: number;
                       notesKept: number;
+                      identifiersKept: number;
                     };
                     toast.success(
                       [
@@ -606,6 +608,7 @@ export function UndoImport({
                         queueKept ? `${queueKept} Up next ${queueKept === 1 ? "item was" : "items were"} moved or edited after the import and ${queueKept === 1 ? "was" : "were"} kept` : null,
                         notesRemoved ? `${notesRemoved} ${notesRemoved === 1 ? "note" : "notes"} removed` : null,
                         notesKept ? `${notesKept} ${notesKept === 1 ? "note was" : "notes were"} edited after the import and ${notesKept === 1 ? "was" : "were"} kept` : null,
+                        identifiersKept ? `${identifiersKept} Goodreads ${identifiersKept === 1 ? "ID was" : "IDs were"} kept because ownership changed, was shared, or could not be verified` : null,
                       ]
                         .filter(Boolean)
                         .join(" · "),

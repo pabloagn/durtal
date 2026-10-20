@@ -6,6 +6,7 @@ import type { ImportErrorLog, ImportStatus, Written } from "./store";
 import type { ImportReading, ImportRow, ImportSource } from "./types";
 import { readingsCommitted, readingsUncommittedSql } from "./notes";
 import { workCoverSql } from "@/lib/library/filter-conditions";
+import { previewGoodreadsClaimsSql } from "@/lib/catalogue/goodreads-identity";
 
 /*
  * What the import pages read (SLN-450). The preview reads each section's
@@ -38,8 +39,10 @@ export interface ImportListItem {
   notes: number;
   /** Book ratings it set (SLN-658) */
   ratings: number;
-  /** Goodreads ids it recorded on editions (SLN-956) */
+  /** Goodreads identities newly recorded by this import */
   identifiers: number;
+  /** Rows with a recorded claim but no reading/queue outcome, including reused IDs. */
+  pendingClaims: number;
 }
 
 /** The reading imports, newest first */
@@ -55,7 +58,9 @@ export async function listReadingImports(limit = 100): Promise<ImportListItem[]>
         (select count(*) from reading_notes n where n.import_id = i.id)::int as notes,
         (select count(*) from reading_import_rows x where x.import_id = i.id and coalesce(x.written->'bookRating', 'null'::jsonb) <> 'null'::jsonb)::int as ratings,
         (select coalesce(sum(jsonb_array_length(x.written->'identifiers')), 0) from reading_import_rows x
-          where x.import_id = i.id and jsonb_typeof(x.written->'identifiers') = 'array')::int as identifiers
+          where x.import_id = i.id and jsonb_typeof(x.written->'identifiers') = 'array')::int as identifiers,
+        (select count(*) from reading_import_rows x where x.import_id = i.id
+          and jsonb_typeof(x.written->'goodreadsClaim') = 'object' and ${readingsUncommittedSql("x")})::int as "pendingClaims"
       from imports i
       where i.source in ${IMPORT_SOURCES}
       order by i.created_at desc, i.id
@@ -88,7 +93,7 @@ export interface ImportSummary {
   toQueue: number;
   /** To-read rows on shelves that are not imported */
   otherShelves: number;
-  /** Goodreads ids the commit would record on editions matched by ISBN */
+  /** New Goodreads identities the current accepted rows would record */
   identifiers: number;
 }
 
@@ -143,7 +148,9 @@ export async function getImportPreview(importId: string, limits: Partial<Record<
         (select count(*) from reading_notes n where n.import_id = i.id)::int as notes,
         (select count(*) from reading_import_rows x where x.import_id = i.id and coalesce(x.written->'bookRating', 'null'::jsonb) <> 'null'::jsonb)::int as ratings,
         (select coalesce(sum(jsonb_array_length(x.written->'identifiers')), 0) from reading_import_rows x
-          where x.import_id = i.id and jsonb_typeof(x.written->'identifiers') = 'array')::int as identifiers
+          where x.import_id = i.id and jsonb_typeof(x.written->'identifiers') = 'array')::int as identifiers,
+        (select count(*) from reading_import_rows x where x.import_id = i.id
+          and jsonb_typeof(x.written->'goodreadsClaim') = 'object' and ${readingsUncommittedSql("x")})::int as "pendingClaims"
       from imports i where i.id = ${importId}::uuid and i.source in ${IMPORT_SOURCES}`),
   );
   if (!header) return null;
@@ -151,7 +158,7 @@ export async function getImportPreview(importId: string, limits: Partial<Record<
   const open = readingsUncommittedSql("r");
   const caps = Object.fromEntries(IMPORT_SECTIONS.map((s) => [s, Math.min(SECTION_MAX, Math.max(SECTION_PAGE, limits[s] ?? SECTION_PAGE))]));
 
-  const [counts, totalsResult, rows] = await Promise.all([
+  const [counts, totalsResult, rows, idCounts] = await Promise.all([
     db.execute(sql`
       select r.match->>'section' as section, count(*)::int as n
       from reading_import_rows r where r.import_id = ${importId}::uuid group by 1`),
@@ -175,8 +182,7 @@ export async function getImportPreview(importId: string, limits: Partial<Record<
         count(*) filter (where r.decision = 'import' and ${open} and r.work_id is not null
           and (r.match->>'rating' = 'set' or (r.match->>'rating' = 'differs' and r.use_file_rating))
           and r.match->>'section' not in ('present', 'cannot', 'not_imported', 'to_read'))::int as "toRate",
-        count(*) filter (where r.decision = 'import' and ${open} and r.match->>'reason' = 'Same ISBN'
-          and r.data->>'sourceBookId' is not null and e.goodreads_id is null)::int as identifiers
+        0::int as identifiers
       from reading_import_rows r
       left join works w on w.id = r.work_id
       left join editions e on e.id = (r.match->>'editionId')::uuid
@@ -202,13 +208,14 @@ export async function getImportPreview(importId: string, limits: Partial<Record<
       left join works w on w.id = r.work_id
       where r.rn <= (${JSON.stringify(caps)}::jsonb->>r.section)::int
       order by r.row_no`),
+    db.execute(previewGoodreadsClaimsSql(importId)),
   ]);
 
   const [totals] = resultRows<Omit<ImportSummary, "sections">>(totalsResult);
   const sections = Object.fromEntries(IMPORT_SECTIONS.map((s) => [s, 0])) as Record<ImportSection, number>;
   for (const c of resultRows<{ section: ImportSection; n: number }>(counts)) if (c.section in sections) sections[c.section] = c.n;
   // A row with only its note written shows as not committed: its readings can still be
-  const shown = resultRows<Omit<PreviewRow, "candidates">>(rows).map((r) => (readingsCommitted(r.written) ? r : { ...r, written: null }));
+  const shown = resultRows<Omit<PreviewRow, "candidates">>(rows).map((r) => (readingsCommitted(r.written) || r.written?.goodreadsClaim ? r : { ...r, written: null }));
 
   // The candidates of the "To choose" rows shown, in one query
   const candidateIds = [...new Set(shown.flatMap((r) => (r.section === "choose" ? r.match.candidates.map((c) => c.workId) : [])))];
@@ -231,5 +238,5 @@ export async function getImportPreview(importId: string, limits: Partial<Record<
       : [];
     byRow[r.section]?.push({ ...r, candidates });
   }
-  return { header, summary: { ...totals, sections }, sections: byRow };
+  return { header, summary: { ...totals, identifiers: resultRows<{ count: number }>(idCounts)[0]?.count ?? 0, sections }, sections: byRow };
 }

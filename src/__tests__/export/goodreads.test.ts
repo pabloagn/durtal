@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { goodreadsAuthorLastFirst, goodreadsRow, goodreadsStars, roundsHalfStar, type GoodreadsBook } from "@/lib/export/goodreads";
+import { selectGoodreadsId, unresolvedGoodreadsIds, goodreadsAuthorLastFirst, goodreadsRow, goodreadsStars, roundsHalfStar, type GoodreadsBook } from "@/lib/export/goodreads";
 
 /* The Goodreads file's rows (SLN-458): shelves, stars, dates, counts and the Book Id order */
 
@@ -139,5 +139,28 @@ describe("goodreadsRow", () => {
     expect(goodreadsRow(book({ goodreadsIds: { ...ids, latestEdition: null, anyEdition: null } }))!["Book Id"]).toBe("33");
     expect(goodreadsRow(book({ goodreadsIds: { latestEdition: null, anyEdition: null, identifier: null, url: ids.url } }))!["Book Id"]).toBe("44");
     expect(goodreadsRow(book())!["Book Id"]).toBe("");
+  });
+});
+
+
+describe("Goodreads Book Id selection", () => {
+  const ids = { latestEdition: null, anyEdition: null, identifier: null, url: null };
+  it.each([
+    { name: "exact provenance wins over legitimate edition choices", change: { provenance: ["0009007199254740993"], anyEdition: ["11", "22"] }, expected: { id: "0009007199254740993", warning: null } },
+    { name: "conflicting provenance never falls through", change: { provenance: ["11", "22"], latestEdition: "33" }, expected: { id: "", warning: "ambiguous" } },
+    { name: "cross-book conflict defeats exact provenance", change: { provenance: ["00011"], conflicted: ["11"] }, expected: { id: "", warning: "conflict" } },
+    { name: "latest edition wins before later tiers", change: { latestEdition: "11", anyEdition: ["22", "33"] }, expected: { id: "11", warning: null } },
+    { name: "an ambiguous applicable tier does not fall through", change: { anyEdition: ["11", "22"], identifier: "33" }, expected: { id: "", warning: "ambiguous" } },
+    { name: "repeated same-ID observations stay unambiguous", change: { identifier: ["0011", "11", "0011"] }, expected: { id: "0011", warning: null } },
+    { name: "invalid values do not hide a valid lower tier", change: { latestEdition: "invalid", url: "https://www.goodreads.com/book/show/0012.Title" }, expected: { id: "0012", warning: null } },
+    { name: "no ID is a normal blank, not a warning", change: {}, expected: { id: "", warning: null } },
+  ])("$name", ({ change, expected }) => {
+    expect(selectGoodreadsId({ ...ids, ...change })).toEqual(expected);
+  });
+  it("keeps all other cells and counts only exported unresolved books", () => {
+    const original = book({ goodreadsIds: { ...ids, latestEdition: "11" } });
+    const unresolved = book({ goodreadsIds: { ...ids, identifier: ["11", "22"] } });
+    expect(goodreadsRow(unresolved)).toEqual({ ...goodreadsRow(original), "Book Id": "" });
+    expect(unresolvedGoodreadsIds([original, unresolved, { ...unresolved, state: "unread", inUpNext: false }])).toBe(1);
   });
 });

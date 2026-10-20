@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { resultRows } from "@/lib/harmonization/store";
+import { goodreadsKeySql } from "@/lib/catalogue/goodreads-identity";
 import type { ReadingDatePrecision, ReadingStatus } from "../constants";
 import type { ExistingReading } from "../duplicates";
 import {
@@ -112,19 +113,19 @@ async function goodreadsHits(ids: string[]): Promise<IdHit[]> {
       ...resultRows<IdHit>(
         await db.execute(sql`
           with ids as (select value as id from jsonb_array_elements_text(${json(batch)}::jsonb))
-          select e.goodreads_id as key, e.work_id::text as "workId", e.id::text as "editionId", 'Same Goodreads id' as reason
-            from editions e join works w on w.id = e.work_id and w.kind = 'book'
-            where e.goodreads_id in (select id from ids)
+          select ids.id as key, e.work_id::text as "workId", e.id::text as "editionId", 'Same Goodreads id' as reason
+            from ids join editions e on ${goodreadsKeySql(sql`e.goodreads_id`)} = ${goodreadsKeySql(sql`ids.id`)}
+            join works w on w.id = e.work_id and w.kind = 'book'
           union
-          select ci.external_id, coalesce(ci.work_id, ce.work_id)::text, ci.edition_id::text, 'Same Goodreads id'
-            from catalogue_identifiers ci
-            left join editions ce on ce.id = ci.edition_id
-            join works w on w.id = coalesce(ci.work_id, ce.work_id) and w.kind = 'book'
-            where ci.provider = 'goodreads' and ci.external_id in (select id from ids)
+          select ids.id, coalesce(ci.work_id, e.work_id)::text, ci.edition_id::text, 'Same Goodreads id'
+            from ids join catalogue_identifiers ci on ${goodreadsKeySql(sql`ci.external_id`)} = ${goodreadsKeySql(sql`ids.id`)}
+            left join editions e on e.id = ci.edition_id
+            join works w on w.id = coalesce(ci.work_id, e.work_id) and w.kind = 'book'
+            where ci.provider = 'goodreads' and ci.entity_kind in ('book','edition')
           union
-          select substring(w.goodreads_url from '/book/show/(\\d+)'), w.id::text, null, 'Same Goodreads link'
-            from works w
-            where w.kind = 'book' and substring(w.goodreads_url from '/book/show/(\\d+)') in (select id from ids)`),
+          select ids.id, w.id::text, null, 'Same Goodreads link'
+            from ids join works w on ${goodreadsKeySql(sql`w.goodreads_url`)} = ${goodreadsKeySql(sql`ids.id`)}
+            where w.kind = 'book' `),
       ),
     );
   }

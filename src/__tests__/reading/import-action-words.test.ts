@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { rowsChanged, undoRemoves } from "@/lib/reading/import/action-words";
+import { canUndoImport, rowsChanged, undoDescription, undoRemoves } from "@/lib/reading/import/action-words";
 
 /* The import buttons' words (SLN-956) */
 
@@ -18,5 +18,25 @@ describe("the import's button words", () => {
       "the book ratings it set while they are unchanged",
       "the 4 Goodreads ids it recorded",
     ]);
+  });
+});
+
+
+describe("Undo for interrupted ID claims", () => {
+  it("is available for a reused claim with no removable records", () => {
+    expect(canUndoImport({ readings: 0, queued: 0, notes: 0, ratings: 0, identifiers: 0, pendingClaims: 1 })).toBe(true);
+    expect(canUndoImport({ readings: 0, queued: 0, notes: 0, ratings: 0, identifiers: 0, pendingClaims: 0 })).toBe(false);
+  });
+  it("describes zero record removal and guarded new-ID removal truthfully", () => {
+    const reused = undoDescription({ readings: 0, pendingClaims: 1 });
+    expect(reused).toContain("No readings, notes or Up next items were written");
+    expect(reused).toContain("Reused Goodreads IDs are kept");
+    expect(reused).not.toContain("book ratings it set");
+    expect(undoDescription({ readings: 0, pendingClaims: 1, goodreadsIds: 1 })).toContain("Only new IDs still owned by this import and unused elsewhere are removed");
+  });
+  it("includes an outstanding rating journal alongside a pending ID claim", () => {
+    const description = undoDescription({ readings: 0, pendingClaims: 1, ratings: 1 });
+    expect(description).toContain("the book ratings it set while they are unchanged");
+    expect(description).not.toContain("No readings, notes or Up next items were written");
   });
 });

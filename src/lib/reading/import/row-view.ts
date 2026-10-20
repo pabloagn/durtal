@@ -32,6 +32,8 @@ export interface RowView {
 
 /** The outcomes of a written row: "Written (2) · Already in Durtal (Same source)" */
 function outcomes(written: NonNullable<PreviewRow["written"]>) {
+  if (written.goodreadsClaim && !written.readings.length && !written.queueOutcome && !written.ratingOutcome)
+    return "Goodreads ID recorded; remaining import pending";
   const counts = new Map<string, number>();
   for (const r of written.readings) {
     const w = outcomeWords(r.outcome, r.reason);
@@ -71,8 +73,8 @@ export function rowView(row: PreviewRow, today: string): RowView {
   if (written) lines.push(["outcome", written.queueOutcome ? queueOutcome(written) : outcomes(written)]);
   if (what) lines.push(["writes", what]);
   if (rating) lines.push(["rating", rating.text]);
-  if (!written && match.reason === "Same ISBN" && data.sourceBookId && book?.editionWithoutGoodreads)
-    lines.push(["note", `Records Goodreads id ${data.sourceBookId} on this edition`]);
+  if (!written && !closed && row.decision === "import" && data.sourceBookId && book)
+    lines.push(["note", `Checks and preserves Goodreads Book Id ${data.sourceBookId} for this book on commit`]);
   for (const w of [...data.warnings, ...match.warnings]) lines.push(["note", w]);
   return {
     rowNo: row.rowNo,

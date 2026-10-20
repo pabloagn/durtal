@@ -1447,3 +1447,47 @@ request rather than inventing a replacement operation.
 request and preview token. Both require the REST token and same-origin guard,
 validate the path UUID, and require its identity to match the body. The preview
 and confirmation use the shared review service and its existing error mapping.
+
+
+### Goodreads Book Id preservation (SLN-1082)
+
+Committing currently accepted Goodreads rows records their parsed Book Id text,
+including leading zeros, on the resolved book. An edition owns it only when the
+current ISBN and work still prove that edition; a manual/title match or automatic
+single-copy link does not prove edition ownership. Pending, skipped, errored,
+custom-shelf and historical rows are not backfilled.
+
+Import and Goodreads book/edition registry claims share sorted transaction
+advisory locks. Checks run in later statements, with brief table locks covering
+the existing catalogue identifiers, editions and works during a claim. The
+identifier insertion and its ownership-snapshot journal are atomic. The larger
+import still has separate claim, reading, queue and note transactions and can be
+retried. Other metadata editors, enrichment, interchange and merge paths do not
+participate in the advisory protocol; this is not a global uniqueness guarantee
+against later writes. Registry calls return the exact requested raw owner
+association or refuse it; import-only reuse may cross book/edition namespaces.
+Existing cross-book conflicts are refused rather than
+rewritten, merged or deleted. No migration is involved.
+
+Undo deletes only new identifiers whose ID, provider, namespace, owner and value
+still match this import's snapshot, including the current effective book of an
+edition-owned ID. Reused, moved, cited, shared and snapshot-less
+historical identifiers are retained and reported. A claim-only interruption, including reused IDs, offers
+Undo on both import pages without claiming any readings were written. Reading/queue journals remain
+independent of identifier ownership so partial imports remain recoverable.
+
+The Goodreads CSV chooses a corroborated source from its exact latest reading,
+or the exact queue item for a book without readings. Corroboration requires a
+Goodreads import, accepted row, matching work and source key, and the journaled
+written reading/queue ID. A copied Goodreads-looking source key is insufficient.
+Otherwise the existing fallback order is used: latest edition, other editions,
+catalogue identifiers, work URL. The first applicable tier must have one distinct
+valid ID; conflicting or ambiguous identities produce a blank Book Id. The
+remaining 23 cells retain their existing behavior.
+
+`POST /api/export` for `entity=goodreads` includes
+`X-Durtal-Goodreads-Unresolved: <count>` on its successful CSV response. The app
+shows a persistent export warning when the count is nonzero, including when the
+courtesy preflight notice could not load. The file remains downloadable and no
+stored IDs are changed. Goodreads person/author identifiers use their existing,
+separate registry behavior.

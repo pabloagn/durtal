@@ -2,6 +2,7 @@ import { GOODREADS_EXPORT_HEADER } from "@/lib/reading/import/formats";
 import { bindingLabel } from "@/lib/utils/binding";
 import { stripHtmlToText } from "@/lib/utils/sanitize";
 import type { ReadingDatePrecision } from "@/lib/reading/constants";
+import { goodreadsBookId, goodreadsBookKey } from "@/lib/catalogue/goodreads-id";
 
 /*
  * The Goodreads-compatible file (SLN-458): one row per book, in Goodreads'
@@ -49,10 +50,14 @@ export interface GoodreadsBook {
   } | null;
   /** The Goodreads id sources, in the order they are tried */
   goodreadsIds: {
-    latestEdition: string | null;
-    anyEdition: string | null;
-    identifier: string | null;
-    url: string | null;
+    /** Corroborated exact latest-reading or queue provenance, never just a source-key pattern. */
+    provenance?: string[];
+    /** Canonical IDs found on more than one effective book. */
+    conflicted?: string[];
+    latestEdition: string | string[] | null;
+    anyEdition: string | string[] | null;
+    identifier: string | string[] | null;
+    url: string | string[] | null;
   };
   /** The book's copies that are not deaccessioned */
   ownedCopies: number;
@@ -82,12 +87,29 @@ export function roundsHalfStar(book: Pick<GoodreadsBook, "rating" | "readCount" 
   return rating !== null && !Number.isInteger(rating);
 }
 
-/** The digits of a Goodreads id: from an id or a /book/show/<id> link */
-function goodreadsId(value: string | null): string | null {
-  if (!value) return null;
-  const fromUrl = value.match(/\/book\/show\/(\d+)/);
-  if (fromUrl) return fromUrl[1];
-  return /^\d+$/.test(value.trim()) ? value.trim() : null;
+/** Resolve a single trustworthy ID; an ambiguous applicable tier never falls through. */
+export function selectGoodreadsId(ids: GoodreadsBook["goodreadsIds"]): { id: string; warning: "ambiguous" | "conflict" | null } {
+  const conflicted = new Set((ids.conflicted ?? []).map(goodreadsBookKey));
+  const choose = (values: string[], exact = false) => {
+    const parsed = values.map(goodreadsBookId).filter((value): value is string => value !== null);
+    if (!parsed.length) return null;
+    if (new Set(parsed.map((value) => exact ? value : goodreadsBookKey(value))).size !== 1)
+      return { id: "", warning: "ambiguous" as const };
+    return conflicted.has(goodreadsBookKey(parsed[0]))
+      ? { id: "", warning: "conflict" as const } : { id: parsed[0], warning: null };
+  };
+  const verified = choose(ids.provenance ?? [], true);
+  if (verified) return verified;
+  for (const tier of [ids.latestEdition, ids.anyEdition, ids.identifier, ids.url]) {
+    const selected = choose(Array.isArray(tier) ? tier : tier ? [tier] : []);
+    if (selected) return selected;
+  }
+  return { id: "", warning: null };
+}
+
+/** Only exported rows count toward the warning sent with the actual file. */
+export function unresolvedGoodreadsIds(books: GoodreadsBook[]): number {
+  return books.filter((book) => goodreadsShelf(book) !== null && selectGoodreadsId(book.goodreadsIds).warning !== null).length;
 }
 
 /** YYYY-MM-DD → YYYY/MM/DD, at day precision only */
@@ -115,7 +137,7 @@ export function goodreadsRow(book: GoodreadsBook): GoodreadsRow | null {
       : slashDay(book.lastFinishedOn, book.lastFinishedPrecision);
   const e = book.edition;
   return {
-    "Book Id": goodreadsId(ids.latestEdition) ?? goodreadsId(ids.anyEdition) ?? goodreadsId(ids.identifier) ?? goodreadsId(ids.url) ?? "",
+    "Book Id": selectGoodreadsId(ids).id,
     Title: book.title,
     Author: first?.name ?? "",
     "Author l-f": first ? goodreadsAuthorLastFirst(first) : "",

@@ -12,6 +12,7 @@ import { appTimeZone } from "@/lib/utils/date";
 import { editionShortLabel, type NoteEdition } from "@/lib/reading/edition-label";
 import type { CommonplaceNote } from "./commonplace";
 import type { GoodreadsBook } from "./goodreads";
+import { goodreadsOwnersSql } from "@/lib/catalogue/goodreads-identity";
 
 /*
  * The reading exports' rows (SLN-458): readings, sessions, quotes and notes,
@@ -216,7 +217,7 @@ export async function loadGoodreadsBooks(): Promise<GoodreadsBook[]> {
           and (exists (select 1 from readings r where r.work_id = w.id) or exists (select 1 from reading_queue q where q.work_id = w.id))
       ),
       latest as (
-        select distinct on (r.work_id) r.work_id, r.edition_id from readings r
+        select distinct on (r.work_id) r.work_id, r.edition_id, r.id, r.import_id, r.source_key from readings r
         order by r.work_id, (r.status in ('reading','paused')) desc, coalesce(r.started_on, r.finished_on) desc nulls last,
           r.source_key desc nulls first, r.created_at desc, r.id desc
       ),
@@ -245,12 +246,36 @@ export async function loadGoodreadsBooks(): Promise<GoodreadsBook[]> {
           from editions e where e.work_id = b.id
           order by (e.id = l.edition_id) desc nulls last, e.created_at, e.id limit 1) as edition,
         jsonb_build_object(
+          'provenance', case when l.id is not null then array(
+            select distinct rr.data->>'sourceBookId'
+            from reading_import_rows rr join imports i on i.id = rr.import_id and i.source = 'goodreads'
+            where rr.import_id = l.import_id and rr.work_id = b.id and rr.decision = 'import'
+              and rr.data->>'error' is null and rr.data->>'sourceBookId' ~ '^[0-9]+$'
+              and rr.data->>'kind' = 'readings'
+              and exists (select 1 from jsonb_array_elements(coalesce(rr.written->'readings', '[]'::jsonb)) journal
+                join jsonb_array_elements(rr.data->'readings') original on original->>'n' = journal->>'n'
+                where journal->>'outcome' = 'written' and journal->>'readingId' = l.id::text
+                  and original->>'sourceKey' = l.source_key
+                  and l.source_key = 'goodreads:' || (rr.data->>'sourceBookId') || '#' || (original->>'n'))
+          ) else array(
+            select distinct rr.data->>'sourceBookId'
+            from reading_queue q join reading_import_rows rr on rr.import_id = q.import_id and rr.work_id = q.work_id
+            join imports i on i.id = rr.import_id and i.source = 'goodreads'
+            where q.work_id = b.id and q.source = 'import' and rr.decision = 'import'
+              and rr.data->>'error' is null and rr.data->>'sourceBookId' ~ '^[0-9]+$'
+              and rr.data->>'kind' = 'to_read' and rr.data->>'queueKey' = q.source_key
+              and q.source_key = 'goodreads-to-read:' || (rr.data->>'sourceBookId')
+              and rr.written->>'queueOutcome' = 'written' and rr.written->'queueItem'->>'id' = q.id::text
+          ) end,
           'latestEdition', (select e.goodreads_id from editions e where e.id = l.edition_id),
-          'anyEdition', (select e.goodreads_id from editions e where e.work_id = b.id and e.goodreads_id is not null order by e.created_at, e.id limit 1),
-          'identifier', (select ci.external_id from catalogue_identifiers ci where ci.provider = 'goodreads'
+          'anyEdition', array(select e.goodreads_id from editions e where e.work_id = b.id and e.goodreads_id is not null order by e.created_at, e.id),
+          'identifier', array(select ci.external_id from catalogue_identifiers ci where ci.provider = 'goodreads'
+            and ci.entity_kind in ('book','edition')
             and (ci.work_id = b.id or ci.edition_id in (select e.id from editions e where e.work_id = b.id))
-            order by (ci.work_id is not null) desc, ci.created_at, ci.id limit 1),
-          'url', b.goodreads_url) as "goodreadsIds",
+            order by (ci.work_id is not null) desc, ci.created_at, ci.id),
+          'url', b.goodreads_url,
+          'conflicted', array(select o.key from (${goodreadsOwnersSql()}) o where o.key is not null
+            group by o.key having count(distinct o.work_id) > 1)) as "goodreadsIds",
         (select count(*)::float8 from instances i join editions e on e.id = i.edition_id
           where e.work_id = b.id and i.status <> 'deaccessioned') as "ownedCopies"
       from books b left join latest l on l.work_id = b.id left join last_finished lf on lf.work_id = b.id
