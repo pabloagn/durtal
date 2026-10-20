@@ -62,3 +62,22 @@ and finding 5 of `findings/hover-and-touch.md`.
     shows it finds one.
   - It also covers the toast's close button on touch and the Settings
     menu's height.
+
+### Review on current main (2026-10-20)
+
+- Rechecked after #615 and #617, which added the `sideways` variant and new
+  credit rows; neither adds a hand-written `:hover`, and Tailwind's `hover:`
+  already waits for `(hover: hover)`.
+- **Browsers** (private preview, Chromium, Firefox and WebKit):
+  - A tapped person card at 390 keeps its resting border and shadow though it
+    holds `:hover`; with a mouse at 1440 it shows its shadow.
+  - At 844×390 with touch, on Settings > Data at the end of the page, the menu
+    is 350px tall and every one of its 8 links can be scrolled into view
+    inside it. At 1440 it doesn't scroll (326px). In Firefox and WebKit,
+    focusing a link that is partly cut at the menu's foot doesn't scroll it
+    fully into view; Chromium does. That is each engine's own focus
+    scrolling, and the menu still scrolls to it.
+- **Checks on main after #617:** `pnpm typecheck` and `pnpm lint` clean,
+  `pnpm test:local` and `pnpm build` pass. The browser audit passes 45 of 45
+  page loads on `/settings`, `/settings/data`, `/people`, `/library` and
+  `/statistics`. `page-weight.js` passes.
