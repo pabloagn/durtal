@@ -174,7 +174,7 @@ export function Sidebar({
           {/* A touch screen has no keyboard shortcut, held sideways too (SLN-1149) */}
           <kbd
             className={`ml-auto hidden font-mono text-micro text-fg-secondary ${
-              isCollapsed ? "" : "md:pointer-fine:inline"
+              isCollapsed ? "" : "md:any-pointer-fine:inline"
             }`}
           >
             <span className="text-micro">&#8984;</span>K

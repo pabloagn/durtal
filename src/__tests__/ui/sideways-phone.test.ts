@@ -13,11 +13,12 @@ it("defines one variant for a phone held sideways", () => {
   );
 });
 
-it("shows key hints only with a fine pointer", () => {
+it("shows key hints only where a fine pointer is attached", () => {
   const palette = read("components/layout/command-palette.tsx");
-  expect(palette).toMatch(/className="hidden items-center gap-4 border-t [^"]*pointer-fine:flex"/);
-  expect(palette).toContain('<span className="hidden pointer-fine:contents">\n          <KeyCombo');
-  expect(read("components/layout/sidebar.tsx")).toContain('isCollapsed ? "" : "md:pointer-fine:inline"');
+  expect(palette).toMatch(/className="hidden items-center gap-4 border-t [^"]*any-pointer-fine:flex"/);
+  expect(palette).toMatch(/<span className="hidden any-pointer-fine:contents">\s*<KeyCombo/);
+  expect(read("components/layout/sidebar.tsx")).toContain('isCollapsed ? "" : "md:any-pointer-fine:inline"');
+  expect(read("components/ebooks/catalogue-read-action.tsx")).toContain('"hidden sm:any-pointer-fine:group-aria-selected:inline"');
 });
 
 it("starts a sideways phone with the icon rail", () => {

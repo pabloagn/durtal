@@ -57,3 +57,17 @@ SLN-1149, from items 4, 5 and 6 of `findings/phone-pass-survey-2026-10-18.md`.
     query.
   - `ui/library-sort`: a short list's chips give way to the menu when the
     phone is held sideways.
+
+### Review on current main (2026-10-20)
+
+- **Where a fine pointer is attached.** The key hints use
+  `any-pointer-fine:`, not `pointer-fine:`. A tablet whose main pointer is
+  touch still shows them once a trackpad or mouse is attached, and a phone
+  shows none.
+- **The palette's Read action.** Its ⌘↵ still showed by width alone; it
+  now follows the same rule, on the selected row from sm up.
+- **Not changed here:** the server draws the open sidebar, and a phone
+  held sideways or a narrow tablet shrinks it to the rail after hydration,
+  as narrow tablets already did. Filed as SLN-1509.
+- **Tests:** `ui/sideways-phone` pins the Read action's rule too;
+  `ui/catalogue-ebook-actions` follows its new class.
