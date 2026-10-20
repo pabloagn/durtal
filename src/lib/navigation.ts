@@ -5,7 +5,7 @@ export interface NavSection {
   label: string;
 }
 
-/** The home of each open collection (Books, Perfumes...), never an unready one. */
+/** The home of each collection (Books, Perfumes...). */
 export const DOMAIN_SECTIONS: NavSection[] = DOMAIN_ORDER.map(
   (kind) => ({
     href: WORK_DOMAINS[kind].basePath,

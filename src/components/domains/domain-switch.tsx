@@ -7,7 +7,7 @@ import { DOMAIN_ICONS } from "@/components/shortcuts/section-icons";
 type SearchParams = Record<string, string | string[] | undefined>;
 
 /**
- * Links between the homes of the open collections. Each link keeps only the
+ * Links between the homes of the collections. Each link keeps only the
  * search, filters and sort that its home understands. With one open
  * collection there is nothing to switch to, so it renders nothing.
  */

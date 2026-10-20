@@ -162,8 +162,7 @@ async function listed(ids: SQL) {
  * editions it publishes (with the houses above and under it), the perfumes it
  * makes, brands or sells, the films it produces or distributes, and the
  * paintings it owns or shows at its venues. Each list holds the first works
- * as cards; each count is complete. Works of a collection that is not open
- * are left out of the lists.
+ * as cards; each count is complete.
  */
 export async function getOrganizationContributions(id: string) {
   z.uuid().parse(id);

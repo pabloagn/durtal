@@ -107,7 +107,7 @@ const nextConfig: NextConfig = {
 
 ### `src/lib/catalogue/domains.ts`
 
-The collections and their switches. Each entry of `WORK_DOMAINS` has `enabled`: `false` closes the collection in the app (404 on its pages, no menu, switch or dashboard section) without touching its rows. The database check `works_kind_enabled_check` is changed only by a reviewed activation migration. All four collections are open. See `docs/01_ARCHITECTURE.md`, Collections Open by Switch.
+The collections. Each entry of `WORK_DOMAINS` gives a collection's labels, routes and capabilities; every collection is open, and none can be closed from configuration (SLN-1229). The database check `works_kind_enabled_check` is changed only by a reviewed activation migration. See `docs/01_ARCHITECTURE.md`, Collections.
 
 ### `drizzle.config.ts`
 

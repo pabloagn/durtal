@@ -432,7 +432,7 @@ Download books, authors, perfumes, films, paintings, or reading as a file. Used 
 
 | Field | Type | Description |
 |---|---|---|
-| `entity` | `"works"` \| `"authors"` \| `"perfumes"` \| `"films"` \| `"paintings"` \| `"readings"` \| `"reading-sessions"` \| `"reading-notes"` \| `"goodreads"` | Books, authors of books, the records of an open collection (one row each: makers, dates, classification, holdings, rating, favourite, notes), or reading (below) |
+| `entity` | `"works"` \| `"authors"` \| `"perfumes"` \| `"films"` \| `"paintings"` \| `"readings"` \| `"reading-sessions"` \| `"reading-notes"` \| `"goodreads"` | Books, authors of books, the records of a collection (one row each: makers, dates, classification, holdings, rating, favourite, notes), or reading (below) |
 | `ids` | string[] | 1–500 ids to export. Not needed with `all`; the reading exports take `all` or `filters` |
 | `all` | boolean | `true`: every record of the entity instead of `ids` |
 | `filters` | string | `readings` and `reading-notes` only: the journal's or the commonplace book's URL query (at most 2,000 characters), parsed by the page's own parser (`parseJournalQuery`, `parseNotesQuery`); the file holds every record the filters keep, in the page's order, not cut at 500 |
@@ -440,7 +440,7 @@ Download books, authors, perfumes, films, paintings, or reading as a file. Used 
 
 **Response** `200`: the file, with `Content-Disposition: attachment; filename="durtal-{entity}-{date}.{ext}"` (`durtal-books-all-…`, `durtal-authors-all-…`, `durtal-perfumes-all-…` and so on with `all`, a slug of the name for a single record).
 
-**Response** `400`: a bad entity, format, id list or `filters`. `404`: no record matched, or the collection is not open. `500`: `{ "error": "Export failed." }`.
+**Response** `400`: a bad entity, format, id list or `filters`. `404`: no record matched. `500`: `{ "error": "Export failed." }`.
 
 **Book JSON**: an array of the same allowlisted, flat book rows exported by CSV,
 with numeric fields preserved as numbers. Stored text is unchanged, including
@@ -497,7 +497,7 @@ Downloads the interchange file. No token. Reads only.
 
 | Field | Type | Description |
 |---|---|---|
-| `domains` | (`"book"` \| `"perfume"` \| `"film"` \| `"painting"`)[] | These collections only. Every open collection when absent |
+| `domains` | (`"book"` \| `"perfume"` \| `"film"` \| `"painting"`)[] | These collections only. Every collection when absent |
 | `ids` | string[] | These works only (at most 5000) |
 
 **Response** `200`: the file, `durtal-interchange-{date}.json`. `404`: no record matched.

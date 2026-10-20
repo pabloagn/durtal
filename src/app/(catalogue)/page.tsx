@@ -234,7 +234,7 @@ function workToCardProps(work: {
  */
 const SHELF = 10;
 
-/** The other open collections: counts, newest records. Books come from getLibraryStats. */
+/** The other collections: counts, newest records. Books come from getLibraryStats. */
 async function otherDomains() {
   const kinds = DOMAIN_ORDER.filter(
     (kind): kind is HomeKind => kind !== "book",

@@ -30,10 +30,15 @@ and turning one off now would hide records that exist, so it goes.
   its search go; the record's own id decides.
 - Quick search, taxonomy families and browse, work relations, organization
   directory, similar ranking, counts, navigation, shortcuts, the dashboard and
-  the empty catalogue read `DOMAIN_ORDER`.
+  the empty catalogue read `DOMAIN_ORDER`, or no kind list at all where one
+  only filtered: quick search no longer passes a kind list to each group (its
+  work groups still sort in `DOMAIN_ORDER`), and similar ranking and
+  `catalogueIsEmpty` drop a `kind in (...)` that every row matched.
+- `/settings/about` no longer lists which collections are open.
 - Tests that toggled or mocked the switch now assert every collection is
   listed (taxonomy families, empty dashboard links, curation capabilities).
-- Docs 01, 02, 04, 11 and 14 no longer describe the switch; docs/11's
+- Docs 01, 02, 04, 05, 11, 13 and 14 no longer describe the switch (docs/01's
+  section is now "Collections", and the export API lists no "not open" 404); docs/11's
   "Rolling back a collection" says collections are permanent and that a build
   from before this change still has the switch.
 
@@ -47,3 +52,8 @@ Checks: typecheck clean; lint shows no new warnings in the changed files; the
 753 suites without a database pass. The container's disk is full, so the
 database suites (taxonomy applicability, work kind migration, collections) ran
 in CI's "Tests (with database suites)" rather than locally.
+
+Self-review (code-review, high) found stale docs and comments that still
+described the switch, filters and guards that could no longer fail (an empty
+kind list in export, the empty catalogue and `collectableNouns`), and leftover
+parentheses on the organization page; all fixed in this PR.

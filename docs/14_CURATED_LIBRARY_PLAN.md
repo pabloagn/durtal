@@ -321,8 +321,7 @@ Taxonomy management (SLN-353) completes custom families: create with explicit
 scopes, edit, reorder, and delete when unused, from the taxonomy directory and
 family pages. Editors show which scopes records use before a change. Book pages
 assign custom families in place with a bounded, keyboard-driven search that can
-also create an item. Families of collections that are not open yet stay hidden
-and keep their scopes and order. `scripts/qa/preview-local.py` runs the app
+also create an item. `scripts/qa/preview-local.py` runs the app
 against a disposable local database for browser checks.
 
 Migrations 0037–0049 are live since 2026-10-03 (task 0182), and the branch is on
@@ -332,7 +331,7 @@ existing row was preserved, and the only additions were the eight domain
 taxonomy families. Later migrations continue from 0050 and need the same
 backup, rehearsal and before/after comparison.
 
-Collection navigation (SLN-364, task 0188) names each open collection in the
+Collection navigation (SLN-364, task 0188) names each collection in the
 sidebar, the Add and Go menus, the command palette and the dashboard; Books
 stays at `/library`. `/perfumes`, `/films` and `/paintings` answer 404 until
 their collection opens, from a gate in each route's layout. Their homes, the
@@ -418,7 +417,7 @@ same predicate; tests now pin that for every film sort.
 
 Mixed collections (SLN-362, task 0269): `collection_works` holds whole works
 beside edition members, in one order; a book held both ways shows through its
-edition and counts once. Every open collection can be added, removed and
+edition and counts once. Every collection can be added, removed and
 reordered, with previews, counts, library selection and delete cleanup.
 Migration 0059.
 

@@ -41,7 +41,7 @@ const SEARCH_HINTS: Record<Mode, string> = {
 
 /**
  * Adds members to a collection: editions of books (a chosen edition), or whole
- * works of any open collection, including a book with no edition chosen and
+ * works of any collection, including a book with no edition chosen and
  * works with nothing owned. Each choice joins after the last member.
  */
 export function AddCollectionBooksDialog({

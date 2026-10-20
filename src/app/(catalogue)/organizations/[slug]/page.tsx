@@ -127,12 +127,9 @@ export default async function OrganizationPage({ params }: { params: Promise<{ s
   const id = organization.id;
 
   const houseRoles = perfumes.roles.filter((r) => r.total > 0);
-  const hasPerfumes =
-    (houseRoles.length > 0 || perfumes.listings > 0 || perfumes.bottles > 0);
-  const hasFilms =
-    (films.produced.total > 0 || films.distributed.total > 0 || films.copies > 0);
-  const hasPaintings =
-    (paintings.owned.objects > 0 || paintings.shown.total > 0);
+  const hasPerfumes = houseRoles.length > 0 || perfumes.listings > 0 || perfumes.bottles > 0;
+  const hasFilms = films.produced.total > 0 || films.distributed.total > 0 || films.copies > 0;
+  const hasPaintings = paintings.owned.objects > 0 || paintings.shown.total > 0;
   const venues = organization.venues;
   // A venue it both runs and owns is one venue
   const venueCount = new Set(venues.map((v) => v.venueId)).size;

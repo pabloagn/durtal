@@ -247,7 +247,7 @@ export function CommandPalette({ open, onOpenChange, recentEbook, readerReturnTo
     };
   }, [open, recentEbook]);
 
-  // Works of every open collection, people, organizations and places; an
+  // Works of every collection, people, organizations and places; an
   // older answer never replaces a newer one
   const trimmed = query.trim();
   const returnDestination = readerReturnTo ?? (typeof window !== "undefined"

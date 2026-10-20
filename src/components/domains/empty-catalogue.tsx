@@ -33,11 +33,9 @@ export function EmptyCatalogue() {
       action={
         <div className="flex flex-col items-center gap-4">
           <DomainAddLink kind="book" />
-          {kinds.length > 0 && (
-            <p className="text-center text-sm text-fg-secondary">
-              Or add <OtherKindLinks kinds={kinds} />.
-            </p>
-          )}
+          <p className="text-center text-sm text-fg-secondary">
+            Or add <OtherKindLinks kinds={kinds} />.
+          </p>
         </div>
       }
     />

@@ -200,7 +200,7 @@ Guard: `getDb()` (`src/lib/db/index.ts`) throws when called during `next build` 
 
 Reference data read through `cached()` (`src/lib/cache.ts`, `unstable_cache` with tags) is still cached per request; the matching server actions invalidate its tags.
 
-### Collections Open by Switch
+### Collections
 
 Books, perfumes, films and paintings share the `works` table, told apart by `works.kind`. Each collection is an entry in `WORK_DOMAINS` (`src/lib/catalogue/domains.ts`): its labels, routes and capabilities. All four are open, and navigation, menus, search and the dashboard list them in `DOMAIN_ORDER`; `canUseWorkCapability()` says what each one has. The database keeps its own gate: `works_kind_enabled_check` lists the kinds a row may have, and only an activation migration widens it (`0053_open_perfumes`, `0054_film_kind_enabled`, `0055_open_paintings`). A new kind ships with its entry and its activation migration together (see `docs/11_DEPLOYMENT.md`, Release order). The code's own open switch is gone (SLN-1229): every kind was open, so it decided nothing.
 

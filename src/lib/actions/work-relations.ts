@@ -129,7 +129,7 @@ export async function getWorkRelations(workId: string): Promise<WorkRelationView
   });
 }
 
-/** Works to link to, by title, in the open collections of `kinds` */
+/** Works to link to, by title, in the collections of `kinds` */
 export async function searchWorksForRelation(input: {
   query: string;
   kinds: WorkKind[];
