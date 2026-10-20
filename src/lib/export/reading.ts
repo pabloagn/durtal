@@ -79,7 +79,7 @@ export const NOTE_EXPORT_COLUMNS = [
   "created_at",
 ] as const;
 
-type Row = Record<string, string | number | null>;
+type Row = Record<string, string | number | boolean | null>;
 
 /** A book's author names in credit order, joined with "; " (work_authors aliased by the book column) */
 const authorsOf = (workId: SQL) =>
@@ -204,8 +204,9 @@ export async function noteExportRows(filter: NotesFilter): Promise<Row[]> {
   return (await noteRows(filter)).map(({ comment_html, is_favourite, page_roman, label_edition, ...row }) => ({
     ...row,
     thought: comment_html ? stripHtmlToText(comment_html).trim() : null,
-    favourite: is_favourite ? "yes" : "no",
-    page_roman: page_roman ? "yes" : "no",
+    // Booleans: yes or no in CSV and TSV, true or false in JSON and Parquet
+    favourite: is_favourite,
+    page_roman,
     edition_label: editionLabelOf({ ...row, label_edition }),
   }));
 }

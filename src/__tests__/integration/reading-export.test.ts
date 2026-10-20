@@ -4,6 +4,7 @@ import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { NextRequest } from "next/server";
 import { sql } from "drizzle-orm";
+import { ParquetReader } from "@dsnp/parquetjs";
 import * as schema from "@/lib/db/schema";
 
 // Explicit opt-in only: never load DATABASE_URL or any live environment files.
@@ -191,8 +192,16 @@ describe.skipIf(!url)("the reading exports with PostgreSQL", () => {
     for (const entity of ["reading-sessions", "reading-notes", "goodreads"]) expect((await exportFile(entity)).status).toBe(200);
     // The Goodreads file is for importing: no byte order mark
     expect((await exportFile("goodreads")).text).toBe(GOODREADS_EXPORT_HEADER.join(","));
-    // Parquet with no rows has nothing to write
-    expect((await exportFile("readings", { all: true }, "parquet")).status).toBe(404);
+    // Parquet and JSON with no rows are still files (SLN-894): the columns, no rows
+    const res = await exportRoute(
+      new NextRequest("http://localhost/api/export", { method: "POST", body: JSON.stringify({ entity: "readings", format: "parquet", all: true }) }),
+    );
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-disposition")).toMatch(/filename="durtal-readings-all-\d{4}-\d{2}-\d{2}\.parquet"/);
+    const empty = await ParquetReader.openBuffer(Buffer.from(await res.arrayBuffer()));
+    expect(Object.keys(empty.schema.fields)).toEqual([...READING_EXPORT_COLUMNS]);
+    expect(Number(empty.getRowCount())).toBe(0);
+    expect(JSON.parse((await exportFile("readings", { all: true }, "json")).text)).toEqual([]);
   });
 
   it("imports its own Goodreads file back with nothing written", async () => {
@@ -268,6 +277,30 @@ describe.skipIf(!url)("the reading exports with PostgreSQL", () => {
     expect(guarded(goodreads, "=Equals")).toBe(false);
     expect(goodreads.split("\n").some((line) => line.split(",").includes("=Equals"))).toBe(true);
     expect(guarded((await exportFile("works", { ids: [formula.workId] })).text, "=Equals")).toBe(true);
+  });
+
+  it("writes JSON and Parquet typed, with null for a missing value (SLN-894)", async () => {
+    const { openId } = await library();
+    const json = await exportFile("readings", { all: true }, "json");
+    expect(json.type).toBe("application/json; charset=utf-8");
+    const rows = JSON.parse(json.text) as Record<string, unknown>[];
+    const open = rows.find((row) => row.reading_id === openId)!;
+    expect(Object.keys(open)).toEqual([...READING_EXPORT_COLUMNS]);
+    expect(open).toMatchObject({ current_percent: 44.5, current_page: 133, started_on: "2026-01-02", finished_on: null, rating: null, pages_read: 60 });
+    expect(Object.values(open)).not.toContain("");
+    const notes = JSON.parse((await exportFile("reading-notes", { all: true }, "json")).text) as Record<string, unknown>[];
+    expect(notes[0]).toMatchObject({ page: 12, end_page: 13, page_roman: false, favourite: false, chapter: null });
+    // CSV still says yes or no
+    expect(parseCsv((await exportFile("reading-notes")).text)[1][NOTE_EXPORT_COLUMNS.indexOf("favourite")]).toBe("no");
+    const res = await exportRoute(
+      new NextRequest("http://localhost/api/export", { method: "POST", body: JSON.stringify({ entity: "reading-sessions", format: "parquet", all: true }) }),
+    );
+    const reader = await ParquetReader.openBuffer(Buffer.from(await res.arrayBuffer()));
+    const type = (name: string) => (reader.schema.fields[name] as { originalType?: string; primitiveType?: string }).originalType ?? reader.schema.fields[name].primitiveType;
+    expect([type("day"), type("end_percent"), type("duration_seconds"), type("work_title")]).toEqual(["DATE", "DOUBLE", "INT64", "UTF8"]);
+    const cursor = reader.getCursor();
+    const first = (await cursor.next()) as Record<string, unknown>;
+    expect(first.day).toBeInstanceOf(Date);
   });
 
   it("exports what the journal's and the commonplace book's filters show, and the commonplace book as Markdown", async () => {

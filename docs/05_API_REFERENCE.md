@@ -426,45 +426,55 @@ Fetch a single author with works and edition contributions.
 
 ### `POST /api/export`
 
-Download books, authors, perfumes, films, paintings, or reading as a file. Used by the export menus of the book and author pages, the bulk toolbars, the reading journal and the commonplace book, and Settings → Data. No token.
+Download books, people, perfumes, films, paintings, or reading as a file. Used by the export menus of the book and author pages, the bulk toolbars, the reading journal and the commonplace book, and Settings → Data. No token.
 
 **Body**:
 
 | Field | Type | Description |
 |---|---|---|
-| `entity` | `"works"` \| `"authors"` \| `"perfumes"` \| `"films"` \| `"paintings"` \| `"readings"` \| `"reading-sessions"` \| `"reading-notes"` \| `"goodreads"` | Books, authors of books, the records of a collection (one row each: makers, dates, classification, holdings, rating, favourite, notes), or reading (below) |
+| `entity` | `"works"` \| `"authors"` \| `"perfumes"` \| `"films"` \| `"paintings"` \| `"readings"` \| `"reading-sessions"` \| `"reading-notes"` \| `"goodreads"` | Books, people (every person, with a `roles` column: their credit labels across the collections, books first), the records of a collection (one row each: makers, dates, classification, holdings, rating, favourite, notes), or reading (below) |
 | `ids` | string[] | 1–500 ids to export. Not needed with `all`; the reading exports take `all` or `filters` |
 | `all` | boolean | `true`: every record of the entity instead of `ids` |
 | `filters` | string | `readings` and `reading-notes` only: the journal's or the commonplace book's URL query (at most 2,000 characters), parsed by the page's own parser (`parseJournalQuery`, `parseNotesQuery`); the file holds every record the filters keep, in the page's order, not cut at 500 |
-| `format` | `"csv"` \| `"tsv"` \| `"parquet"` \| `"md"` \| `"json"` | File format. `json` is books (`works`) only; `md` is `reading-notes` only; `goodreads` is `csv` only |
+| `format` | `"csv"` \| `"tsv"` \| `"parquet"` \| `"md"` \| `"json"` | File format. Every native entity except `goodreads` takes `csv`, `tsv`, `parquet` and `json`; `reading-notes` also takes `md`; `goodreads` takes `csv` only |
 
-**Response** `200`: the file, with `Content-Disposition: attachment; filename="durtal-{entity}-{date}.{ext}"` (`durtal-books-all-…`, `durtal-authors-all-…`, `durtal-perfumes-all-…` and so on with `all`, a slug of the name for a single record).
+**Response** `200`: the file, with `Content-Disposition: attachment; filename="durtal-{kind}[-all]-{date}.{ext}"` (SLN-894): `{kind}` is `books`, `people`, `perfumes`, `films`, `paintings`, `readings`, `reading-sessions`, `reading-notes` or `goodreads`, and `-all` marks a file of every record (`all`, not `filters`). A single record's file takes a slug of its name instead (`durtal-a-rebours-…`), or the singular kind and first eight characters of the record id (such as `book-{id prefix}`) when the name slugs to nothing (`Война и мир`). CSV and TSV are sent with `charset=utf-8`. Books are in title order, people by sort name (else name). A reading export with no rows is still a file in every format that entity supports: CSV with its header (and TSV where offered), Parquet with its schema, JSON `[]`, and the notes Markdown heading and summary. Goodreads remains CSV only.
 
-**Response** `400`: a bad entity, format, id list or `filters`. `404`: no record matched. `500`: `{ "error": "Export failed." }`.
+**Response** `400`: a bad entity, format, id list or `filters`. `404`: no catalogue record matched; empty reading, session, note and Goodreads exports still return `200`. `500`: `{ "error": "Export failed." }`.
 
-**Book JSON**: an array of the same allowlisted, flat book rows exported by CSV,
-with numeric fields preserved as numbers. Stored text is unchanged, including
-accents, line breaks and formula-like text. Nested acquisition/publisher
-columns retain their existing JSON-string representation. No raw ORM records,
-eBook storage keys or delivery URLs are exported. It uses
-`application/json; charset=utf-8` and a `.json` attachment filename. Selection,
-the 500-id limit, `all` and empty-result `404` follow the other book exports.
+The People export's `works_count` counts distinct books, not credit rows: two roles on one book count once, and non-book roles remain visible without increasing that count. People without book credits are included with a count of zero.
+
+**JSON and Parquet** (SLN-894): the same allowlisted rows as CSV, typed. A
+missing value is `null`; numbers are numbers and yes or no is a boolean. In JSON,
+nested data (a book's `acquisition_targets` and `edition_publishers`) stays as arrays
+and objects. Parquet currently stores nested values in logical `JSON` columns,
+not separate typed nested columns.
+Stored text is unchanged, including accents, line breaks and formula-like text.
+Parquet types each column from its values: whole numbers INT64 (rating, percent
+and centimetre columns always DOUBLE), other numbers DOUBLE, booleans BOOLEAN,
+`YYYY-MM-DD` days DATE, ISO instants TIMESTAMP_MILLIS, nested data JSON,
+anything else, an all-null column, or a column of mixed kinds UTF8. Empty
+Parquet exports have their columns, currently all UTF8 because types are inferred
+from each file's values. Timestamp conversion retains milliseconds, not finer
+precision. Fixed schemas, nested columns and timestamp precision remain known
+limitations for follow-up (SLN-1082). No raw ORM records, eBook storage keys or
+delivery URLs are exported.
 
 Book CSV, TSV, Parquet and JSON rows include `ebook_formats`, the unique native
 reader formats of active linked eBooks in reader preference order, separated by
 `; ` (for example `EPUB; PDF`). Unavailable or download-only files add no format;
-a book without an eligible eBook has an empty value. Goodreads retains its own
-column contract.
+a book without an eligible eBook has an empty CSV/TSV cell and `null` in JSON
+and Parquet. Goodreads retains its own column contract.
 
-**Every CSV and TSV** (`src/lib/utils/export.ts`): a text cell that begins with `=`, `+`, `-`, `@`, a tab or a carriage return is written with a leading `'`, so a spreadsheet never runs it; numbers are never changed. The reading importer strips that `'` again (`src/lib/reading/import/csv.ts`). A CSV value with a comma, a double quote, a newline or a carriage return is quoted. CSV starts with a UTF-8 byte order mark, so Excel opens accents correctly. The Goodreads file is the exception: it is for Goodreads and StoryGraph to import, so its cells go as stored, with no guard and no byte order mark (`toCSV(..., { forImport: true })`).
+**Every CSV and TSV** (`src/lib/utils/export.ts`): a text cell that begins with `=`, `+`, `-`, `@`, a tab or a carriage return is written with a leading `'`, so a spreadsheet never runs it; numbers are never changed. The reading importer strips that `'` again (`src/lib/reading/import/csv.ts`). A CSV value with a comma, a double quote, a newline or a carriage return is quoted. CSV and TSV start with a UTF-8 byte order mark, so Excel opens accents correctly. A boolean is written yes or no, nested data as JSON text, a missing value as nothing. The Goodreads file is the exception: it is for Goodreads and StoryGraph to import, so its cells go as stored, with no guard and no byte order mark (`toCSV(..., { forImport: true })`).
 
-**The reading exports** (SLN-458, `src/lib/export/reading.ts`) are whole files with a fixed header, written even with no rows (CSV, TSV and Markdown answer `200` with the header only; Parquet with no rows keeps `404`). Files are `durtal-readings-{date}`, `durtal-reading-sessions-…`, `durtal-reading-notes-…` and `durtal-goodreads-…`. Pages come only from `countedPagesSql`, summed per reading or session, then rounded; the running timer is not exported and counts no minutes; ratings and percents are numbers (`4`, `4.5`, `44.5`).
+**The reading exports** (SLN-458, `src/lib/export/reading.ts`) are whole files with fixed columns, written even with no rows: CSV and TSV answer `200` with their header, Parquet with its schema, and JSON with `[]`; Markdown retains the commonplace book heading and export summary. Files use `durtal-readings[-all]-{date}`, `durtal-reading-sessions[-all]-{date}`, `durtal-reading-notes[-all]-{date}` and `durtal-goodreads-all-{date}`. `-all` marks a whole-kind export requested with `all: true` and no `filters`; a filtered export omits it. Pages come only from `countedPagesSql`, summed per reading or session, then rounded; the running timer is not exported and counts no minutes; ratings and percents are numbers (`4`, `4.5`, `44.5`).
 
 | Entity | Formats | Content |
 |---|---|---|
-| `readings` | CSV, TSV, Parquet | Exactly the Durtal reading CSV: `DURTAL_READING_COLUMNS` (`src/lib/reading/import/durtal-format.ts`) in its order, then read-only columns the importer ignores: `edition_title`, `edition_language`, `translators`, `copy_location`, `session_count`, `minutes_read`, `pages_read`. `rating` is the read's own rating, `review_html` the stored HTML, `authors` the names joined with `; `. `source_key` is the stored key, else `durtal:<reading_id>`. Importing the file back writes nothing: every row is "Already in Durtal" |
-| `reading-sessions` | CSV, TSV, Parquet | One row per session: `session_id`, `reading_id`, `work_title`, `day`, `started_at`, `ended_at`, `time_zone`, `duration_seconds`, start and end page, percent and minutes, `end_chapter`, `pages_counted`, `edition_title`, `format`, `source` |
-| `reading-notes` | CSV, TSV, Parquet, Markdown | One row per quote or note: `note_id`, `work_id`, `title`, `authors`, `kind`, `body`, `thought` (plain text), `page`, `end_page` and `page_roman` (a passage over a page turn, front matter in roman numerals; SLN-480), `chapter`, `percent`, `favourite`, `reading_id`, `edition_id`, `edition_label` (the edition's short label, `editionShortLabel`: "Penguin Classics, 2003, tr. Edith Grossman"), `edition_title`, `translators`, `source`, `created_at`. Markdown is the commonplace book (`commonplaceMarkdown`, `src/lib/export/commonplace.ts`): one heading per book with its author, the passages in page order cited as the pages cite them (`noteWhereText`: "pp. 212–213 · Gallimard, 1928 · ch. 7"), his thought under each, favourites marked ★ |
+| `readings` | CSV, TSV, Parquet, JSON | Exactly the Durtal reading CSV: `DURTAL_READING_COLUMNS` (`src/lib/reading/import/durtal-format.ts`) in its order, then read-only columns the importer ignores: `edition_title`, `edition_language`, `translators`, `copy_location`, `session_count`, `minutes_read`, `pages_read`. `rating` is the read's own rating, `review_html` the stored HTML, `authors` the names joined with `; `. `source_key` is the stored key, else `durtal:<reading_id>`. Importing the reading CSV back writes nothing: every row is "Already in Durtal"; TSV import support is separate work (SLN-1090) |
+| `reading-sessions` | CSV, TSV, Parquet, JSON | One row per session: `session_id`, `reading_id`, `work_title`, `day`, `started_at`, `ended_at`, `time_zone`, `duration_seconds`, start and end page, percent and minutes, `end_chapter`, `pages_counted`, `edition_title`, `format`, `source` |
+| `reading-notes` | CSV, TSV, Parquet, JSON, Markdown | One row per quote or note: `note_id`, `work_id`, `title`, `authors`, `kind`, `body`, `thought` (plain text), `page`, `end_page` and `page_roman` (a passage over a page turn, front matter in roman numerals; SLN-480), `chapter`, `percent`, `favourite`, `reading_id`, `edition_id`, `edition_label` (the edition's short label, `editionShortLabel`: "Penguin Classics, 2003, tr. Edith Grossman"), `edition_title`, `translators`, `source`, `created_at`. Markdown is the commonplace book (`commonplaceMarkdown`, `src/lib/export/commonplace.ts`): one heading per book with its author, the passages in page order cited as the pages cite them (`noteWhereText`: "pp. 212–213 · Gallimard, 1928 · ch. 7"), his thought under each, favourites marked ★ |
 | `goodreads` | CSV | Goodreads' own export header (`GOODREADS_EXPORT_HEADER`), one row per book with a reading or in Up Next (`goodreadsRow`, `src/lib/export/goodreads.ts`); StoryGraph imports the same file. The shelf follows `readingStateSql`: `currently-reading` (plus `paused` in Bookshelves), `read`, `did-not-finish`, or `to-read` for an unread book in Up Next. My Rating is the book's rating rounded up to whole stars, 0 when unrated or never finished nor abandoned. Date Read is the last finish (or for did-not-finish the last stop) at day precision only, as `YYYY/MM/DD`; Read Count counts finished readings; Book Id comes from the latest reading's edition, any edition, a `goodreads` identifier, then the book's Goodreads link. Lossy by design; importing it back through the Goodreads importer writes nothing |
 
 ## Interchange

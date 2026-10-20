@@ -11,6 +11,7 @@ import {
 import { toast } from "@/lib/notifications/toast";
 import type { EntityActionItem } from "@/components/shared/entity-action-menu";
 import { exportFormatsFor, type ExportFormat } from "@/lib/export/formats";
+import { countLabel } from "@/lib/utils/format";
 
 export type { ExportFormat } from "@/lib/export/formats";
 
@@ -31,6 +32,19 @@ export function exportFormats(entity: ExportEntity): ExportFormat[] {
   return [...exportFormatsFor(entity)];
 }
 
+/** What a message calls one record and several (SLN-894): "Exported 1 book as CSV", "Exported 2 people as Parquet" */
+export const EXPORT_NOUNS: Record<ExportEntity, readonly [one: string, many: string]> = {
+  works: ["book", "books"],
+  authors: ["person", "people"],
+  perfumes: ["perfume", "perfumes"],
+  films: ["film", "films"],
+  paintings: ["painting", "paintings"],
+  readings: ["reading", "readings"],
+  "reading-sessions": ["reading session", "reading sessions"],
+  "reading-notes": ["quote or note", "quotes and notes"],
+  goodreads: ["book", "books"],
+};
+
 /** What to export: these records, every one, or what a page's filters show (its URL query) */
 export type ExportSelection = string[] | "all" | { filters: string };
 
@@ -38,8 +52,6 @@ interface ExportMenuProps {
   entity: ExportEntity;
   /** The records, or the page's filters (the journal, the commonplace book) */
   ids: string[] | Set<string> | { filters: string };
-  /** What the toast calls the records ("readings") */
-  noun?: string;
   /** Button variant — defaults to "ghost" */
   variant?: "ghost" | "primary";
   /** Button size — defaults to "sm" */
@@ -57,18 +69,28 @@ export const EXPORT_FORMAT_LABELS: Record<ExportFormat, string> = {
   json: "JSON (.json)",
 };
 
+/** A format's name, as the menu writes it: "CSV", "Parquet", "Markdown" */
+export const exportFormatName = (format: ExportFormat) => EXPORT_FORMAT_LABELS[format].replace(/ \(.*\)$/, "");
+
+/** The message once a file is made: "Exported 2 books as CSV", or "Exported readings as Markdown" for a page's filters */
+export function exportedMessage(entity: ExportEntity, selection: ExportSelection, format: ExportFormat): string {
+  const [one, many] = EXPORT_NOUNS[entity];
+  const what = Array.isArray(selection) ? countLabel(selection.length, one, many) : many;
+  return `Exported ${what} as ${exportFormatName(format)}`;
+}
+
 /**
  * One record's export as Actions menu entries, a format each ("Export as
  * CSV"): a detail header keeps Export in its menu (SLN-641).
  */
-export function exportActionItems(entity: ExportEntity, ids: string[], noun?: string): EntityActionItem[] {
+export function exportActionItems(entity: ExportEntity, ids: string[]): EntityActionItem[] {
   return exportFormats(entity).map((format) => ({
-    label: `Export as ${EXPORT_FORMAT_LABELS[format].replace(/ \(.*\)$/, "")}`,
+    label: `Export as ${exportFormatName(format)}`,
     icon: Download,
     onClick: () => {
-      const progress = toast.pending(`Exporting as ${format.toUpperCase()}`);
+      const progress = toast.pending(`Exporting as ${exportFormatName(format)}`);
       triggerExport(entity, ids, format).then(
-        () => progress.success(`Exported ${ids.length} ${noun ?? entity} as ${format.toUpperCase()}`),
+        () => progress.success(exportedMessage(entity, ids, format)),
         (err) => progress.error(err instanceof Error ? err.message : "Export failed"),
       );
     },
@@ -117,7 +139,6 @@ export async function triggerExport(
 export function ExportMenu({
   entity,
   ids,
-  noun,
   variant = "ghost",
   size = "sm",
   align = "center",
@@ -129,14 +150,10 @@ export function ExportMenu({
 
   async function handleExport(format: ExportFormat) {
     setIsExporting(true);
-    const progress = toast.pending(`Exporting as ${format === "md" ? "Markdown" : format.toUpperCase()}`);
+    const progress = toast.pending(`Exporting as ${exportFormatName(format)}`);
     try {
       await triggerExport(entity, selection, format);
-      progress.success(
-        Array.isArray(selection)
-          ? `Exported ${selection.length} ${noun ?? entity} as ${format.toUpperCase()}`
-          : `Exported ${noun ?? entity} as ${format === "md" ? "Markdown" : format.toUpperCase()}`,
-      );
+      progress.success(exportedMessage(entity, selection, format));
     } catch (err) {
       progress.error(err instanceof Error ? err.message : "Export failed");
     } finally {

@@ -146,7 +146,7 @@ export default async function DataSettingsPage() {
         <ExportRow
           entity="authors"
           label="People"
-          description="Every person: names, dates, nationality, biography and the number of books."
+          description="Every person: names, roles, dates, nationality, biography and the number of books."
         />
         <ExportRow
           entity="readings"

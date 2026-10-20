@@ -1,5 +1,5 @@
 
-import { bookPersonCondition } from "@/lib/catalogue/person-boundary";
+import { PERSON_CREDITS } from "@/lib/catalogue/person-boundary";
 
 import { bookCondition } from "@/lib/catalogue/book-boundary";
 import { NextRequest, NextResponse } from "next/server";
@@ -10,15 +10,19 @@ import { ebookExportFormats, workEbookDTO } from "@/lib/ebooks/catalogue-dto";
 import { todayLocal } from "@/lib/utils/date";
 import { isUuid } from "@/lib/utils/uuid";
 import { works, workAuthors, authors } from "@/lib/db/schema";
-import { inArray, asc, and } from "drizzle-orm";
+import { inArray, asc, and, sql } from "drizzle-orm";
 import {
   toCSV,
   toTSV,
+  toJSON,
   toParquet,
   FORMAT_MIME,
   FORMAT_EXT,
   type ExportFormat,
 } from "@/lib/utils/export";
+import { resultRows } from "@/lib/harmonization/store";
+import { uuids } from "@/lib/catalogue/work-store";
+import { compareTitles, compareWorks } from "@/lib/utils/title-order";
 import { slugify } from "@/lib/utils/slugify";
 import {
   COLLECTION_EXPORTS,
@@ -71,12 +75,56 @@ const formatsOf = exportFormatsFor;
 /** The journal and the commonplace book export what their filters show: their own URL query */
 const FILTERED_ENTITIES: EntityType[] = ["readings", "reading-notes"];
 
-const FILE_NAMES: Record<ReadingEntity, string> = {
+/**
+ * What a file is named after (SLN-894): `durtal-<kind>[-all]-<date>`, "-all"
+ * when it holds every record; one record's file is named after the record.
+ */
+const FILE_NAMES: Record<EntityType, string> = {
+  works: "books",
+  authors: "people",
+  perfumes: "perfumes",
+  films: "films",
+  paintings: "paintings",
   readings: "readings",
   "reading-sessions": "reading-sessions",
   "reading-notes": "reading-notes",
   goodreads: "goodreads",
 };
+/** One record's kind, for a file whose record's name gives no slug ("Война и мир") */
+const SINGULAR: Partial<Record<EntityType, string>> = {
+  works: "book",
+  authors: "person",
+  perfumes: "perfume",
+  films: "film",
+  paintings: "painting",
+};
+
+/**
+ * One export file: CSV and TSV with their header even with no rows, JSON and
+ * Parquet typed, a missing value null (SLN-894). `headers` fixes the columns;
+ * without, the first row's keys.
+ */
+async function exportFile(
+  rows: Record<string, unknown>[],
+  headers: readonly string[] | undefined,
+  format: Exclude<ExportFormat, "md">,
+  filename: string,
+  forImport = false,
+) {
+  const disposition = `attachment; filename="${filename}${FORMAT_EXT[format]}"`;
+  let body: string | Uint8Array;
+  if (format === "csv") body = toCSV(rows, headers, { forImport });
+  else if (format === "tsv") body = toTSV(rows, headers);
+  else if (format === "json") body = toJSON(rows, headers);
+  else {
+    const buf = await toParquet(rows, headers);
+    body = new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength);
+  }
+  return new NextResponse(body as unknown as BodyInit, {
+    status: 200,
+    headers: { "Content-Type": FORMAT_MIME[format], "Content-Disposition": disposition },
+  });
+}
 
 /**
  * A reading export's rows and header, or the Markdown commonplace book.
@@ -103,7 +151,7 @@ async function readingExport(
   return { rows, headers: GOODREADS_EXPORT_HEADER };
 }
 
-/** The books with these ids, or every book (null) */
+/** The books with these ids, or every book (null), in title order */
 async function fetchWorksForExport(ids: string[] | null) {
   const results = await db.query.works.findMany({
     where: ids ? and(bookCondition, inArray(works.id, ids)) : bookCondition,
@@ -131,7 +179,8 @@ async function fetchWorksForExport(ids: string[] | null) {
     targets.push(...(await getAcquisitionTargetsForExport(found.slice(i, i + 500))));
     for (const [id, value] of await getWorkDigitalAvailability(found.slice(i, i + 500), { includePositions: false })) digital.set(id, value);
   }
-  return results.map((w) => {
+  return [...results].sort(compareWorks).map((w) => {
+    const rating = formatRating(w.rating);
     const authorNames = w.workAuthors.map((wa) => wa.author.name).join("; ");
     const primaryEdition = w.editions[0];
     const totalInstances = w.editions.reduce(
@@ -143,78 +192,107 @@ async function fetchWorksForExport(ids: string[] | null) {
       title: w.title,
       ebook_formats: ebookExportFormats((digital.get(w.id)?.ebooks ?? []).map(workEbookDTO)),
       authors: authorNames,
-      original_language: w.originalLanguage ?? "",
-      original_year: w.originalYear ?? "",
+      original_language: w.originalLanguage,
+      original_year: w.originalYear,
       catalogue_status: w.catalogueStatus,
       acquisition_priority: w.acquisitionPriority,
-      rating: formatRating(w.rating),
-      is_anthology: w.isAnthology ? "yes" : "no",
-      isbn_13: primaryEdition?.isbn13 ?? "",
-      isbn_10: primaryEdition?.isbn10 ?? "",
-      publisher: primaryEdition?.publisher ?? "",
-      acquisition_targets: JSON.stringify(
-        targets
-          .filter((t) => t.target.workId === w.id)
-          .map((t) => ({
-            ...t.target,
-            state: t.state,
-            fulfilled_instance_id: t.instanceId,
-          })),
-      ),
-      edition_publishers: JSON.stringify(
-        w.editions.map((e) => ({
-          edition_id: e.id,
-          isbn_13: e.isbn13,
-          publishers: e.publisherLinks.map((l) => ({
-            id: l.publisher.id,
-            name: l.publisher.name,
-            kind: l.publisher.kind,
-            parent_id: l.publisher.parentId,
-          })),
+      rating: rating ? Number(rating) : null,
+      is_anthology: w.isAnthology,
+      isbn_13: primaryEdition?.isbn13 ?? null,
+      isbn_10: primaryEdition?.isbn10 ?? null,
+      publisher: primaryEdition?.publisher ?? null,
+      // Nested lists: JSON and Parquet keep them as data, CSV and TSV write them as JSON text
+      acquisition_targets: targets
+        .filter((t) => t.target.workId === w.id)
+        .map((t) => ({
+          ...t.target,
+          state: t.state,
+          fulfilled_instance_id: t.instanceId,
         })),
-      ),
-      imprint: primaryEdition?.imprint ?? "",
-      publication_year: primaryEdition?.publicationYear ?? "",
-      edition_language: primaryEdition?.language ?? "",
-      binding: primaryEdition?.binding ?? "",
-      page_count: primaryEdition?.pageCount ?? "",
+      edition_publishers: w.editions.map((e) => ({
+        edition_id: e.id,
+        isbn_13: e.isbn13,
+        publishers: e.publisherLinks.map((l) => ({
+          id: l.publisher.id,
+          name: l.publisher.name,
+          kind: l.publisher.kind,
+          parent_id: l.publisher.parentId,
+        })),
+      })),
+      imprint: primaryEdition?.imprint ?? null,
+      publication_year: primaryEdition?.publicationYear ?? null,
+      edition_language: primaryEdition?.language ?? null,
+      binding: primaryEdition?.binding ?? null,
+      page_count: primaryEdition?.pageCount ?? null,
       edition_count: w.editions.length,
       instance_count: totalInstances,
-      notes: w.notes ?? "",
+      notes: w.notes,
     };
   });
 }
 
-/** The authors with these ids, or every book author (null) */
-async function fetchAuthorsForExport(ids: string[] | null) {
-  const results = await db.query.authors.findMany({
-    where: ids ? and(bookPersonCondition, inArray(authors.id, ids)) : bookPersonCondition,
-    with: {
-      country: true,
-      workAuthors: {
-        columns: { workId: true },
-      },
-    },
-  });
+/** Where a person's roles stand in the roles column: books first, a book's author first */
+const ROLE_ORDER = sql`case cr.kind when 'book' then 0 when 'film' then 1 when 'perfume' then 2 when 'painting' then 3 else 4 end,
+  cr.level <> 'work', cr.legacy_role is distinct from 'author', cr.label`;
 
-  return results.map((a) => ({
-    name: a.name,
-    sort_name: a.sortName ?? "",
-    first_name: a.firstName ?? "",
-    last_name: a.lastName ?? "",
-    real_name: a.realName ?? "",
-    nationality: a.country?.name ?? "",
-    gender: a.gender ?? "",
-    birth_year: a.birthYear ?? "",
-    birth_month: a.birthMonth ?? "",
-    birth_day: a.birthDay ?? "",
-    death_year: a.deathYear ?? "",
-    death_month: a.deathMonth ?? "",
-    death_day: a.deathDay ?? "",
-    bio: a.bio ? stripHtmlToText(a.bio) : "",
-    website: a.website ?? "",
-    works_count: a.workAuthors.length,
-  }));
+/** Each person's roles across the collections, as their labels ("Author; Translator; Director") */
+async function personRoles(ids: string[] | null) {
+  const rows = resultRows<{ personId: string; label: string }>(
+    await db.execute(sql`select c.person_id as "personId", cr.label
+      from ${PERSON_CREDITS} c join credit_roles cr on cr.id = c.role_id
+      ${ids ? sql`where c.person_id in (${uuids(ids)})` : sql``}
+      group by c.person_id, cr.kind, cr.level, cr.legacy_role, cr.label
+      order by c.person_id, ${ROLE_ORDER}`),
+  );
+  const roles = new Map<string, string[]>();
+  for (const { personId, label } of rows) {
+    const held = roles.get(personId) ?? [];
+    // A film's editor and a book's editor are one "Editor"
+    if (!held.includes(label)) held.push(label);
+    roles.set(personId, held);
+  }
+  return roles;
+}
+
+/** The people with these ids, or every person (null), by sort name */
+async function fetchAuthorsForExport(ids: string[] | null) {
+  const [results, roles] = await Promise.all([
+    db.query.authors.findMany({
+      where: ids ? inArray(authors.id, ids) : undefined,
+      with: {
+        country: true,
+        workAuthors: {
+          columns: { workId: true },
+          with: { work: { columns: { kind: true } } },
+        },
+      },
+    }),
+    personRoles(ids),
+  ]);
+  const sortKey = (a: (typeof results)[number]) => a.sortName || a.name;
+
+  return [...results]
+    .sort((a, b) => compareTitles(sortKey(a), sortKey(b)) || a.id.localeCompare(b.id))
+    .map((a) => ({
+      name: a.name,
+      sort_name: a.sortName,
+      first_name: a.firstName,
+      last_name: a.lastName,
+      real_name: a.realName,
+      roles: (roles.get(a.id) ?? []).join("; "),
+      nationality: a.country?.name ?? null,
+      gender: a.gender,
+      birth_year: a.birthYear,
+      birth_month: a.birthMonth,
+      birth_day: a.birthDay,
+      death_year: a.deathYear,
+      death_month: a.deathMonth,
+      death_day: a.deathDay,
+      bio: a.bio ? stripHtmlToText(a.bio) : null,
+      website: a.website,
+      // Multiple credits on one book still count as one book; other kinds do not.
+      works_count: new Set(a.workAuthors.filter((credit) => credit.work.kind === "book").map((credit) => credit.workId)).size,
+    }));
 }
 
 export async function POST(req: NextRequest) {
@@ -223,7 +301,7 @@ export async function POST(req: NextRequest) {
     const { entity, ids, all, filters, format } = body as {
       entity?: string;
       ids?: string[];
-      /** Every book, or every book author, instead of a list of ids */
+      /** Every record of the kind instead of a list of ids */
       all?: boolean;
       /** The journal's or the commonplace book's URL query: what the page shows */
       filters?: string;
@@ -254,33 +332,16 @@ export async function POST(req: NextRequest) {
       if (all !== true && filters === undefined)
         return NextResponse.json({ error: "all must be true, or filters given." }, { status: 400 });
       const fmt = format as ExportFormat;
-      const name = FILE_NAMES[entity as ReadingEntity];
+      const name = `durtal-${FILE_NAMES[entity as ReadingEntity]}${filters === undefined ? "-all" : ""}-${todayLocal()}`;
       const result = await readingExport(entity as ReadingEntity, fmt, filters ?? null);
-      const disposition = (ext: string) => `attachment; filename="durtal-${name}-${todayLocal()}${ext}"`;
       if ("markdown" in result)
         return new NextResponse(result.markdown, {
           status: 200,
-          headers: { "Content-Type": FORMAT_MIME.md, "Content-Disposition": disposition(".md") },
+          headers: { "Content-Type": FORMAT_MIME.md, "Content-Disposition": `attachment; filename="${name}.md"` },
         });
-      if (fmt === "csv" || fmt === "tsv") {
-        // An empty export still has its header
-        // The Goodreads file is for Goodreads and StoryGraph to import, not for a spreadsheet: as stored, no guard or BOM
-        const text =
-          fmt === "csv"
-            ? toCSV(result.rows, result.headers, { forImport: entity === "goodreads" })
-            : toTSV(result.rows, result.headers);
-        return new NextResponse(text, {
-          status: 200,
-          headers: { "Content-Type": `${FORMAT_MIME[fmt]}; charset=utf-8`, "Content-Disposition": disposition(FORMAT_EXT[fmt]) },
-        });
-      }
-      if (result.rows.length === 0) return NextResponse.json({ error: "No records found." }, { status: 404 });
-      const ordered = result.rows.map((row) => Object.fromEntries(result.headers.map((h) => [h, row[h]])));
-      const buf = await toParquet(ordered);
-      return new NextResponse(new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength) as unknown as BodyInit, {
-        status: 200,
-        headers: { "Content-Type": FORMAT_MIME.parquet, "Content-Disposition": disposition(FORMAT_EXT.parquet) },
-      });
+      // An empty export still has its header, and an empty Parquet file its schema.
+      // The Goodreads file is for Goodreads and StoryGraph to import, not for a spreadsheet: as stored, no guard or BOM
+      return exportFile(result.rows, result.headers, fmt as Exclude<ExportFormat, "md">, name, entity === "goodreads");
     }
 
     if (all !== true && (!ids || !Array.isArray(ids) || ids.length === 0)) {
@@ -318,58 +379,22 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const timestamp = todayLocal();
-
-    // For single-entity exports, use a descriptive filename
-    let slug = "";
-    if (all === true) {
-      slug = `${entityType === "works" ? "books" : entityType}-all`;
-    } else if (rows.length === 1 && entityType === "authors") {
-      const row = rows[0] as {
-        first_name?: string;
-        last_name?: string;
-        name?: string;
-      };
-      const first = slugify(row.first_name ?? "");
-      const last = slugify(row.last_name ?? "");
-      slug = first && last ? `${first}-${last}` : slugify(row.name ?? "");
-    } else if (rows.length === 1 && entityType !== "authors") {
-      slug = slugify((rows[0] as { title?: string }).title ?? "");
+    // Every record: durtal-books-all-<date>; a selection: durtal-books-<date>; one record: named after it
+    let slug = `${FILE_NAMES[entityType]}${all === true ? "-all" : ""}`;
+    if (all !== true && ids!.length === 1 && rows.length === 1) {
+      const row = rows[0] as { first_name?: string | null; last_name?: string | null; name?: string; title?: string };
+      let own = "";
+      if (entityType === "authors") {
+        const first = slugify(row.first_name ?? "");
+        const last = slugify(row.last_name ?? "");
+        own = first && last ? `${first}-${last}` : slugify(row.name ?? "");
+      } else {
+        own = slugify(row.title ?? "");
+      }
+      // A name in a script slugs drop (Cyrillic, Greek, Japanese) keeps the files apart by the record's id
+      slug = own || `${SINGULAR[entityType]}-${ids![0].slice(0, 8)}`;
     }
-    const filename = `durtal-${slug || entityType}-${timestamp}${FORMAT_EXT[fmt]}`;
-
-    if (fmt === "json") {
-      // The same explicitly projected book rows as CSV, never the ORM records.
-      return new NextResponse(JSON.stringify(rows), {
-        status: 200,
-        headers: {
-          "Content-Type": FORMAT_MIME.json,
-          "Content-Disposition": `attachment; filename="${filename}"`,
-        },
-      });
-    }
-
-    if (fmt === "csv" || fmt === "tsv") {
-      const text = fmt === "csv" ? toCSV(rows) : toTSV(rows);
-      return new NextResponse(text, {
-        status: 200,
-        headers: {
-          "Content-Type": FORMAT_MIME[fmt],
-          "Content-Disposition": `attachment; filename="${filename}"`,
-        },
-      });
-    }
-
-    // Parquet — binary response
-    const buf = await toParquet(rows);
-    const bytes = new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength);
-    return new NextResponse(bytes as unknown as BodyInit, {
-      status: 200,
-      headers: {
-        "Content-Type": FORMAT_MIME[fmt],
-        "Content-Disposition": `attachment; filename="${filename}"`,
-      },
-    });
+    return exportFile(rows, undefined, fmt as Exclude<ExportFormat, "md">, `durtal-${slug}-${todayLocal()}`);
   } catch (err) {
     console.error("Export error:", err);
     return NextResponse.json({ error: "Export failed." }, { status: 500 });

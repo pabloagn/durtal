@@ -57,7 +57,7 @@ async function NotesResults({ params, total, quotes }: { params: ListSearchParam
           {filtered ? `${result.total.toLocaleString("en-US")} of ${total.toLocaleString("en-US")}` : notesCountText(quotes, total - quotes)}
         </p>
         {/* Every note the filters keep, not only this page */}
-        <ExportMenu entity="reading-notes" ids={{ filters: exportFilters(search) }} noun="quotes and notes" align="end" side="bottom" />
+        <ExportMenu entity="reading-notes" ids={{ filters: exportFilters(search) }} align="end" side="bottom" />
       </div>
       <div id="list-start">
         <NotesList rows={result.items.map(listRow)} byBook={query.sort === "book"} editions={result.noteEditions} />

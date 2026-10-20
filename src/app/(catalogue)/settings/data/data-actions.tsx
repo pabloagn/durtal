@@ -10,6 +10,7 @@ import { SettingRow, settingDescriptionId } from "@/components/settings/settings
 import { Dialog } from "@/components/ui/dialog";
 import {
   EXPORT_FORMAT_LABELS,
+  exportFormatName,
   exportFormats,
   triggerExport,
   type ExportEntity,
@@ -45,7 +46,7 @@ export function ExportRow({
     const progress = toast.pending(`Exporting ${inSentence(label)}`);
     try {
       await triggerExport(entity, "all", format);
-      progress.success(`${label} exported`);
+      progress.success(`${label} exported as ${exportFormatName(format)}`);
     } catch (error) {
       progress.error(error instanceof Error ? error.message : "Export failed");
     } finally {
