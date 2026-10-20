@@ -6,15 +6,17 @@ import { renderToStaticMarkup } from "react-dom/server";
 // still shows the readings and the other collections it has.
 
 vi.mock("@/lib/statistics/library", () => ({
-  libraryNumbers: async () => ({ books: 0, editions: 0, copies: 0, pages: 0, authors: 0, publishers: 0, languages: 0, countries: 0 }),
-  writtenYears: async () => ({ years: [], undated: 0 }),
-  busiestYears: async () => [],
-  rankings: async () => ({ languages: [], countries: [], categories: [], authors: [], publishers: [] }),
-  breakdown: async () => ({ read: 0, unread: 0, rated: 0, unrated: 0, translated: 0, original: 0, print: 0, digital: 0 }),
-  ratingSpread: async () => [],
-  copyStats: async () => ({ formats: [], places: [], acquired: [], undated: 0 }),
-  extremes: async () => ({ oldest: null, newest: null, longest: null, shortest: null }),
-  favouriteCovers: async () => [],
+  libraryStatistics: async () => ({
+    numbers: { books: 0, editions: 0, copies: 0, pages: 0, authors: 0, publishers: 0, languages: 0, countries: 0 },
+    written: { years: [], undated: 0 },
+    busiest: [],
+    rankings: { languages: [], countries: [], categories: [], authors: [], publishers: [] },
+    breakdown: { read: 0, unread: 0, rated: 0, unrated: 0, translated: 0, original: 0, print: 0, digital: 0 },
+    ratings: [],
+    copies: { formats: [], places: [], acquired: [], undated: 0 },
+    extremes: { oldest: null, newest: null, longest: null, shortest: null },
+    favourites: [],
+  }),
 }));
 vi.mock("@/lib/reading/stats", () => ({ yearNumbers: async () => ({ books: 4, pages: 900, hours: 12, readingDays: 9 }) }));
 vi.mock("@/lib/catalogue/domains", async (original) => ({ ...(await original<object>()), getEnabledWorkKinds: () => ["book", "film", "perfume"] }));

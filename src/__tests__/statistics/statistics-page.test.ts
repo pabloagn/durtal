@@ -7,20 +7,22 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 const book = (title: string, author: string | null, value: number) => ({ workId: title, slug: null, title, author, cover: null, value });
 vi.mock("@/lib/statistics/library", () => ({
-  libraryNumbers: async () => ({ books: 3, editions: 3, copies: 3, pages: 600, authors: 2, publishers: 1, languages: 1, countries: 1 }),
-  writtenYears: async () => ({ years: [], undated: 0 }),
-  busiestYears: async () => [],
-  rankings: async () => ({ languages: [], countries: [], categories: [], authors: [], publishers: [] }),
-  breakdown: async () => ({ read: 1, unread: 2, rated: 0, unrated: 3, translated: 0, original: 3, print: 3, digital: 0 }),
-  ratingSpread: async () => [],
-  copyStats: async () => ({ formats: [], places: [], acquired: [], undated: 0 }),
-  extremes: async () => ({
-    oldest: book("Against Nature", "Maximiliana Wilhelmina Konstantinopolous-Abercrombie de la Fontaine", 1884),
-    newest: book("En Route", null, 1895),
-    longest: null,
-    shortest: null,
+  libraryStatistics: async () => ({
+    numbers: { books: 3, editions: 3, copies: 3, pages: 600, authors: 2, publishers: 1, languages: 1, countries: 1 },
+    written: { years: [], undated: 0 },
+    busiest: [],
+    rankings: { languages: [], countries: [], categories: [], authors: [], publishers: [] },
+    breakdown: { read: 1, unread: 2, rated: 0, unrated: 3, translated: 0, original: 3, print: 3, digital: 0 },
+    ratings: [],
+    copies: { formats: [], places: [], acquired: [], undated: 0 },
+    extremes: {
+      oldest: book("Against Nature", "Maximiliana Wilhelmina Konstantinopolous-Abercrombie de la Fontaine", 1884),
+      newest: book("En Route", null, 1895),
+      longest: null,
+      shortest: null,
+    },
+    favourites: [],
   }),
-  favouriteCovers: async () => [],
 }));
 vi.mock("@/lib/reading/stats", () => ({ yearNumbers: async () => ({ books: 0, pages: 0, hours: 0, readingDays: 0 }) }));
 vi.mock("@/lib/catalogue/domains", async (original) => ({ ...(await original<object>()), getEnabledWorkKinds: () => ["book"] }));

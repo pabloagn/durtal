@@ -13,15 +13,17 @@ const state = vi.hoisted(() => ({
   ranks: { languages: [] as unknown[], countries: [] as unknown[], categories: [] as unknown[], authors: [], publishers: [] },
 }));
 vi.mock("@/lib/statistics/library", () => ({
-  libraryNumbers: async () => ({ books: 2, editions: 2, copies: 2, pages: state.pages, authors: 1, publishers: 0, languages: 1, countries: 0 }),
-  writtenYears: async () => ({ years: [], undated: 0 }),
-  busiestYears: async () => [],
-  rankings: async () => state.ranks,
-  breakdown: async () => ({ read: 0, unread: 2, rated: 0, unrated: 2, translated: 0, original: 2, print: 2, digital: 0 }),
-  ratingSpread: async () => [],
-  copyStats: async () => ({ formats: [], places: [], acquired: [], undated: 0 }),
-  extremes: async () => ({ oldest: null, newest: null, longest: null, shortest: null }),
-  favouriteCovers: async () => [],
+  libraryStatistics: async () => ({
+    numbers: { books: 2, editions: 2, copies: 2, pages: state.pages, authors: 1, publishers: 0, languages: 1, countries: 0 },
+    written: { years: [], undated: 0 },
+    busiest: [],
+    rankings: state.ranks,
+    breakdown: { read: 0, unread: 2, rated: 0, unrated: 2, translated: 0, original: 2, print: 2, digital: 0 },
+    ratings: [],
+    copies: { formats: [], places: [], acquired: [], undated: 0 },
+    extremes: { oldest: null, newest: null, longest: null, shortest: null },
+    favourites: [],
+  }),
 }));
 vi.mock("@/lib/reading/stats", () => ({ yearNumbers: async () => ({ books: 0, pages: 0, hours: 0, readingDays: 0 }) }));
 vi.mock("@/lib/catalogue/domains", async (original) => ({ ...(await original<object>()), getEnabledWorkKinds: () => ["book"] }));

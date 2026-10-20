@@ -2,32 +2,23 @@ import { describe, expect, it, vi } from "vitest";
 import { readFileSync } from "fs";
 import path from "path";
 
-// SLN-795: the dashboard's Statistics reads start with its first ones, and
-// the busiest year waits only for the years, not for the other numbers
+// SLN-795: the dashboard's Statistics reads start with its first ones.
+// SLN-1315: they are one statement, the busiest year read with the rest
 
-const calls = vi.hoisted(() => [] as string[]);
-type Written = { years: { year: number; count: number }[]; undated: number };
-const written = vi.hoisted(() => {
-  const held = {} as { promise: Promise<Written>; resolve: (value: Written) => void };
-  held.promise = new Promise((resolve) => { held.resolve = resolve; });
-  return held;
-});
+const calls = vi.hoisted(() => [] as { parts: readonly string[]; options: unknown }[]);
 vi.mock("@/lib/statistics/library", () => ({
-  // Never settles: the busiest year must not wait for it
-  libraryNumbers: () => { calls.push("numbers"); return new Promise(() => {}); },
-  writtenYears: () => { calls.push("written"); return written.promise; },
-  breakdown: () => { calls.push("breakdown"); return new Promise(() => {}); },
-  busiestYears: async (years: { year: number }[]) => { calls.push(`busiest ${years.map((y) => y.year).join(",")}`); return []; },
+  libraryStatistics: (parts: readonly string[], options: unknown) => {
+    calls.push({ parts, options });
+    return new Promise(() => {});
+  },
 }));
 
 import { statisticsReads } from "@/components/statistics/dashboard-statistics";
 
 describe("the dashboard's Statistics reads", () => {
-  it("start at once, with the busiest year as soon as the years are in", async () => {
+  it("start at once, as one read with the busiest year in it", () => {
     statisticsReads();
-    expect([...calls].sort()).toEqual(["breakdown", "numbers", "written"]);
-    written.resolve({ years: [{ year: 1957, count: 3 }], undated: 0 });
-    await vi.waitFor(() => expect(calls).toContain("busiest 1957"));
+    expect(calls).toEqual([{ parts: ["numbers", "written", "breakdown", "busiest"], options: { busiest: 1 } }]);
   });
 
   it("start before the dashboard waits on anything", () => {

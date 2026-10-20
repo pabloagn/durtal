@@ -5,7 +5,7 @@ import { WrittenChart } from "./written-chart";
 import { YearCovers } from "./covers";
 import { n } from "@/lib/reading/charts";
 import { compactYearCounts, percentOf } from "@/lib/statistics/charts";
-import { breakdown, busiestYears, libraryNumbers, writtenYears } from "@/lib/statistics/library";
+import { libraryStatistics } from "@/lib/statistics/library";
 
 /*
  * The body of the dashboard's Statistics section (SLN-742): four numbers the
@@ -20,10 +20,9 @@ import { breakdown, busiestYears, libraryNumbers, writtenYears } from "@/lib/sta
 
 const CHART_HEIGHT = 140;
 
-/** The section's reads, started at once: two round trips, the busiest year's covers after the years */
+/** The section's reads, started at once: one statement, the busiest year's covers with the rest (SLN-1315) */
 export function statisticsReads() {
-  const written = writtenYears();
-  const reads = Promise.all([libraryNumbers(), written, breakdown(), written.then((found) => busiestYears(found.years, 1))]);
+  const reads = libraryStatistics(["numbers", "written", "breakdown", "busiest"], { busiest: 1 });
   // Read by the section once it draws; a dashboard that fails before that leaves no unhandled rejection
   reads.catch(() => {});
   return reads;
@@ -32,7 +31,12 @@ export function statisticsReads() {
 type StatisticsReads = ReturnType<typeof statisticsReads>;
 
 async function Content({ reads }: { reads: StatisticsReads }) {
-  const [numbers, written, split, [busiest]] = await reads;
+  const {
+    numbers,
+    written,
+    breakdown: split,
+    busiest: [busiest],
+  } = await reads;
   if (numbers.books === 0) return <p className="text-sm text-fg-secondary">No books on your shelves yet.</p>;
   return (
     <div className="space-y-6" data-dashboard-statistics="">
