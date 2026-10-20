@@ -229,7 +229,8 @@ export async function loadGoodreadsBooks(): Promise<GoodreadsBook[]> {
         order by r.work_id, r.finished_on desc nulls last, r.created_at desc, r.id desc
       )
       select b.title,
-        coalesce((select jsonb_agg(jsonb_build_object('name', a.name, 'sortName', a.sort_name) order by wa.sort_order, a.name)
+        coalesce((select jsonb_agg(jsonb_build_object('name', a.name, 'sortName', a.sort_name,
+          'firstName', a.first_name, 'lastName', a.last_name) order by wa.sort_order, a.name)
           from work_authors wa join authors a on a.id = wa.author_id where wa.work_id = b.id), '[]'::jsonb) as authors,
         b.original_year as "originalYear", b.rating::float8 as rating,
         to_char(b.created_at at time zone ${appTimeZone()}, 'YYYY-MM-DD') as "createdOn",

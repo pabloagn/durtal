@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { goodreadsRow, goodreadsStars, roundsHalfStar, type GoodreadsBook } from "@/lib/export/goodreads";
+import { goodreadsAuthorLastFirst, goodreadsRow, goodreadsStars, roundsHalfStar, type GoodreadsBook } from "@/lib/export/goodreads";
 
 /* The Goodreads file's rows (SLN-458): shelves, stars, dates, counts and the Book Id order */
 
@@ -7,9 +7,9 @@ function book(over: Partial<GoodreadsBook> = {}): GoodreadsBook {
   return {
     title: "The Recognitions",
     authors: [
-      { name: "William Gaddis", sortName: "Gaddis, William" },
-      { name: "A. N. Other", sortName: null },
-      { name: "Third Hand", sortName: null },
+      { name: "William Gaddis", sortName: "Gaddis, William", firstName: "William", lastName: "Gaddis" },
+      { name: "A. N. Other", sortName: null, firstName: null, lastName: null },
+      { name: "Third Hand", sortName: null, firstName: null, lastName: null },
     ],
     originalYear: 1955,
     rating: 4.5,
@@ -29,6 +29,25 @@ function book(over: Partial<GoodreadsBook> = {}): GoodreadsBook {
     ...over,
   };
 }
+
+describe("goodreadsAuthorLastFirst", () => {
+  const cases: { label: string; author: Partial<GoodreadsBook["authors"][number]>; expected: string }[] = [
+    { label: "stored sort name takes precedence", author: { sortName: "  Custom, Élodie  ", firstName: "Other", lastName: "Name" }, expected: "Custom, Élodie" },
+    { label: "blank sort name uses both explicit components", author: { sortName: " \t ", firstName: "  Gabriel  ", lastName: "  García Márquez  " }, expected: "García Márquez, Gabriel" },
+    { label: "surname particles stay together", author: { firstName: "María", lastName: "de la Cruz" }, expected: "de la Cruz, María" },
+    { label: "first-name-only mononym has no comma", author: { firstName: " Björk " }, expected: "Björk" },
+    { label: "last-name-only mononym has no comma", author: { lastName: " Molière " }, expected: "Molière" },
+    { label: "blank first name is absent", author: { firstName: "\t", lastName: "Li" }, expected: "Li" },
+    { label: "blank last name is absent", author: { firstName: "李", lastName: " " }, expected: "李" },
+    { label: "internal spacing and punctuation are preserved", author: { firstName: "A.  N.", lastName: "de  la Cruz-Smith" }, expected: "de  la Cruz-Smith, A.  N." },
+    { label: "display name is not guessed into components", author: { name: "Ludwig van Beethoven" }, expected: "Ludwig van Beethoven" },
+    { label: "blank components preserve display name byte-for-byte", author: { name: "  Prince  ", sortName: " ", firstName: " ", lastName: "\t" }, expected: "  Prince  " },
+    { label: "an empty display name stays empty", author: { name: "" }, expected: "" },
+  ];
+  it.each(cases)("$label", ({ author, expected }) => {
+    expect(goodreadsAuthorLastFirst({ name: "Display Name", sortName: null, firstName: null, lastName: null, ...author })).toBe(expected);
+  });
+});
 
 describe("goodreadsRow", () => {
   it("fills Goodreads' columns from the book and its edition", () => {
@@ -57,6 +76,19 @@ describe("goodreadsRow", () => {
       "Read Count": 1,
       "Owned Copies": 2,
     });
+  });
+
+  it("changes only Author l-f and does not mutate author metadata", () => {
+    const before = book();
+    const updated = book({ authors: before.authors.map((author, index) => index === 0
+      ? { ...author, sortName: " ", firstName: " William ", lastName: " de la Cruz " }
+      : { ...author }) });
+    const metadata = JSON.stringify(updated.authors);
+    updated.authors.forEach(Object.freeze);
+    Object.freeze(updated.authors);
+    expect(goodreadsRow(updated)).toEqual({ ...goodreadsRow(before), "Author l-f": "de la Cruz, William" });
+    expect(JSON.stringify(updated.authors)).toBe(metadata);
+    expect(goodreadsRow(book({ authors: [] }))!["Author l-f"]).toBe("");
   });
 
   it("rounds a half star up and counts it, and keeps whole stars", () => {

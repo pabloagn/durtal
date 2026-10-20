@@ -204,6 +204,20 @@ describe.skipIf(!url)("the reading exports with PostgreSQL", () => {
     expect(JSON.parse((await exportFile("readings", { all: true }, "json")).text)).toEqual([]);
   });
 
+  it("uses stored author components only for the Goodreads Author l-f cell", async () => {
+    const b = await book("Stored author names", { goodreadsId: "000123" });
+    await reading(b, { status: "finished", finished_on: "2025-01-09", finished_precision: "day" });
+    const [header, before] = parseCsv((await exportFile("goodreads")).text);
+    expect(header).toEqual([...GOODREADS_EXPORT_HEADER]);
+    await q(`update authors set sort_name = ' ', first_name = ' María ', last_name = ' de la Cruz '
+      where id in (select author_id from work_authors where work_id = $1)`, [b.workId]);
+    const result = await exportFile("goodreads");
+    expect(result.status).toBe(200);
+    const expected = [...before];
+    expected[header.indexOf("Author l-f")] = "de la Cruz, María";
+    expect(parseCsv(result.text)).toEqual([header, expected]);
+  });
+
   it("imports its own Goodreads file back with nothing written", async () => {
     await library();
     const before = await written();

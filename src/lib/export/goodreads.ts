@@ -17,8 +17,8 @@ export type GoodreadsRow = Record<GoodreadsColumn, string | number>;
 /** What one book's row is made from */
 export interface GoodreadsBook {
   title: string;
-  /** In credit order: name and sort name ("Gaddis, William") */
-  authors: { name: string; sortName: string | null }[];
+  /** In credit order: display name, explicit sort name and stored name components */
+  authors: { name: string; sortName: string | null; firstName: string | null; lastName: string | null }[];
   originalYear: number | null;
   /** The book's rating, 0.5 to 5 */
   rating: number | null;
@@ -94,6 +94,16 @@ function goodreadsId(value: string | null): string | null {
 const slashDay = (on: string | null, precision: ReadingDatePrecision | null = "day") =>
   on && precision === "day" ? on.slice(0, 10).replace(/-/g, "/") : "";
 
+/** Prefer an explicit sort name, then stored components; never split a display name. */
+export function goodreadsAuthorLastFirst(author: GoodreadsBook["authors"][number]): string {
+  const sortName = author.sortName?.trim();
+  if (sortName) return sortName;
+  const firstName = author.firstName?.trim();
+  const lastName = author.lastName?.trim();
+  if (firstName && lastName) return `${lastName}, ${firstName}`;
+  return lastName || firstName || author.name;
+}
+
 export function goodreadsRow(book: GoodreadsBook): GoodreadsRow | null {
   const shelf = goodreadsShelf(book);
   if (!shelf) return null;
@@ -108,7 +118,7 @@ export function goodreadsRow(book: GoodreadsBook): GoodreadsRow | null {
     "Book Id": goodreadsId(ids.latestEdition) ?? goodreadsId(ids.anyEdition) ?? goodreadsId(ids.identifier) ?? goodreadsId(ids.url) ?? "",
     Title: book.title,
     Author: first?.name ?? "",
-    "Author l-f": first ? (first.sortName ?? first.name) : "",
+    "Author l-f": first ? goodreadsAuthorLastFirst(first) : "",
     "Additional Authors": others.map((a) => a.name).join(", "),
     ISBN: e?.isbn10?.replace(/[^0-9X]/gi, "") ?? "",
     ISBN13: e?.isbn13?.replace(/\D/g, "") ?? "",
