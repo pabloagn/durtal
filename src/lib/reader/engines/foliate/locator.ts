@@ -1,6 +1,6 @@
 import type { DurtalLocator } from "@/lib/reader/engine";
 import { collapse } from "@/vendor/foliate-js/epubcfi.js";
-import { normalizeQuoteText, type TextQuote } from "./quote-match";
+import { headOf, normalizeQuoteText, tailOf, type TextQuote } from "./quote-match";
 
 /**
  * DurtalLocators from the engine's places (eBooks sub-issue 3). A locator
@@ -77,7 +77,7 @@ function textBefore(
     if (normalizeQuoteText(text).length > limit) break;
   }
   const normal = normalizeQuoteText(text);
-  return normal.slice(Math.max(0, normal.length - limit));
+  return tailOf(normal, limit);
 }
 
 /** Up to `limit` characters of text after a point */
@@ -92,7 +92,7 @@ function textAfter(
     text += part;
     if (normalizeQuoteText(text).length > limit) break;
   }
-  return normalizeQuoteText(text).slice(0, limit);
+  return headOf(normalizeQuoteText(text), limit);
 }
 
 /**
@@ -103,7 +103,7 @@ export function quoteAt(range: Range): TextQuote | undefined {
   const root = range.startContainer.ownerDocument?.body;
   if (!root) return undefined;
   const fromRange = normalizeQuoteText(
-    range.toString().slice(0, QUOTE_CHARS * 4),
+    headOf(range.toString(), QUOTE_CHARS * 4),
   ).trimStart();
   // A collapsed place quotes the text that follows it
   const quoted =
@@ -114,7 +114,7 @@ export function quoteAt(range: Range): TextQuote | undefined {
       range.startOffset,
       QUOTE_CHARS * 2,
     ).trimStart();
-  const highlight = quoted.slice(0, QUOTE_CHARS);
+  const highlight = headOf(quoted, QUOTE_CHARS);
   if (!highlight.trim()) return undefined;
   const before = textBefore(
     root,
@@ -129,7 +129,7 @@ export function quoteAt(range: Range): TextQuote | undefined {
       ? fromRange.slice(highlight.length) +
         textAfter(root, range.endContainer, range.endOffset, QUOTE_CHARS)
       : textAfter(root, range.endContainer, range.endOffset, QUOTE_CHARS);
-  const after = rest.slice(0, QUOTE_CHARS);
+  const after = headOf(rest, QUOTE_CHARS);
   return {
     ...(before ? { before } : {}),
     highlight,
@@ -193,9 +193,9 @@ export function locatorFromRelocate(input: RelocateInput): DurtalLocator {
   const text = input.range && !input.pdfPage ? quoteAt(input.range) : undefined;
   if (text) locator.text = text;
   if (input.tocLabel?.trim())
-    locator.tocLabel = input.tocLabel.trim().slice(0, 300);
+    locator.tocLabel = headOf(input.tocLabel.trim(), 300);
   if (input.pageLabel?.trim())
-    locator.pageLabel = input.pageLabel.trim().slice(0, 40);
+    locator.pageLabel = headOf(input.pageLabel.trim(), 40);
   return locator;
 }
 
@@ -239,9 +239,7 @@ export function visibleOriginRange(visible: Range): Range {
 /** Selection context is around the entire quote, never around its first 64 characters. */
 export function quoteFromSelection(range: Range): TextQuote | undefined {
   const root = range.startContainer.ownerDocument?.body;
-  const highlight = normalizeQuoteText(range.toString())
-    .trim()
-    .slice(0, 10_000);
+  const highlight = headOf(normalizeQuoteText(range.toString()).trim(), 10_000);
   if (!root || !highlight) return undefined;
   const before = textBefore(
     root,

@@ -26,6 +26,7 @@ import { formatPercent } from "@/lib/reader/place-label";
 import { keepStayedAt, loggedPlaceAhead, loggedPlaceLabel, loggedPlaceWhere, stayedAt } from "@/lib/reading/logged-place";
 import { saveQuoteWithRefresh } from "@/lib/reader/annotation-server-changes";
 import { onActivityRefresh } from "@/lib/activity/refresh-event";
+import { refusalMessage } from "@/lib/actions/refusal";
 
 type Controller = ReturnType<typeof createReadingReaderController>;
 type Queue = ReturnType<typeof createReaderSittingQueue>;
@@ -254,7 +255,8 @@ function ActiveReaderTracking({ data: initial }: { data: ReaderTrackingData }) {
       if (!live.current || expected !== generation.current || !actionSelection.isCurrent(value)) return;
       actionSelection.clear(value);
       await latest.current.dialogs.open({ kind: "note", workId: latest.current.data.linked!.workId, note: saved.note });
-    } catch (error) { showFailure(error); }
+      // The action's own refusal or the connection, else a sentence: never the validator's JSON (SLN-1494)
+    } catch (error) { if (live.current) setNotice(refusalMessage(error, "This quote couldn't be saved.")); }
     finally { if (live.current && expected === generation.current) setBusy(false); }
   }
   const quoteAction = useRef(quote);

@@ -71,7 +71,7 @@ import {
 } from "./locator";
 import { findPageMap, parsePageMap } from "./page-map";
 import { buildAnchorIndex, indexFragment, scanMarkup } from "./position-index";
-import { matchQuote } from "./quote-match";
+import { headOf, matchQuote } from "./quote-match";
 import { keepSelectionOnScreen } from "@/lib/reader/selection-edge";
 import { watchTooltipKeys } from "@/lib/ui/tooltip-keys";
 import type {
@@ -1444,8 +1444,8 @@ class FoliateEngine implements ReaderEngine {
     const quote = quoteFromSelection(range);
     const base = this.#locator;
     const progress = view.getProgressOf(index, range);
-    const tocLabel = progress?.tocItem?.label?.trim().slice(0, 300);
-    const pageLabel = progress?.pageItem?.label?.trim().slice(0, 40);
+    const tocLabel = progress?.tocItem?.label && headOf(progress.tocItem.label.trim(), 300);
+    const pageLabel = progress?.pageItem?.label && headOf(progress.pageItem.label.trim(), 40);
     if (this.#isPdf()) {
       // A PDF passage needs a complete, nonempty text quote.
       if (!quote?.highlight) return null;
