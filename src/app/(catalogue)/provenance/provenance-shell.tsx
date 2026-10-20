@@ -14,7 +14,7 @@ import {
 } from "@dnd-kit/core";
 import { Badge } from "@/components/ui/badge";
 import { todayLocal } from "@/lib/utils/date";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "@/lib/notifications/toast";
 import { BOOK_IN_HAND_STATUSES, getValidTransitions, orderStatusLabel, type OrderStatus } from "@/lib/constants/orders";
 import { formatMoney } from "@/lib/utils/money";
@@ -102,6 +102,22 @@ export function ProvenanceShell({ activeOrders, stats }: ProvenanceShellProps) {
       return activeOrders.find((o) => o.id === prev.id) ?? null;
     });
   }, [activeOrders]);
+
+  // ?order= opens that order, as New order's "Open the existing order" links
+  // it (SLN-1119); the address drops it, so a reload shows the board
+  const asked = useSearchParams().get("order");
+  const [seenAsked, setSeenAsked] = useState<string | null>(null);
+  if (asked !== seenAsked) {
+    setSeenAsked(asked);
+    const order = asked && activeOrders.find((o) => o.id === asked);
+    if (order) setSelectedOrder(order);
+  }
+  useEffect(() => {
+    if (!asked) return;
+    const url = new URL(window.location.href);
+    url.searchParams.delete("order");
+    window.history.replaceState(null, "", url);
+  }, [asked]);
 
   // Drag-and-drop sensors with activation delay to differentiate clicks from drags
   const sensors = useSensors(

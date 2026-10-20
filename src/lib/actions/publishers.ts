@@ -40,6 +40,7 @@ import {
 } from "@/lib/validations/publishers";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
 import { targetState } from "@/lib/publishers/conditions";
+import { openTargetOrder } from "@/lib/publishers/open-order";
 import type { PosterImage } from "@/lib/utils/edition-image";
 import { isbnPrefixLabel, publisherSlug } from "@/lib/publishers/names";
 import { countryLookup, resolveCountry } from "@/lib/utils/countries";
@@ -760,7 +761,11 @@ export async function getTargetOrderSeed(id: string) {
     with: { workAuthors: { with: { author: true } }, media: true },
   });
   if (!work) return null;
-  return { target, work: { ...work, slug: work.slug ?? "" } };
+  return {
+    target,
+    work: { ...work, slug: work.slug ?? "" },
+    openOrder: await openTargetOrder(target.id),
+  };
 }
 
 export async function fulfilTargetWithCopy(

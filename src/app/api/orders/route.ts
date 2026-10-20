@@ -70,7 +70,10 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const order = await createOrder(input);
+    // Asked to order again: the target's open order does not refuse it either
+    const order = await createOrder(input, {
+      orderAgain: req.nextUrl.searchParams.get("allowDuplicate") === "1",
+    });
     return NextResponse.json(order, { status: 201 });
   } catch (err) {
     return errorResponse(err, "Failed to create order");

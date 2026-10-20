@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
+import Link from "next/link";
 import {
   OrderTargetFields,
   type OrderTargetValue,
@@ -24,6 +25,7 @@ import {
 } from "./order-create-steps";
 import { createOrder, createOrderForNewBook } from "@/lib/actions/catalogue-client";
 import { refusalMessage } from "@/lib/actions/refusal";
+import { ActionRefusal } from "@/lib/actions/action-refusal";
 import { useSaveReason } from "@/components/shared/save-reason";
 
 const STEP_LABELS = ["Work", "Method", "Details", "Notes"];
@@ -42,6 +44,29 @@ export function OrderCreateDialog({
     editionId: seed?.target.editionId ?? "",
   });
   const [isPending, startTransition] = useTransition();
+  // One create at a time: a second press before the first returns ordered twice
+  const inFlight = useRef(false);
+  // The target's open order, from the seed or the server's refusal, until
+  // "Order again anyway" (SLN-1119)
+  const [openOrder, setOpenOrder] = useState(
+    seed?.openOrder ? { ...seed.openOrder, targetId: seed.target.id } : null,
+  );
+  // The target "Order again anyway" was pressed for
+  const [againFor, setAgainFor] = useState<string | null>(null);
+  const orderAgain =
+    !!targetValue.acquisitionTargetId && againFor === targetValue.acquisitionTargetId;
+  const shownOrder =
+    openOrder?.targetId === targetValue.acquisitionTargetId && !orderAgain
+      ? openOrder
+      : null;
+
+  // Reload and Back open the page, not New order for a target just ordered
+  useEffect(() => {
+    if (!seed) return;
+    const url = new URL(window.location.href);
+    url.searchParams.delete("target");
+    window.history.replaceState(null, "", url);
+  }, [seed]);
 
   // Form state
   const [step, setStep] = useState(seed ? 1 : 0);
@@ -65,6 +90,8 @@ export function OrderCreateDialog({
 
   function resetForm() {
     setArrivedWith(null);
+    setOpenOrder(null);
+    setAgainFor(null);
     setStep(0);
     setSelectedWork(null);
     setTargetValue({ acquisitionTargetId: "", editionId: "" });
@@ -99,7 +126,8 @@ export function OrderCreateDialog({
     }
   }
 
-  function handleSubmit() {
+  function handleSubmit(again = orderAgain) {
+    if (inFlight.current) return;
     if (!selectedWork) {
       toast.error("Please select a work");
       return;
@@ -114,6 +142,8 @@ export function OrderCreateDialog({
         ? String(parseFloat(priceVal) + parseFloat(shippingVal))
         : (priceVal ?? shippingVal ?? null);
 
+    inFlight.current = true;
+    const targetId = targetValue.acquisitionTargetId;
     startTransition(async () => {
       try {
         const order = {
@@ -137,15 +167,22 @@ export function OrderCreateDialog({
         };
         if (selectedWork.draft)
           await createOrderForNewBook({ book: selectedWork.draft, order });
-        else await createOrder({ ...order, workId: selectedWork.id });
+        else
+          await createOrder(
+            { ...order, workId: selectedWork.id },
+            { orderAgain: again || undefined },
+          );
         toast.success(`Order for "${selectedWork.title}" created`);
         setOpen(false);
         resetForm();
         router.refresh();
       } catch (err) {
-        toast.error(
-          refusalMessage(err, "Failed to create order"),
-        );
+        // The target is on order already: say so here, with the way to it
+        if (err instanceof ActionRefusal && err.href?.startsWith("/provenance?order=") && targetId)
+          setOpenOrder({ message: err.message, href: err.href, targetId });
+        else toast.error(refusalMessage(err, "Failed to create order"));
+      } finally {
+        inFlight.current = false;
       }
     });
   }
@@ -171,7 +208,7 @@ export function OrderCreateDialog({
       <Dialog
         draft
         dirty={picked}
-        onSave={handleSubmit}
+        onSave={() => handleSubmit()}
         open={open}
         onClose={handleClose}
         title="New order"
@@ -249,6 +286,34 @@ export function OrderCreateDialog({
             )}
           </Button>
 
+          {shownOrder && (
+            <div
+              role="status"
+              className="flex basis-full flex-wrap items-center gap-2 rounded-sm border border-glass-border p-3 text-sm text-fg-secondary"
+            >
+              {shownOrder.message}
+              <Link
+                href={shownOrder.href}
+                onClick={handleClose}
+                className="text-command touch-hit"
+              >
+                Open the existing order
+              </Link>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                className="pointer-coarse:h-11"
+                busy={isPending}
+                onClick={() => {
+                  setAgainFor(targetValue.acquisitionTargetId);
+                  if (step === STEP_LABELS.length - 1) handleSubmit(true);
+                }}
+              >
+                Order again anyway
+              </Button>
+            </div>
+          )}
           {saveReason.hint}
           {step < STEP_LABELS.length - 1 ? (
             <Button
@@ -265,7 +330,7 @@ export function OrderCreateDialog({
             <Button
               variant="primary"
               size="sm"
-              onClick={handleSubmit}
+              onClick={() => handleSubmit()}
               busy={isPending}
               disabled={!selectedWork}
               aria-describedby={saveReason.describedBy}
