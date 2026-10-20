@@ -106,18 +106,14 @@ export function ProvenanceShell({ activeOrders, stats }: ProvenanceShellProps) {
   // ?order= opens that order, as New order's "Open the existing order" links
   // it (SLN-1119); the address drops it, so a reload shows the board
   const asked = useSearchParams().get("order");
-  const [seenAsked, setSeenAsked] = useState<string | null>(null);
-  if (asked !== seenAsked) {
-    setSeenAsked(asked);
-    const order = asked && activeOrders.find((o) => o.id === asked);
-    if (order) setSelectedOrder(order);
-  }
   useEffect(() => {
     if (!asked) return;
+    const order = activeOrders.find((o) => o.id === asked);
+    if (order) setSelectedOrder(order);
     const url = new URL(window.location.href);
     url.searchParams.delete("order");
     window.history.replaceState(null, "", url);
-  }, [asked]);
+  }, [asked, activeOrders]);
 
   // Drag-and-drop sensors with activation delay to differentiate clicks from drags
   const sensors = useSensors(

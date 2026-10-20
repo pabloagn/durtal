@@ -756,16 +756,15 @@ export async function getTargetOrderSeed(id: string) {
       ),
     );
   if (!target) return null;
-  const work = await db.query.works.findFirst({
-    where: eq(works.id, target.workId),
-    with: { workAuthors: { with: { author: true } }, media: true },
-  });
+  const [work, openOrder] = await Promise.all([
+    db.query.works.findFirst({
+      where: eq(works.id, target.workId),
+      with: { workAuthors: { with: { author: true } }, media: true },
+    }),
+    openTargetOrder(target.id),
+  ]);
   if (!work) return null;
-  return {
-    target,
-    work: { ...work, slug: work.slug ?? "" },
-    openOrder: await openTargetOrder(target.id),
-  };
+  return { target, work: { ...work, slug: work.slug ?? "" }, openOrder };
 }
 
 export async function fulfilTargetWithCopy(

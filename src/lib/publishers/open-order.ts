@@ -1,7 +1,7 @@
 import { and, desc, eq, notInArray } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { orders } from "@/lib/db/schema";
-import { TERMINAL_STATUSES } from "@/lib/constants/orders";
+import { TERMINAL_STATUSES, orderHref } from "@/lib/constants/orders";
 import { formatDate } from "@/lib/utils/format";
 
 /**
@@ -19,6 +19,6 @@ export async function openTargetOrder(targetId: string) {
   if (!order) return null;
   return {
     message: `This target already has an open order, placed ${formatDate(order.orderDate)}.`,
-    href: `/provenance?order=${order.id}`,
+    href: orderHref(order.id),
   };
 }

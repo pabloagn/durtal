@@ -202,5 +202,7 @@ export async function orderTypedTarget(input: TypedOrderInput) {
   const [target] = await db.select().from(acquisitionTargets).where(eq(acquisitionTargets.id, data.targetId));
   if (!target || target.isCancelled || !typedKind(target)) throw new ExpectedActionError("This target no longer exists");
   const { targetId, ...order } = data;
-  return createOrder({ ...order, workId: target.workId, acquisitionTargetId: targetId });
+  // A film, perfume or painting target is ordered as often as Order is pressed:
+  // a second bottle or sample is a purchase of its own (SLN-1119 is books only)
+  return createOrder({ ...order, workId: target.workId, acquisitionTargetId: targetId }, { orderAgain: true });
 }
