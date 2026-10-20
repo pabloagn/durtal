@@ -5,6 +5,8 @@ import {
   AddButton,
   CHIP,
   CHIP_NAME,
+  CREDIT_CHIP,
+  CREDIT_CHIP_NAME,
   ROLE_CHIP,
   ROLE_CHIP_NAME,
   FieldRow,
@@ -15,12 +17,7 @@ import {
   type TermEntry,
 } from "@/components/catalogue/record-fields";
 import { SearchPicker } from "@/components/catalogue/search-picker";
-import {
-  CREDIT_ROW,
-  CREDIT_ROW_NAME,
-  CreditRowControls,
-  moveRow,
-} from "@/components/shared/credit-row-controls";
+import { CreditRowControls, moveRow } from "@/components/shared/credit-row-controls";
 import { TaxonomyItemSearch } from "@/components/taxonomy/taxonomy-assignments";
 import type { Attribution } from "@/lib/catalogue/credits";
 import { PERFUME_ORGANIZATION_ROLES } from "@/lib/catalogue/perfumes";
@@ -178,39 +175,35 @@ export function CreditListField({
   const { search, create } = usePersonSearch("perfume");
   return (
     <FieldRow label={label}>
-      {value.length > 0 && (
-        <div className="w-full space-y-1.5">
-          {value.map((entry, index) => (
-            <div key={entry.id ?? entry.key ?? index} data-credit-row="" className={CREDIT_ROW}>
-              <span className={`${CREDIT_ROW_NAME} ${entry.personId ? "" : "italic"}`}>
-                {creditName(entry)}
-              </span>
-              {roles && (
-                <Select
-                  compact
-                  ariaLabel={`Role of ${creditName(entry)}`}
-                  value={entry.roleId ?? "perfume.perfumer"}
-                  options={CREDIT_ROLE_OPTIONS}
-                  onChange={(e) =>
-                    onChange(
-                      value.map((c, i) =>
-                        i === index ? { ...c, roleId: e.target.value as PerfumeCreditRole } : c,
-                      ),
-                    )
-                  }
-                />
-              )}
-              <CreditRowControls
-                name={creditName(entry)}
-                first={index === 0}
-                last={index === value.length - 1}
-                onMove={(step) => onChange(moveRow(value, index, step))}
-                onRemove={() => onChange(value.filter((_, i) => i !== index))}
-              />
-            </div>
-          ))}
-        </div>
-      )}
+      {value.map((entry, index) => (
+        <span key={entry.id ?? entry.key ?? index} data-credit-row="" className={CREDIT_CHIP}>
+          <span className={`${CREDIT_CHIP_NAME} ${entry.personId ? "" : "italic"}`}>
+            {creditName(entry)}
+          </span>
+          {roles && (
+            <Select
+              compact
+              ariaLabel={`Role of ${creditName(entry)}`}
+              value={entry.roleId ?? "perfume.perfumer"}
+              options={CREDIT_ROLE_OPTIONS}
+              onChange={(e) =>
+                onChange(
+                  value.map((c, i) =>
+                    i === index ? { ...c, roleId: e.target.value as PerfumeCreditRole } : c,
+                  ),
+                )
+              }
+            />
+          )}
+          <CreditRowControls
+            name={creditName(entry)}
+            first={index === 0}
+            last={index === value.length - 1}
+            onMove={(step) => onChange(moveRow(value, index, step))}
+            onRemove={() => onChange(value.filter((_, i) => i !== index))}
+          />
+        </span>
+      ))}
       {add.open ? (
         <SearchPicker
           label="Search people"

@@ -72,3 +72,19 @@ it("puts a perfume's people in order, a credit added in the form keeping its row
   expect(latest[0]!.roleId).toBe("perfume.creative_director");
   expect(document.activeElement).toBe(button("Move Edmond Roudnitska down"));
 });
+
+it("gives the list's Add the focus once its last painter is removed", async () => {
+  function Field() {
+    const [value, setValue] = useState<PainterEntry[]>([
+      { key: "p1", personId: "a1", name: "Odilon Redon", creditedAs: null, attribution: "confirmed" },
+    ]);
+    return createElement(PaintersField, { value, onChange: setValue });
+  }
+  act(() => root.render(createElement(Field)));
+  const remove = button("Remove Odilon Redon");
+  act(() => remove.focus());
+  click(remove);
+  await act(() => new Promise((resolve) => requestAnimationFrame(resolve)));
+  expect(button("Remove Odilon Redon")).toBeNull();
+  expect(document.activeElement).toBe(button("Add to painters"));
+});

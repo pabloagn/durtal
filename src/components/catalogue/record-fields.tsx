@@ -38,6 +38,14 @@ export const CHIP_NAME = "min-w-0 whitespace-normal break-words pointer-coarse:p
 export const ROLE_CHIP = `${CHIP} pointer-coarse:flex-wrap max-sm:flex-wrap`;
 export const ROLE_CHIP_NAME = `${CHIP_NAME} pointer-coarse:order-first pointer-coarse:basis-full max-sm:order-first max-sm:basis-full`;
 
+/**
+ * A credit in a record form (a painter, a perfumer): a role chip a line wide,
+ * its name taking the room, with Move up, Move down and Remove
+ * (`CreditRowControls`, SLN-1131). Its first line keeps the row label's center
+ */
+export const CREDIT_CHIP = `${ROLE_CHIP} w-full`;
+export const CREDIT_CHIP_NAME = `${ROLE_CHIP_NAME} flex-1`;
+
 /** The remove button of a chip, on the cap-height center of its text; 44px on touch */
 export function RemoveButton({ label, onClick }: { label: string; onClick: () => void }) {
   return (
@@ -92,6 +100,7 @@ export function AddButton({
       type="button"
       onClick={onClick}
       aria-label={label}
+      data-credit-add=""
       className="inline-flex items-start gap-1 rounded-sm px-1.5 pt-px text-xs leading-6 text-fg-secondary transition-colors hover:text-fg-primary pointer-coarse:min-w-11 pointer-coarse:leading-11 max-sm:first:-ml-1.5"
     >
       <CapAligned height={12}>

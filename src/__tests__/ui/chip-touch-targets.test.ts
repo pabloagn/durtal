@@ -33,12 +33,14 @@ describe("Record form touch targets", () => {
     const perfume = read("components/perfumes/perfume-fields.tsx");
     expect(perfume).toContain("<span key={`${entry.organizationId}:${entry.role}`} className={ROLE_CHIP}>");
     expect(perfume).toMatch(/<span className=\{ROLE_CHIP_NAME\}>\s*\{entry\.name\}/);
-    // A perfume's people and a painting's painters are ordered credit rows
-    // (SLN-1131), whose name takes its own line the same way
-    expect(perfume).toContain("className={`${CREDIT_ROW_NAME} ${entry.personId ? \"\" : \"italic\"}`}");
+    // A perfume's people and a painting's painters are role chips a line
+    // wide, in order (SLN-1131), whose name takes its own line the same way
+    expect(fields).toContain("export const CREDIT_CHIP = `${ROLE_CHIP} w-full`;");
+    expect(fields).toContain("export const CREDIT_CHIP_NAME = `${ROLE_CHIP_NAME} flex-1`;");
+    expect(perfume).toContain("className={`${CREDIT_CHIP_NAME} ${entry.personId ? \"\" : \"italic\"}`}");
     const painting = read("components/paintings/painting-fields.tsx");
-    expect(painting).toContain('<div key={entry.key} data-credit-row="" className={CREDIT_ROW}>');
-    expect(painting).toContain("className={`${CREDIT_ROW_NAME} ${entry.personId ? \"\" : \"italic\"}`}");
+    expect(painting).toContain('<span key={entry.key} data-credit-row="" className={CREDIT_CHIP}>');
+    expect(painting).toContain("className={`${CREDIT_CHIP_NAME} ${entry.personId ? \"\" : \"italic\"}`}");
     expect(read("components/shared/credit-row-controls.tsx")).toMatch(/CREDIT_ROW_NAME =\s*"min-w-0 flex-1 whitespace-normal break-words [^"]*pointer-coarse:basis-full [^"]*max-sm:basis-full"/);
     expect(read("components/films/film-fields.tsx")).toContain("min-w-0 flex-1 whitespace-normal break-words pointer-coarse:basis-full pointer-coarse:leading-6 max-sm:basis-full");
     // The menu keeps its width beside a name that wraps

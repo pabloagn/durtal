@@ -13,7 +13,7 @@ import {
   usePersonSearch,
 } from "@/components/catalogue/record-fields";
 import { SearchPicker, type PickerChoice } from "@/components/catalogue/search-picker";
-import { CreditRowControls } from "@/components/shared/credit-row-controls";
+import { CreditRowControls, moveRow } from "@/components/shared/credit-row-controls";
 import { filterBySearch } from "@/lib/utils/search-text";
 import {
   FILM_CREDIT_ROLES,
@@ -285,11 +285,7 @@ function CreditGroup({
     notes: null,
     ...fields,
   });
-  const move = (index: number, step: -1 | 1) => {
-    const next = [...value];
-    [next[index], next[index + step]] = [next[index + step], next[index]];
-    onChange(next);
-  };
+  const move = (index: number, step: -1 | 1) => onChange(moveRow(value, index, step));
   return (
     <fieldset className="space-y-2">
       <legend className="type-label mb-1.5">{title}</legend>

@@ -13,13 +13,15 @@ SLN-1131's addition of 19 Oct (`findings/credits-and-roles.md`, finding 4). A pa
 
 ## Implementation Details
 
-- `paintings/painting-fields.tsx` and `perfumes/perfume-fields.tsx`: each painter or person is a credit row (`CREDIT_ROW`): the name, its attribution or role menu, and `CreditRowControls` (Move up, Move down, Remove, each named after its person). The list's order is what the form saves; `replaceWorkCredits` writes each place as `sort_order`.
+- `paintings/painting-fields.tsx` and `perfumes/perfume-fields.tsx`: each painter or person is a credit chip a line wide (`CREDIT_CHIP`, `catalogue/record-fields.tsx`): its attribution or role menu, the name taking the room, and `CreditRowControls` (Move up, Move down, Remove, each named after its person). It keeps the role chip's metrics, so its first line stays on the row label's center, and on touch or a phone the name takes a line of its own. The list's order is what the form saves; `replaceWorkCredits` writes each place as `sort_order`.
 - A perfume credit added in the form gets its own key (`creditEntryKey`), so a moved row keeps its focus; a stored one keeps its id. The perfume organizations stay chips.
 - `films/film-fields.tsx`: `CreditRow` uses `CreditRowControls` in place of its own buttons, so a film credit moved down keeps the focus too, and its name keeps a 24px line on touch.
-- `CreditRowControls`: when the last row goes, the focus moves to the list's Add.
+- `CreditRowControls`: when the last row goes, the focus moves to the list's Add (`data-credit-add`, on the record forms' Add and on Add author). A row that stays, as a book's last author does, keeps the focus.
+- `films/film-fields.tsx` reorders with the shared `moveRow`.
 
 ## Completion Notes
 
 - **Tests:**
-  - `ui/record-credit-order` (new): painters and a perfume's people move, are saved in their new order, and keep the focus. The role stays with its person.
+  - `ui/record-credit-order` (new): painters and a perfume's people move, are saved in their new order, and keep the focus. The role stays with its person. Removing the last painter puts the focus on Add.
+  - `ui/work-form-authors`: the last author's refused Remove keeps the focus.
   - `ui/chip-touch-targets` and `ui/standard-focus-ring` follow the rows.

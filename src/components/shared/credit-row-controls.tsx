@@ -43,15 +43,21 @@ export function CreditRowControls({
     onMove(step);
   };
   // A removed row hands the focus to the next row's Remove, else the one
-  // before, else the form's name search, else the list's Add
+  // before, else the form's name search, else the list's Add. A row that
+  // stays (a book's last author) keeps it
   const remove = (button: HTMLElement) => {
     const row = button.closest("[data-credit-row]");
+    const list = row?.parentElement;
     const next =
-      (row?.nextElementSibling ?? row?.previousElementSibling)?.querySelector<HTMLElement>("[data-credit-remove]") ??
+      [row?.nextElementSibling, row?.previousElementSibling]
+        .map((r) => r?.querySelector<HTMLElement>("[data-credit-remove]"))
+        .find(Boolean) ??
       button.closest("form")?.querySelector<HTMLElement>("[data-credit-search]") ??
-      row?.parentElement?.parentElement?.querySelector<HTMLElement>("button[aria-label^='Add']");
+      (list?.querySelector<HTMLElement>("[data-credit-add]") || list?.parentElement?.querySelector<HTMLElement>("[data-credit-add]"));
     onRemove();
-    if (next) requestAnimationFrame(() => next.focus());
+    requestAnimationFrame(() => {
+      if (next && !row?.isConnected) next.focus();
+    });
   };
   return (
     <CapAligned height={24} coarseHeight={44}>
