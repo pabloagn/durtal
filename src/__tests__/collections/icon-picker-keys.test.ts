@@ -69,6 +69,8 @@ describe("collection icon picker keys", () => {
     act(() => root.render(h(IconPickerPanel, { value: null, onPick: vi.fn() })));
     const status = host.querySelector("[role=status]")!;
     expect(status.textContent).toBe("");
+    // Empty, it stays in the accessibility tree: never display none, or its first text goes unannounced
+    expect(status.className.split(" ").some((c) => /(^|:)hidden$/.test(c))).toBe(false);
     const input = host.querySelector("input")!;
     const type = async (text: string) => {
       await act(async () => {

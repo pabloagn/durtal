@@ -241,11 +241,11 @@ export default function IconPickerPanel({
       </div>
       {/* Not a Tab stop of its own (Firefox makes a scroller one): focus moving through the grids scrolls it */}
       <div tabIndex={-1} className="min-h-0 flex-1 overflow-y-auto p-2">
-        {/* One polite line, there before its text changes: the match count or no match */}
+        {/* One polite line, there before its text changes: the match count or no match. Empty, it takes no room but stays in the accessibility tree, so its first text is announced */}
         <p
           id={`${id}-results`}
           role="status"
-          className={results && !results.length ? "py-8 text-center text-sm text-fg-secondary" : "type-caption mb-1.5 px-1 empty:hidden"}
+          className={results && !results.length ? "py-8 text-center text-sm text-fg-secondary" : "type-caption mb-1.5 px-1 empty:mb-0"}
         >
           {results
             ? results.length
