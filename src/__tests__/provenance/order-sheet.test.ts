@@ -13,7 +13,10 @@ import path from "path";
 // delete question takes it on its safe answer. Each fell to the page body.
 
 const deleteOrder = vi.hoisted(() => vi.fn(async () => {}));
-vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: () => {}, push: () => {} }) }));
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh: () => {}, push: () => {} }),
+  useSearchParams: () => new URLSearchParams(window.location.search),
+}));
 vi.mock("@/lib/actions/orders", () => ({ updateOrderStatus: async () => {}, deleteOrder }));
 vi.mock("@/lib/notifications/toast", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock("@/app/(catalogue)/provenance/order-edit-dialog", () => ({ OrderEditDialog: () => null }));
@@ -99,6 +102,15 @@ describe("the provenance board with an order open", () => {
     expect(host.querySelector("[data-order-sheet]")).toBeNull();
     expect(host.querySelector("[inert]")).toBeNull();
     expect(document.activeElement).toBe(card("o1"));
+  });
+
+  it("opens the order ?order= names, and drops it from the address (SLN-1119)", () => {
+    wide = true;
+    window.history.replaceState(null, "", "/provenance?order=o2&view=board");
+    mount(shell());
+    expect(host.querySelector(".w-80")?.textContent).toContain("Book o2");
+    expect(window.location.pathname + window.location.search).toBe("/provenance?view=board");
+    window.history.replaceState(null, "", "/");
   });
 
   it("keeps the panel beside a wide board", () => {

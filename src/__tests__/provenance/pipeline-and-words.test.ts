@@ -10,7 +10,10 @@ import { renderToStaticMarkup } from "react-dom/server";
 // (SLN-833). The other pages' words: sentence case, no full stop after
 // Harmonize, no key hints on touch (SLN-836).
 
-vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: () => {}, push: () => {} }) }));
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh: () => {}, push: () => {} }),
+  useSearchParams: () => new URLSearchParams(),
+}));
 vi.mock("@/lib/actions/orders", () => ({ updateOrderStatus: async () => {} }));
 vi.mock("@/app/(catalogue)/provenance/order-detail-panel", () => ({ OrderDetailPanel: () => null }));
 

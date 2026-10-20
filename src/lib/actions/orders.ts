@@ -79,6 +79,7 @@ import {
   type CatalogueStatus,
 } from "@/lib/utils/order-status-sync";
 import { queueNewBookEnrichment } from "@/lib/enrichment/queue";
+import { openTargetOrder } from "@/lib/publishers/open-order";
 
 /**
  * Keep a work's catalogueStatus in line with ALL its orders (C1, H4), without
@@ -534,11 +535,22 @@ function newOrderQueries(
   ];
 }
 
-export async function createOrder(input: CreateOrderInput) {
+export async function createOrder(
+  input: CreateOrderInput,
+  options: { orderAgain?: boolean } = {},
+) {
   const validated = createOrderSchema.parse(input);
   // A film, perfume or painting is ordered through a target that names what
-  // it brings in; anything else is a book order
-  const target = await getTarget(validated.acquisitionTargetId);
+  // it brings in; anything else is a book order. A reload, Back or a replayed
+  // request ordered a target twice (SLN-1119): a second open order for it is
+  // placed only when asked for in so many words.
+  const [target, open] = await Promise.all([
+    getTarget(validated.acquisitionTargetId),
+    validated.acquisitionTargetId && options.orderAgain !== true
+      ? openTargetOrder(validated.acquisitionTargetId)
+      : null,
+  ]);
+  if (open) throw new ExpectedActionError(open.message, { href: open.href });
   const kind =
     target && target.workId === validated.workId ? typedKind(target) : null;
   if (!kind) await requireBookWork(validated.workId);

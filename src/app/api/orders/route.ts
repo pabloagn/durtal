@@ -7,7 +7,8 @@ import {
   getActiveOrders,
   getOrdersForWork,
 } from "@/lib/actions/orders";
-import { TERMINAL_STATUSES } from "@/lib/constants/orders";
+import { TERMINAL_STATUSES, isOrderHref } from "@/lib/constants/orders";
+import { ExpectedActionError } from "@/lib/actions/expected-error";
 import { createOrderSchema } from "@/lib/validations/orders";
 import {
   UUID_RE,
@@ -70,9 +71,15 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const order = await createOrder(input);
+    // Asked to order again: the target's open order does not refuse it either
+    const order = await createOrder(input, {
+      orderAgain: req.nextUrl.searchParams.get("allowDuplicate") === "1",
+    });
     return NextResponse.json(order, { status: 201 });
   } catch (err) {
+    // The target's open order, when the work's active orders did not name it
+    if (err instanceof ExpectedActionError && isOrderHref(err.href))
+      return NextResponse.json({ error: err.message, href: err.href }, { status: 409 });
     return errorResponse(err, "Failed to create order");
   }
 }
