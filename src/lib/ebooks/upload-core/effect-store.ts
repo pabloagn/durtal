@@ -2,6 +2,7 @@ import { sql, type SQL } from "drizzle-orm";
 import { createHash } from "node:crypto";
 import type { Db } from "@/lib/catalogue/work-store";
 import { atomicOn } from "@/lib/db/atomic";
+import { textArraySql } from "@/lib/db/sql-arrays";
 import { assertSql, lockSql, resultRows } from "@/lib/harmonization/store";
 import { dataFingerprint } from "../match/load";
 import { prepareUploadAtomicExtension, type UploadAtomicBinding } from "../upload/atomic-extension";
@@ -141,8 +142,8 @@ function finalCatalogueEffectSql(plan:UploadEffectPreview):SQL {
   const changes=["updated_at","preferred_file_id","cover_key",...(plan.matching
     ? ["match_tier","match_fingerprint","match_model_version","duplicate_of_id"]:[])];
   let bookGuard:SQL;
-  if (beforeBook) bookGuard=sql`(${uploadRowSnapshotSql("ebooks","e")}-${changes}::text[])=
-    (${JSON.stringify(beforeBook)}::jsonb-${changes}::text[]) and e.updated_at>${String(beforeBook.updated_at)}::timestamptz`;
+  if (beforeBook) bookGuard=sql`(${uploadRowSnapshotSql("ebooks","e")}-${textArraySql(changes)})=
+    (${JSON.stringify(beforeBook)}::jsonb-${textArraySql(changes)}) and e.updated_at>${String(beforeBook.updated_at)}::timestamptz`;
   else {
     const n=r!.newEbook!;
     const expected={id:plan.ebookId,title:n.title,title_sort:n.titleSort??null,subtitle:n.subtitle??null,authors:n.authors??[],
@@ -150,7 +151,7 @@ function finalCatalogueEffectSql(plan:UploadEffectPreview):SQL {
       series_index:n.seriesIndex??null,publisher:n.publisher??null,published_year:n.publishedYear??null,description:n.description??null,
       instance_id:null,match_state:"pending",match_method:null,match_probability:null,matched_at:null,
       link_written:null,exclusion_reason:null,import_source:n.importSource,import_ref:n.importRef??null,search_text:n.searchText??""};
-    bookGuard=sql`(to_jsonb(e)-${[...changes,"created_at","match_tier","match_fingerprint","match_model_version","duplicate_of_id"]}::text[])
+    bookGuard=sql`(to_jsonb(e)-${textArraySql([...changes,"created_at","match_tier","match_fingerprint","match_model_version","duplicate_of_id"])})
       =${JSON.stringify(expected)}::jsonb and e.created_at=${r!.at.toISOString()}::timestamptz`;
   }
   const match=plan.matching?.result;
@@ -162,7 +163,7 @@ function finalCatalogueEffectSql(plan:UploadEffectPreview):SQL {
       and c.instance_id is not distinct from ${candidate.effect.movedFromEditionId ? null:candidate.effect.instanceId}::uuid
       and c.edition_rule=${candidate.effect.rule} and c.probability=${candidate.probability}::real
       and c.weight_bits=${candidate.weightBits}::real and c.margin_bits is not distinct from ${candidate.marginBits}::real
-      and c.reasons=${JSON.stringify(reasons)}::jsonb and c.flags=${[...candidate.flags]}::text[]
+      and c.reasons=${JSON.stringify(reasons)}::jsonb and c.flags=${textArraySql([...candidate.flags])}
       and c.model_version=${match.modelVersion} and c.created_at=${r!.at.toISOString()}::timestamptz)`;
   }):[];
   return sql`${finalRegistrationSql(plan)} and
