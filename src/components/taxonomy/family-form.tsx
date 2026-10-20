@@ -2,7 +2,6 @@
 
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { getEnabledWorkKinds } from "@/lib/catalogue/domains";
 import type { WorkKind } from "@/lib/catalogue/kinds";
 import {
   TAXONOMY_SCOPE_OPTIONS,
@@ -48,12 +47,8 @@ export function FamilyForm({
   hierarchyLocked = false,
   nameError,
 }: FamilyFormProps) {
-  const enabled = new Set<WorkKind>(getEnabledWorkKinds());
-  const options = TAXONOMY_SCOPE_OPTIONS.filter((option) =>
-    enabled.has(option.kind),
-  );
+  const options = TAXONOMY_SCOPE_OPTIONS;
   const chosen = new Set(value.scopes.map(scopeKey));
-  const hidden = value.scopes.filter((scope) => !enabled.has(scope.kind));
   const set = (patch: Partial<FamilyFormValue>) =>
     onChange({ ...value, ...patch });
   const toggle = (scope: FamilyScope, on: boolean) =>
@@ -123,13 +118,6 @@ export function FamilyForm({
               );
             })}
           </div>
-        )}
-        {hidden.length > 0 && (
-          <p className="text-micro text-fg-secondary">
-            Also applies to {hidden.length} place
-            {hidden.length === 1 ? "" : "s"} in collections that are not open
-            yet. Those are kept.
-          </p>
         )}
       </fieldset>
 

@@ -25,7 +25,6 @@ import {
   collectionExportRows,
   type CollectionExport,
 } from "@/lib/export/collections";
-import { WORK_DOMAINS } from "@/lib/catalogue/domains";
 import { stripHtmlToText } from "@/lib/utils/sanitize";
 import { formatRating } from "@/lib/utils/rating";
 import {
@@ -237,14 +236,6 @@ export async function POST(req: NextRequest) {
         { status: 400 },
       );
     }
-    // A collection that is not open has nothing to export yet
-    if (
-      isCollection(entity as EntityType) &&
-      !WORK_DOMAINS[COLLECTION_EXPORTS[entity as CollectionExport]].enabled
-    ) {
-      return NextResponse.json({ error: "This collection is not open." }, { status: 404 });
-    }
-
     if (filters !== undefined) {
       if (typeof filters !== "string" || filters.length > 2000)
         return NextResponse.json({ error: "filters must be a URL query of at most 2,000 characters." }, { status: 400 });

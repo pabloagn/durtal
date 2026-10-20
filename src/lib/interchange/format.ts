@@ -1,5 +1,4 @@
 import { WORK_KINDS, isWorkKind, type WorkKind } from "@/lib/catalogue/kinds";
-import { WORK_DOMAINS } from "@/lib/catalogue/domains";
 import { rowProblems, type Row } from "./columns";
 import { InterchangeFileError } from "./errors";
 import { recordsFromVersion1 } from "./version-1";
@@ -142,7 +141,6 @@ export function readRecord(input: unknown, index: number): CheckedRecord {
   const { domain, id, title, sections } = input;
   if (!isWorkKind(domain))
     return fail([`domain: “${String(domain)}” is not a collection this Durtal knows (${WORK_KINDS.join(", ")})`]);
-  if (!WORK_DOMAINS[domain].enabled) return fail([`domain: the ${WORK_DOMAINS[domain].pluralLabel} collection is not open here`]);
   if (typeof id !== "string" || typeof title !== "string" || !isObject(sections))
     return fail(["must have an id, a title and sections"]);
   const problems: string[] = [];

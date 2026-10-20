@@ -1,7 +1,6 @@
 import { sql, type SQL } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { resultRows } from "@/lib/harmonization/store";
-import { WORK_DOMAINS } from "@/lib/catalogue/domains";
 import { WORK_KINDS, type WorkKind } from "@/lib/catalogue/kinds";
 import { fileRow, rowKey, type Row } from "./columns";
 import {
@@ -118,14 +117,13 @@ async function closeOver(bags: Bag[], targets: Table[]) {
 export interface ExportSelection {
   /** These works only; every work of the chosen collections when absent */
   ids?: readonly string[] | null;
-  /** These collections only; every open collection when absent */
+  /** These collections only; every collection when absent */
   domains?: readonly WorkKind[] | null;
 }
 
 /** The works chosen, by collection and title */
 async function chosenWorks(selection: ExportSelection) {
-  const domains = (selection.domains?.length ? selection.domains : WORK_KINDS).filter((d) => WORK_DOMAINS[d].enabled);
-  if (!domains.length) return [];
+  const domains = selection.domains?.length ? selection.domains : WORK_KINDS;
   return resultRows<{ id: string; kind: WorkKind; title: string }>(
     await db.execute(sql`select id, kind::text as kind, title from works
       where kind::text in ${idList(domains, "text")}

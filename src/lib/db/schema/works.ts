@@ -78,8 +78,8 @@ export const works = pgTable("works", {
 }, (t) => [
   // Expand first: new kinds cannot leak into legacy book queries. Widen only
   // when their complete domain adapters and compatibility tests are ready, in
-  // step with getEnabledWorkKinds() (src/lib/catalogue/domains.ts): this is the
-  // only write guard.
+  // step with WORK_DOMAINS (src/lib/catalogue/domains.ts): this is the only
+  // write guard.
   check("works_kind_enabled_check", sql`${t.kind} IN ('book', 'perfume', 'film', 'painting')`),
   // The target of composite keys that tie a row to a work of one kind
   // (work_relations); the id alone is already unique

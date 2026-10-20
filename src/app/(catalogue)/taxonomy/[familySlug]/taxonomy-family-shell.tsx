@@ -33,7 +33,6 @@ import { DeleteItemDialog } from "@/components/taxonomy/delete-item-dialog";
 import { EditItemDialog } from "@/components/taxonomy/edit-item-dialog";
 import { EditFamilyDialog } from "@/components/taxonomy/edit-family-dialog";
 import { DeleteFamilyDialog } from "@/components/taxonomy/delete-family-dialog";
-import { getEnabledWorkKinds } from "@/lib/catalogue/domains";
 import { taxonomyMergeTargets } from "@/lib/catalogue/taxonomy-management";
 import type { WorkKind } from "@/lib/catalogue/kinds";
 import {
@@ -199,9 +198,7 @@ export function TaxonomyFamilyShell({
     });
     return () => cancelAnimationFrame(frame);
   }, [items, createDialogOpen]);
-  const enabled = new Set<WorkKind>(getEnabledWorkKinds());
   const scopeLabels = family.applicability
-    .filter((scope) => enabled.has(scope.kind))
     .map((scope) => taxonomyScopeLabel(scope.kind, scope.level));
 
   // Derived

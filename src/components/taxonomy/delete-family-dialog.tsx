@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { getTaxonomyFamilyUsage } from "@/lib/actions/taxonomy-families";
 import { deleteTaxonomyFamily } from "@/lib/actions/taxonomy-client";
-import { getEnabledWorkKinds } from "@/lib/catalogue/domains";
 import { taxonomyScopeLabel } from "@/lib/catalogue/taxonomies";
 
 type Usage = NonNullable<Awaited<ReturnType<typeof getTaxonomyFamilyUsage>>>;
@@ -40,7 +39,6 @@ export function DeleteFamilyDialog({
     };
   }, [family.id]);
 
-  const enabled = new Set<string>(getEnabledWorkKinds());
   const used = (usage?.scopes ?? []).filter((scope) => scope.inUse);
 
   async function handleDelete() {
@@ -83,11 +81,7 @@ export function DeleteFamilyDialog({
                 <p>
                   Records in{" "}
                   {used
-                    .map((scope) =>
-                      enabled.has(scope.kind)
-                        ? taxonomyScopeLabel(scope.kind, scope.level)
-                        : "a collection that is not open yet",
-                    )
+                    .map((scope) => taxonomyScopeLabel(scope.kind, scope.level))
                     .join(", ")}{" "}
                   use its items. Remove or reassign those classifications
                   first; merging items keeps them.

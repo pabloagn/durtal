@@ -5,7 +5,7 @@ import { db } from "@/lib/db";
 import { resultRows } from "@/lib/harmonization/store";
 import { textSearchCondition, textSearchRank } from "@/lib/actions/utils/text-search";
 import { isSearchableQuery } from "@/lib/utils/search-text";
-import { WORK_DOMAINS, getEnabledWorkKinds } from "@/lib/catalogue/domains";
+import { DOMAIN_ORDER, WORK_DOMAINS } from "@/lib/catalogue/domains";
 import type { WorkKind } from "@/lib/catalogue/kinds";
 import { VENUE_TYPE_LABELS, type VenueType } from "@/lib/catalogue/venues";
 import type { WorkEbookDTO } from "@/lib/ebooks/catalogue-dto";
@@ -30,7 +30,7 @@ export interface QuickSearchWork {
   ebook?: WorkEbookDTO | null;
 }
 export interface QuickSearchResult {
-  /** The best matches of each open collection, best first within each */
+  /** The best matches of each collection, best first within each */
   works: QuickSearchWork[];
   /** `photo`: the portrait thumbnail; `roles`: what they are in the catalogue */
   people: { id: string; name: string; href: string; photo: string | null; roles: string }[];
@@ -40,7 +40,7 @@ export interface QuickSearchResult {
   series?: QuickSearchRecord[];
   collections?: QuickSearchRecord[];
   recommenders?: QuickSearchRecord[];
-  /** Items of every taxonomy family an open collection uses; `detail` is the family */
+  /** Items of every taxonomy family a collection uses; `detail` is the family */
   taxonomy?: QuickSearchRecord[];
 }
 /** A record found by its name; `detail` says what it is when the group does not */
@@ -98,7 +98,7 @@ function workHref(kind: WorkKind, id: string, slug: string | null) {
   return `${WORK_DOMAINS[kind].basePath}/${slug ?? id}`;
 }
 
-async function searchWorks(q: string, kinds: WorkKind[]): Promise<QuickSearchWork[]> {
+async function searchWorks(q: string): Promise<QuickSearchWork[]> {
   const isbn = q.replace(/[-\s]/g, "");
   const isbnMatch = /^\d{9}[\dX]$|^\d{13}$/i.test(isbn)
     ? sql`exists (select 1 from editions e where e.work_id = w.id and (e.isbn_13 = ${isbn} or e.isbn_10 = ${isbn}))`
@@ -107,9 +107,10 @@ async function searchWorks(q: string, kinds: WorkKind[]): Promise<QuickSearchWor
   const textMatch = textSearchCondition(hay, q);
   const match =
     isbnMatch && textMatch ? sql`(${isbnMatch} or ${textMatch})` : (isbnMatch ?? textMatch ?? null);
-  if (!match || !kinds.length) return [];
+  if (!match) return [];
+  // Each collection's matches in the collection order
   const list = sql.join(
-    kinds.map((k) => sql`${k}`),
+    DOMAIN_ORDER.map((k) => sql`${k}`),
     sql`, `,
   );
   // The search text is built once per work (a materialized step: the matching
@@ -125,7 +126,7 @@ async function searchWorks(q: string, kinds: WorkKind[]): Promise<QuickSearchWor
   }>(
     await db.execute(sql`with h as materialized (
         select w.id, ${workHaystack} as hay from works w
-        where w.kind::text in (${list}) and (w.kind <> 'book' or w.slug is not null)
+        where (w.kind <> 'book' or w.slug is not null)
       ), found as (
         select w.id, w.kind, w.slug, w.title, w.original_year as year,
           row_number() over (partition by w.kind
@@ -148,7 +149,7 @@ async function searchWorks(q: string, kinds: WorkKind[]): Promise<QuickSearchWor
   }));
 }
 
-/** What a person is in the open collections, by the roles they hold */
+/** What a person is in the collections, by the roles they hold */
 const PERSON_ROLES: { kind: WorkKind; role: string; label: string; filter?: string }[] = [
   { kind: "book", role: "author", label: "Writer" },
   { kind: "film", role: "film.director", label: "Director", filter: "/films?director=" },
@@ -157,7 +158,7 @@ const PERSON_ROLES: { kind: WorkKind; role: string; label: string; filter?: stri
   { kind: "painting", role: "painting.painter", label: "Painter", filter: "/paintings?painter=" },
 ];
 
-async function searchPeople(q: string, kinds: WorkKind[]) {
+async function searchPeople(q: string) {
   const match = textSearchCondition(sql`a.search_text`, q);
   const alias = textSearchCondition(sql`pa.search_text`, q);
   if (!match || !alias) return [];
@@ -189,13 +190,12 @@ async function searchPeople(q: string, kinds: WorkKind[]) {
       order by ${textSearchRank(sql`a.search_text`, sql`a.name`, q)} desc, lower(a.name), a.id
       limit ${PER_KIND * 3}`),
   );
-  const open = new Set<WorkKind>(kinds);
   return rows
     .flatMap((row) => {
-      const held = PERSON_ROLES.filter((r) => open.has(r.kind) && row.roles?.includes(r.role));
-      // Every person in an open collection has their page (SLN-419); one
-      // without a slug falls back to their collection's list
-      const visible = held.length > 0 || (row.isBook && open.has("book"));
+      const held = PERSON_ROLES.filter((r) => row.roles?.includes(r.role));
+      // Every person in a collection has their page (SLN-419); one without a
+      // slug falls back to their collection's list
+      const visible = held.length > 0 || row.isBook;
       const href = !visible
         ? null
         : row.slug
@@ -204,7 +204,7 @@ async function searchPeople(q: string, kinds: WorkKind[]) {
       if (!href) return [];
       // A translator or editor of an edition: their most frequent edition role
       const labels = held.map((r) => r.label);
-      if (row.editionRole && open.has("book")) {
+      if (row.editionRole) {
         const role = row.editionRole.replace(/_/g, " ");
         labels.splice(row.roles?.includes("author") ? 1 : 0, 0, role.charAt(0).toUpperCase() + role.slice(1));
       }
@@ -230,7 +230,7 @@ const PUBLISHING_LABELS: Record<string, string> = {
   imprint: "Imprint",
 };
 
-async function searchOrganizations(q: string, kinds: WorkKind[]) {
+async function searchOrganizations(q: string) {
   const match = textSearchCondition(sql`o.search_text`, q);
   const alias = textSearchCondition(sql`pa.search_text`, q);
   if (!match || !alias) return [];
@@ -242,16 +242,15 @@ async function searchOrganizations(q: string, kinds: WorkKind[]) {
       order by ${textSearchRank(sql`o.search_text`, sql`o.name`, q)} desc, lower(o.name), o.id
       limit ${PER_KIND * 3}`),
   );
-  const open = new Set<WorkKind>(kinds);
   return rows
     .flatMap((row) => {
       const roles = ORGANIZATION_ROLES.filter((r) => row.roles.includes(r.role));
       // Its publisher page, else the list of the collection it leads, else
       // its own page in the organization directory
       const href =
-        row.kind && open.has("book")
+        row.kind
           ? `/publishers/${row.slug}`
-          : (roles.find((r) => r.href && r.kind && open.has(r.kind))?.href?.(row.id) ??
+          : (roles.find((r) => r.href)?.href?.(row.id) ??
             `/organizations/${row.slug}`);
       const labels = [...(row.kind ? [PUBLISHING_LABELS[row.kind]] : []), ...roles.map((r) => r.label)];
       return [{ id: row.id, name: row.name, href, roles: labels.join(" · ") }];
@@ -290,15 +289,15 @@ async function searchNamed(from: SQL, name: SQL, q: string, href: (id: string) =
 }
 
 /**
- * Taxonomy items by name, in every family an open collection uses: the system
+ * Taxonomy items by name, in every family a collection uses: the system
  * families' own tables and the items of families made in the app (SLN-966)
  */
-async function searchTaxonomy(q: string, kinds: WorkKind[]): Promise<QuickSearchRecord[]> {
+async function searchTaxonomy(q: string): Promise<QuickSearchRecord[]> {
   const hay = sql`search_normalize(t.name)`;
   // Whole words, as a family's own search finds them: a typo measured against
   // every item of every family costs too much for a keystroke
   const match = textSearchCondition(hay, q, { fuzzy: false });
-  if (!match || !kinds.length) return [];
+  if (!match) return [];
   const items = sql.join(
     [
       ...SYSTEM_FAMILY_SLUGS.map((slug) => {
@@ -310,14 +309,10 @@ async function searchTaxonomy(q: string, kinds: WorkKind[]): Promise<QuickSearch
     ],
     sql` union all `,
   );
-  const open = sql.join(
-    kinds.map((k) => sql`${k}`),
-    sql`, `,
-  );
   const rows = resultRows<{ id: string; name: string; slug: string; family: string; familySlug: string }>(
     await db.execute(sql`select t.id, t.name, t.slug, f.name as family, f.slug as "familySlug"
       from (${items}) t join taxonomy_families f on f.id = t.family_id
-      where exists (select 1 from taxonomy_applicability a where a.family_id = f.id and a.kind::text in (${open}))
+      where exists (select 1 from taxonomy_applicability a where a.family_id = f.id)
         and ${match}
       order by ${textSearchRank(hay, sql`t.name`, q)} desc, lower(t.name), t.id
       limit ${PER_KIND}`),
@@ -326,7 +321,7 @@ async function searchTaxonomy(q: string, kinds: WorkKind[]): Promise<QuickSearch
 }
 
 /**
- * Search for the command palette: works of every open collection by title,
+ * Search for the command palette: works of every collection by title,
  * series, makers or ISBN, each linking to its own collection; people by any
  * name or other name, with what they are; organizations; venues; series,
  * collections, recommenders and taxonomy items by name. Accent-
@@ -338,17 +333,16 @@ export async function quickSearch(query: string): Promise<QuickSearchResult> {
   const q = query.replaceAll("\0", "").trim().slice(0, 200);
   // One Chinese, Japanese or Korean character is enough; symbols alone are not
   if (!isSearchableQuery(q)) return EMPTY;
-  const kinds = getEnabledWorkKinds();
   const [works, people, organizations, venues, ebooks, series, collections, recommenders, taxonomy] = await Promise.all([
-    searchWorks(q, kinds),
-    searchPeople(q, kinds),
-    searchOrganizations(q, kinds),
+    searchWorks(q),
+    searchPeople(q),
+    searchOrganizations(q),
     searchVenues(q),
-    kinds.includes("book") ? paletteEbooks(q) : Promise.resolve([]),
+    paletteEbooks(q),
     searchNamed(sql`series x`, sql`x.title`, q, (id) => `/series/${id}`, sql`x.original_title`),
     searchNamed(sql`collections x`, sql`x.name`, q, (id) => `/collections/${id}`),
     searchNamed(sql`recommenders x`, sql`x.name`, q, (id) => `/recommenders/${id}`),
-    searchTaxonomy(q, kinds),
+    searchTaxonomy(q),
   ]);
   const digital = await catalogueAvailability(works.filter((work) => work.kind === "book").map((work) => work.id));
   return {
@@ -359,5 +353,5 @@ export async function quickSearch(query: string): Promise<QuickSearchResult> {
 
 /** Open-time fetch only; this adds no catalogue page payload. */
 export async function getPaletteContinueReading(): Promise<WorkEbookDTO | null> {
-  return getEnabledWorkKinds().includes("book") ? paletteContinueReading() : null;
+  return paletteContinueReading();
 }

@@ -5,7 +5,6 @@ import {
   SettingFact,
   SettingsGroup,
 } from "@/components/settings/settings-group";
-import { DOMAIN_ORDER, WORK_DOMAINS } from "@/lib/catalogue/domains";
 import { S3_BUCKET } from "@/lib/s3/client";
 import { migrationState } from "@/lib/settings/about";
 
@@ -58,21 +57,6 @@ export default async function AboutSettingsPage() {
         <SettingFact label="Region">
           <span className="font-mono text-xs">{process.env.AWS_REGION ?? "us-east-1 (default)"}</span>
         </SettingFact>
-      </SettingsGroup>
-
-      <SettingsGroup
-        title="Collections"
-        description="A collection opens when its records, pages and checks are complete."
-      >
-        {DOMAIN_ORDER.map((kind) => (
-          <SettingFact key={kind} label={WORK_DOMAINS[kind].pluralLabel}>
-            {WORK_DOMAINS[kind].enabled ? (
-              <span className="text-accent-sage">Open</span>
-            ) : (
-              <span className="text-fg-secondary">In development</span>
-            )}
-          </SettingFact>
-        ))}
       </SettingsGroup>
     </>
   );

@@ -7,7 +7,7 @@ import { Footnote, NumberTiles, RankList, StatsSection } from "@/components/read
 import { CoverFrame, CoverStrip, YearCovers, bookHref } from "@/components/statistics/covers";
 import { SplitRing } from "@/components/statistics/split-ring";
 import { WrittenChart } from "@/components/statistics/written-chart";
-import { WORK_DOMAINS, getEnabledWorkKinds } from "@/lib/catalogue/domains";
+import { DOMAIN_ORDER, WORK_DOMAINS } from "@/lib/catalogue/domains";
 import { loadDomainCounts, type HomeKind } from "@/lib/catalogue/domain-homes";
 import { COPY_FORMAT_LABELS } from "@/lib/constants/catalogue";
 import { n } from "@/lib/reading/charts";
@@ -43,7 +43,7 @@ export default async function StatisticsPage() {
     libraryStatistics(["numbers", "written", "busiest", "favourites", "rankings", "breakdown", "ratings", "copies", "extremes"]),
     yearNumbers(null),
     Promise.all(
-      getEnabledWorkKinds()
+      DOMAIN_ORDER
         .filter((kind): kind is HomeKind => kind !== "book")
         .map(async (kind) => ({ kind, counts: await loadDomainCounts(kind) })),
     ),

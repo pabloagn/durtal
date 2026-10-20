@@ -11,7 +11,7 @@ import {
   searchWorksForCollection,
 } from "@/lib/actions/collections";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
-import { WORK_DOMAINS, getEnabledWorkKinds } from "@/lib/catalogue/domains";
+import { DOMAIN_ORDER, WORK_DOMAINS } from "@/lib/catalogue/domains";
 import type { WorkKind } from "@/lib/catalogue/kinds";
 import { mediaUrl } from "@/lib/s3/media-url";
 import { addToCollection } from "@/lib/actions/catalogue-client";
@@ -41,7 +41,7 @@ const SEARCH_HINTS: Record<Mode, string> = {
 
 /**
  * Adds members to a collection: editions of books (a chosen edition), or whole
- * works of any open collection, including a book with no edition chosen and
+ * works of any collection, including a book with no edition chosen and
  * works with nothing owned. Each choice joins after the last member.
  */
 export function AddCollectionBooksDialog({
@@ -64,7 +64,7 @@ export function AddCollectionBooksDialog({
   const modes: Mode[] = [
     "book",
     "editions",
-    ...getEnabledWorkKinds().filter((kind) => kind !== "book"),
+    ...DOMAIN_ORDER.filter((kind) => kind !== "book"),
   ];
   const [mode, setMode] = useState<Mode>("book");
   const [query, setQuery] = useState(""),

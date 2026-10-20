@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { getEnabledWorkKinds } from "@/lib/catalogue/domains";
 import { resultRows } from "@/lib/harmonization/store";
 import { loadRelatedBooks } from "@/lib/catalogue/related-books";
 import {
@@ -15,7 +14,7 @@ export type SimilarRank = { id: string; kind: WorkKind };
 /**
  * Similarity requires two exact shared semantic items. A shared hierarchy
  * chain counts only its most specific shared item; no parent is inferred.
- * Each item contributes 1 / distinct enabled-work frequency (.75 for a
+ * Each item contributes 1 / distinct work frequency (.75 for a
  * movement), capped at the family's weight. Original exact years add at most
  * 10% to eligible content scores. Collections and personal/credit/publishing
  * associations are deliberately absent, including from tie-breaking.
@@ -26,14 +25,10 @@ export type SimilarRank = { id: string; kind: WorkKind };
 export async function rankSimilarWorks(workId: string, limit = 12): Promise<SimilarRank[]> {
   z.uuid().parse(workId);
   z.number().int().min(1).max(50).parse(limit);
-  const enabled = sql.join(
-    getEnabledWorkKinds().map((kind) => sql`${kind}`),
-    sql`, `,
-  );
   return resultRows<SimilarRank>(
     await db.execute(sql`
     with recursive target as (
-      select id from works where id=${workId}::uuid and kind in (${enabled})
+      select id from works where id=${workId}::uuid
     ), vocab as (
       select 'subjects' as family, id, null::uuid as parent_id, 1.0 as base_weight from subjects
       union all select 'themes', id, parent_id, 1.0 from themes
@@ -63,7 +58,7 @@ export async function rankSimilarWorks(workId: string, limit = 12): Promise<Simi
       union all select 'art_movements', art_movement_id, work_id from work_art_movements where art_movement_id in (select item_id from target_items where family='art_movements')
     ), members as (
       select distinct m.family, m.item_id, m.work_id, v.base_weight
-      from raw_members m join works w on w.id=m.work_id and w.kind in (${enabled})
+      from raw_members m join works w on w.id=m.work_id
       join vocab v on v.family=m.family and v.id=m.item_id
       join taxonomy_families f on f.is_system and f.system_table=m.family
       join taxonomy_applicability a on a.family_id=f.id and a.kind=w.kind and a.level='work'

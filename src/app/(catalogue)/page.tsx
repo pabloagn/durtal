@@ -8,7 +8,7 @@ import {
   getCollectionCoverPreviews,
   getCollections,
 } from "@/lib/actions/collections";
-import { WORK_DOMAINS, getEnabledWorkKinds } from "@/lib/catalogue/domains";
+import { DOMAIN_ORDER, WORK_DOMAINS } from "@/lib/catalogue/domains";
 import {
   catalogueIsEmpty,
   loadDomainCounts,
@@ -86,7 +86,7 @@ interface IndexCounts {
  * its figures. Books take two columns: they have four figures.
  */
 function LibraryIndex({ books, others }: IndexCounts) {
-  const kinds = getEnabledWorkKinds().filter((kind): kind is HomeKind => kind !== "book");
+  const kinds = DOMAIN_ORDER.filter((kind): kind is HomeKind => kind !== "book");
   return (
     <div className="grid grid-cols-1 gap-x-8 gap-y-6 border-t border-glass-border pt-6 min-[375px]:grid-cols-2 xl:grid-cols-[repeat(var(--index-columns),minmax(0,1fr))]" style={{ "--index-columns": 2 + kinds.length } as React.CSSProperties} data-dashboard-index="">
       <IndexGroup kind="book" wide>
@@ -234,9 +234,9 @@ function workToCardProps(work: {
  */
 const SHELF = 10;
 
-/** The other open collections: counts, newest records. Books come from getLibraryStats. */
+/** The other collections: counts, newest records. Books come from getLibraryStats. */
 async function otherDomains() {
-  const kinds = getEnabledWorkKinds().filter(
+  const kinds = DOMAIN_ORDER.filter(
     (kind): kind is HomeKind => kind !== "book",
   );
   return Promise.all(

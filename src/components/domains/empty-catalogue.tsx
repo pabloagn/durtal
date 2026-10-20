@@ -2,7 +2,7 @@ import Link from "next/link";
 import { LibraryBig } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
 import { DomainAddLink } from "@/components/domains/domain-add-link";
-import { WORK_DOMAINS, getEnabledWorkKinds } from "@/lib/catalogue/domains";
+import { DOMAIN_ORDER, WORK_DOMAINS } from "@/lib/catalogue/domains";
 import type { HomeKind } from "@/lib/catalogue/domain-homes";
 
 /** "a film, a perfume or a painting", each a link to add one */
@@ -23,7 +23,7 @@ function OtherKindLinks({ kinds }: { kinds: HomeKind[] }) {
  * (SLN-1184)
  */
 export function EmptyCatalogue() {
-  const kinds = getEnabledWorkKinds().filter((kind): kind is HomeKind => kind !== "book");
+  const kinds = DOMAIN_ORDER.filter((kind): kind is HomeKind => kind !== "book");
   return (
     <EmptyState
       icon={LibraryBig}
@@ -33,11 +33,9 @@ export function EmptyCatalogue() {
       action={
         <div className="flex flex-col items-center gap-4">
           <DomainAddLink kind="book" />
-          {kinds.length > 0 && (
-            <p className="text-center text-sm text-fg-secondary">
-              Or add <OtherKindLinks kinds={kinds} />.
-            </p>
-          )}
+          <p className="text-center text-sm text-fg-secondary">
+            Or add <OtherKindLinks kinds={kinds} />.
+          </p>
         </div>
       }
     />

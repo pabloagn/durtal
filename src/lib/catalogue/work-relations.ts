@@ -1,3 +1,4 @@
+import { DOMAIN_ORDER } from "./domains";
 import type { WorkKind } from "./kinds";
 
 /**
@@ -52,14 +53,12 @@ export function relationTargetKinds(
   type: WorkRelationType,
   kind: WorkKind,
   direction: "outgoing" | "incoming",
-  enabled: readonly WorkKind[],
 ): WorkKind[] {
   const pairs = WORK_RELATION_PAIRS[type];
-  if (!pairs) return [...enabled];
+  if (!pairs) return [...DOMAIN_ORDER];
   return pairs
     .filter(([from, to]) => (direction === "outgoing" ? from : to) === kind)
-    .map(([from, to]) => (direction === "outgoing" ? to : from))
-    .filter((k) => enabled.includes(k));
+    .map(([from, to]) => (direction === "outgoing" ? to : from));
 }
 
 /** Whether a link of `type` may join a work of `from` kind to one of `to` kind */

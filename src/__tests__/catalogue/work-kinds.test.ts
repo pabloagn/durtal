@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { isWorkKind, WORK_KINDS } from "@/lib/catalogue/kinds";
-import { getEnabledWorkKinds, WORK_DOMAINS } from "@/lib/catalogue/domains";
+import { DOMAIN_ORDER, WORK_DOMAINS } from "@/lib/catalogue/domains";
 import { createWorkSchema, updateWorkSchema } from "@/lib/validations/works";
 import { fastTrackBookSchema } from "@/lib/validations/fast-track";
 
@@ -20,7 +20,7 @@ describe("work domain boundaries", () => {
   );
 
   it("exposes every ready domain: books, perfumes, films and paintings", () => {
-    expect(getEnabledWorkKinds()).toEqual(["book", "perfume", "film", "painting"]);
+    expect(DOMAIN_ORDER).toEqual(["book", "perfume", "film", "painting"]);
     expect(WORK_DOMAINS.book.basePath).toBe("/library");
   });
 

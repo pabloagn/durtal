@@ -1,12 +1,12 @@
-import { WORK_DOMAINS, getEnabledWorkKinds } from "@/lib/catalogue/domains";
+import { DOMAIN_ORDER, WORK_DOMAINS } from "@/lib/catalogue/domains";
 
 export interface NavSection {
   href: string;
   label: string;
 }
 
-/** The home of each open collection (Books, Perfumes...), never an unready one. */
-export const DOMAIN_SECTIONS: NavSection[] = getEnabledWorkKinds().map(
+/** The home of each collection (Books, Perfumes...). */
+export const DOMAIN_SECTIONS: NavSection[] = DOMAIN_ORDER.map(
   (kind) => ({
     href: WORK_DOMAINS[kind].basePath,
     label: WORK_DOMAINS[kind].pluralLabel,

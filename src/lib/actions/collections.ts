@@ -21,7 +21,6 @@ import {
   media,
 } from "@/lib/db/schema";
 import { POSTER_ORDER, coverEditionFirst, posterFirst, workCoverSql } from "@/lib/library/filter-conditions";
-import { getEnabledWorkKinds } from "@/lib/catalogue/domains";
 import { WORK_KINDS, type WorkKind } from "@/lib/catalogue/kinds";
 import { textContains, textSearchCondition } from "@/lib/actions/utils/text-search";
 import { eq, asc, desc, count, ilike, or, sql, inArray, and } from "drizzle-orm";
@@ -309,12 +308,11 @@ export async function addToCollection(
   const { editionIds, workIds } = memberIds(members);
   if (!editionIds.length && !workIds.length) return { changed: 0 };
   if (workIds.length) {
-    // Only works of an open collection can join
-    const open = await db
+    const found = await db
       .select({ id: works.id })
       .from(works)
-      .where(and(inArray(works.id, workIds), inArray(works.kind, getEnabledWorkKinds())));
-    if (open.length !== workIds.length) throw new ExpectedActionError("A work was not found");
+      .where(inArray(works.id, workIds));
+    if (found.length !== workIds.length) throw new ExpectedActionError("A work was not found");
   }
   const result = await atomic((d) => [
     d.execute(lockCollection(collectionId)),
@@ -405,7 +403,6 @@ export async function searchWorksForCollection(search: string, kind: WorkKind, l
   const value = z.string().trim().max(300).parse(search);
   const k = z.enum(WORK_KINDS).parse(kind);
   const size = z.number().int().min(1).max(100).parse(limit);
-  if (!getEnabledWorkKinds().includes(k)) return [];
   // Each query word may match the title or a creator: every name form of an
   // author, director, perfumer or painter, or the credited text of a credit
   // with no person ("huysmans damned" finds "The Damned").
@@ -508,7 +505,7 @@ export async function getCollectionSelection(
       ? db
           .select({ id: works.id, title: works.title, kind: works.kind })
           .from(works)
-          .where(and(inArray(works.id, wids), inArray(works.kind, getEnabledWorkKinds())))
+          .where(inArray(works.id, wids))
       : [],
     none
       ? []

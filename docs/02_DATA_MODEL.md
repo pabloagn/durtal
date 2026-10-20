@@ -148,8 +148,7 @@ read-time hint (default 30 days); an old observation stays visibly dated.
 
 Migration `0046_film_model` adds a film profile, versions (cuts), releases and
 optional personal copies. Films open with their screens (SLN-367):
-`works_kind_enabled_check` allows them since migration `0054_film_kind_enabled`,
-in step with `WORK_DOMAINS.film.enabled`.
+`works_kind_enabled_check` allows them since migration `0054_film_kind_enabled`.
 
 | Table | Key and relationships | Purpose |
 | --- | --- | --- |
@@ -1720,8 +1719,8 @@ Family management (SLN-353, `src/lib/actions/taxonomy-families.ts`):
 - `deleteTaxonomyFamily` removes a custom family with all its items only when no
   scope is in use; otherwise nothing changes and the message names the reason.
 - `reorderFamilies` gives the listed families positions 0..n-1; families not
-  listed (those of collections that are not open yet) follow, in their order.
-- The directory lists families with at least one scope in an enabled domain.
+  listed (those that apply to nothing) follow, in their order.
+- The directory lists families with at least one scope.
 - `getTaxonomyAssignments` lists the custom-item families that apply to a work or
   book edition with its items; `searchTaxonomyItems` returns at most `limit`
   items of one family, best matches first, and whether more exist. Built-in book

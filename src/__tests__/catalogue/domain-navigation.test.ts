@@ -9,7 +9,6 @@ vi.mock("next/navigation", () => ({
 import { WORK_KINDS } from "@/lib/catalogue/kinds";
 import { DOMAIN_ORDER, WORK_DOMAINS } from "@/lib/catalogue/domains";
 import { domainSwitchHref } from "@/lib/catalogue/domain-switch";
-import { requireEnabledDomain } from "@/lib/catalogue/domain-gate";
 import { catalogueDateYears, dateFromColumns } from "@/lib/catalogue/dates";
 import {
   DOMAIN_SECTIONS,
@@ -17,9 +16,6 @@ import {
   isSectionActive,
 } from "@/lib/navigation";
 import { ADD, GO_TO } from "@/lib/shortcuts/shortcuts";
-import PerfumesLayout from "@/app/(catalogue)/perfumes/layout";
-import FilmsLayout from "@/app/(catalogue)/films/layout";
-import PaintingsLayout from "@/app/(catalogue)/paintings/layout";
 
 describe("reading navigation (SLN-448)", () => {
   it("lists Reading, without the old reader (SLN-490), and G R opens it", () => {
@@ -169,37 +165,6 @@ describe("collection switch", () => {
         from("status=wanted&sort=recent&order=sideways"),
       ),
     ).toBe("/library?status=wanted&sort=recent");
-  });
-});
-
-describe("collection readiness gate", () => {
-  it.each(["book", "perfume", "film", "painting"] as const)(
-    "lets the open %s collection through",
-    (kind) => {
-      expect(() => requireEnabledDomain(kind)).not.toThrow();
-    },
-  );
-
-  it.each([
-    ["perfumes", PerfumesLayout],
-    ["films", FilmsLayout],
-    ["paintings", PaintingsLayout],
-  ])("lets the /%s layout through", (_, Layout) => {
-    expect(() => Layout({ children: null })).not.toThrow();
-  });
-
-  it("answers 404 for every page of a collection that is closed", () => {
-    // Every collection is open: close one for the length of this test
-    const painting = WORK_DOMAINS.painting as unknown as { enabled: boolean };
-    painting.enabled = false;
-    try {
-      expect(() => requireEnabledDomain("painting")).toThrow("NEXT_NOT_FOUND");
-      expect(() => PaintingsLayout({ children: null })).toThrow(
-        "NEXT_NOT_FOUND",
-      );
-    } finally {
-      painting.enabled = true;
-    }
   });
 });
 

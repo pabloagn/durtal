@@ -2,7 +2,6 @@ import Link from "next/link";
 import * as LucideIcons from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { CapAligned } from "@/components/shared/cap-aligned";
-import { getEnabledWorkKinds } from "@/lib/catalogue/domains";
 import type { WorkKind } from "@/lib/catalogue/kinds";
 import {
   taxonomyScopeLabel,
@@ -27,9 +26,7 @@ interface FamilyCardProps {
 }
 
 export function FamilyCard({ family }: FamilyCardProps) {
-  const enabled = new Set<WorkKind>(getEnabledWorkKinds());
   const appliesTo = family.scopes
-    .filter((scope) => enabled.has(scope.kind))
     .map((scope) => taxonomyScopeLabel(scope.kind, scope.level))
     .join(", ");
   // Resolve Lucide icon by name, fallback to Tag

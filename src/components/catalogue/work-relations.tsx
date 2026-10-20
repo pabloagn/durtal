@@ -22,7 +22,7 @@ import {
   searchWorksForRelation,
   type WorkRelationView,
 } from "@/lib/actions/work-relations";
-import { WORK_DOMAINS, getEnabledWorkKinds } from "@/lib/catalogue/domains";
+import { WORK_DOMAINS } from "@/lib/catalogue/domains";
 import type { WorkKind } from "@/lib/catalogue/kinds";
 import {
   WORK_RELATION_LABELS,
@@ -62,10 +62,10 @@ function today() {
 }
 
 /** The links this work can take, each with the kinds at the other end */
-function linkChoices(kind: WorkKind, enabled: WorkKind[]) {
+function linkChoices(kind: WorkKind) {
   return WORK_RELATION_TYPES.flatMap((type) =>
     (["outgoing", "incoming"] as const).flatMap((direction) => {
-      const kinds = relationTargetKinds(type, kind, direction, enabled);
+      const kinds = relationTargetKinds(type, kind, direction);
       if (!kinds.length) return [];
       const what =
         type === "inspiration" ? "another work" : kinds.map((k) => ARTICLES[k]).join(" or ");
@@ -98,7 +98,7 @@ export function WorkRelationDialog({
 
 function RelationForm({ work, onDone }: { work: RelatedWorkOwner; onDone: () => void }) {
   const router = useRouter();
-  const choices = useMemo(() => linkChoices(work.kind, getEnabledWorkKinds()), [work.kind]);
+  const choices = useMemo(() => linkChoices(work.kind), [work.kind]);
   const [choice, setChoice] = useState(choices[0]?.value ?? "");
   const current = choices.find((c) => c.value === choice) ?? choices[0];
   const [other, setOther] = useState<{ id: string; label: string } | null>(null);
