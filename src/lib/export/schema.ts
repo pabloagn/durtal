@@ -1,4 +1,4 @@
-import { BOOK_EXPORT_COLUMNS, PEOPLE_EXPORT_COLUMNS, FILM_EXPORT_COLUMNS, PERFUME_EXPORT_COLUMNS, PAINTING_EXPORT_COLUMNS, NOTE_EXPORT_COLUMNS, READING_EXPORT_COLUMNS, SESSION_EXPORT_COLUMNS } from "./columns";
+import { BOOK_EXPORT_COLUMNS, PEOPLE_EXPORT_COLUMNS, FILM_EXPORT_COLUMNS, PERFUME_EXPORT_COLUMNS, PAINTING_EXPORT_COLUMNS, NOTE_EXPORT_COLUMNS, READING_EXPORT_COLUMNS, SESSION_EXPORT_COLUMNS, READING_EXPORT_COLUMNS_V2, SESSION_EXPORT_COLUMNS_V2, NOTE_EXPORT_COLUMNS_V2 } from "./columns";
 export { BOOK_EXPORT_COLUMNS, PEOPLE_EXPORT_COLUMNS, FILM_EXPORT_COLUMNS, PERFUME_EXPORT_COLUMNS, PAINTING_EXPORT_COLUMNS } from "./columns";
 
 export type NativeField = Readonly<
@@ -39,17 +39,17 @@ function freeze<T>(value: T): T {
   }
   return value;
 }
-function definition(entity: string, headers: readonly string[], overrides: Record<string, NativeField>): ExportDefinition {
+function definition(entity: string, headers: readonly string[], overrides: Record<string, NativeField>, version = 2): ExportDefinition {
   const fields = Object.fromEntries(headers.map((key) => [key, overrides[key] ?? text()]));
   for (const [key, value] of Object.entries(overrides)) if (!(key in fields)) fields[key] = value;
-  return freeze({ entity, version: 2, legacyHeaders: [...headers], fields });
+  return freeze({ entity, version, legacyHeaders: [...headers], fields });
 }
 const lists = (...keys: string[]) => Object.fromEntries(keys.map((key) => [key, list()]));
 const integers = (...keys: string[]) => Object.fromEntries(keys.map((key) => [key, integer()]));
 const years = (...keys: string[]) => Object.fromEntries(keys.map((key) => [key, year()]));
 
 /** Complete ordered contracts, independent of row count, values or row order. */
-export const NATIVE_EXPORTS = freeze({
+export const NATIVE_EXPORTS_V2 = freeze({
   works: definition("books", BOOK_EXPORT_COLUMNS, {
     title: text(false), ...lists("ebook_formats", "authors"), ...years("original_year", "publication_year"),
     ...integers("page_count", "edition_count", "instance_count"), catalogue_status: text(false), acquisition_priority: text(false), edition_count: integer(false), instance_count: integer(false), rating: number(), is_anthology: boolean(false),
@@ -73,22 +73,34 @@ export const NATIVE_EXPORTS = freeze({
     title: text(false), ...lists("painters", "movements", "genres", "techniques", "media", "supports"), painted: CATALOGUE_DATE,
     height_cm: number(), width_cm: number(), objects_owned: integer(false), rating: number(), favourite: boolean(false),
   }),
-  readings: definition("readings", READING_EXPORT_COLUMNS, {
+  readings: definition("readings", READING_EXPORT_COLUMNS_V2, {
     reading_id: text(false), work_id: text(false), title: text(false), status: text(false), format: text(false), unit: text(false),
     started_precision: text(false), finished_precision: text(false), source_key: text(false),
     ...integers("total_pages", "total_minutes", "start_page", "current_page", "current_minutes", "session_count", "minutes_read", "pages_read"),
     session_count: integer(false), minutes_read: integer(false), pages_read: integer(false), current_percent: number(), rating: number(), ...lists("authors", "translators"), started_on: CATALOGUE_DATE, finished_on: CATALOGUE_DATE,
   }),
-  "reading-sessions": definition("reading-sessions", SESSION_EXPORT_COLUMNS, {
+  "reading-sessions": definition("reading-sessions", SESSION_EXPORT_COLUMNS_V2, {
     session_id: text(false), reading_id: text(false), work_title: text(false), time_zone: text(false), format: text(false), source: text(false),
     day: scalar("date", false), started_at: scalar("instant"), ended_at: scalar("instant"),
     ...integers("duration_seconds", "start_page", "end_page", "start_minutes", "end_minutes", "pages_counted"), pages_counted: integer(false), start_percent: number(), end_percent: number(),
   }),
-  "reading-notes": definition("reading-notes", NOTE_EXPORT_COLUMNS, {
+  "reading-notes": definition("reading-notes", NOTE_EXPORT_COLUMNS_V2, {
     note_id: text(false), work_id: text(false), title: text(false), kind: text(false), body: text(false), source: text(false),
     ...integers("page", "end_page"), percent: number(), favourite: boolean(false), page_roman: boolean(false),
     ...lists("authors", "translators"), created_at: scalar("instant", false),
   }),
+});
+/** Only the three restore-bearing exports advance; v2 remains a frozen compatibility contract. */
+export const NATIVE_EXPORTS = freeze({
+  ...NATIVE_EXPORTS_V2,
+  readings: definition("readings", READING_EXPORT_COLUMNS, { ...NATIVE_EXPORTS_V2.readings.fields,
+    export_version: integer(false), start_percent: number(), start_minutes: integer(),
+    last_read_at: scalar("instant"), created_at: scalar("instant", false), updated_at: scalar("instant", false) }, 3),
+  "reading-sessions": definition("reading-sessions", SESSION_EXPORT_COLUMNS, { ...NATIVE_EXPORTS_V2["reading-sessions"].fields,
+    export_version: integer(false), work_id: text(false), reading_source_key: text(false), pages_total: integer(), paused_seconds: integer(false),
+    created_at: scalar("instant", false), updated_at: scalar("instant", false) }, 3),
+  "reading-notes": definition("reading-notes", NOTE_EXPORT_COLUMNS, { ...NATIVE_EXPORTS_V2["reading-notes"].fields,
+    export_version: integer(false), updated_at: scalar("instant", false) }, 3),
 });
 export type NativeEntity = keyof typeof NATIVE_EXPORTS;
 

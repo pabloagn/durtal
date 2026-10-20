@@ -66,8 +66,8 @@ describe("Durtal table header recognition", () => {
     expect(detectDurtalExport([...headers])).toBe(kind);
     expect(detectDurtalExport(([...headers] as string[]).reverse().concat("future_column"))).toBe(kind);
     for (const write of [toCSV, toTSV]) {
-      const text = write([reading], [...headers]);
-      if (kind === "readings") {
+      const text = write([{ ...reading, name: "Fixture person" }], [...headers]);
+      if (["readings", "reading-sessions", "reading-notes"].includes(kind)) {
         expect(parseImportFile(text).source).toBe("durtal");
       } else {
         expect(() => parseImportFile(text)).toThrow(UnsupportedDurtalExportError);
@@ -86,8 +86,8 @@ describe("Durtal table header recognition", () => {
 
   it("names unavailable files truthfully without claiming a restore destination exists", () => {
     expect(() => detectFormat([...DURTAL_EXPORT_HEADERS.works])).toThrow("Only reading history imports here.");
-    expect(() => detectFormat([...DURTAL_EXPORT_HEADERS["reading-sessions"]])).toThrow("Importing sessions is not available here yet.");
-    expect(() => detectFormat([...DURTAL_EXPORT_HEADERS["reading-notes"]])).toThrow("Importing quotes and notes is not available here yet.");
+    expect(detectFormat([...DURTAL_EXPORT_HEADERS["reading-sessions"]])).toBe("durtal");
+    expect(detectFormat([...DURTAL_EXPORT_HEADERS["reading-notes"]])).toBe("durtal");
   });
 });
 
@@ -107,7 +107,7 @@ describe("reading CSV/TSV compatibility", () => {
     expect(() => parseUploadedFile("\uFEFF\n")).toThrow(ImportFileError);
     const empty = write([], DURTAL_EXPORT_HEADERS.readings);
     expect(parseImportFile(empty).rows).toEqual([]);
-    expect(() => parseUploadedFile(empty)).toThrow("This file has no rows");
+    expect(parseUploadedFile(empty)).toMatchObject({ emptyEntity: "readings", rows: [] });
     expect(parseImportFile(write([reading], DURTAL_EXPORT_HEADERS.readings)).rowNos).toEqual([1]);
   });
 });

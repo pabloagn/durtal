@@ -11,6 +11,8 @@ vi.mock("@/lib/reading/import/store", async (importOriginal) => ({
   setBronzeKey: mocks.setBronzeKey,
 }));
 vi.mock("@/lib/s3/covers", () => ({ uploadToS3: mocks.upload }));
+import { DURTAL_EXPORT_HEADERS, DURTAL_EXPORT_HEADERS_V2 } from "@/lib/export/columns";
+import { toCSV, toTSV } from "@/lib/utils/export";
 import { POST } from "@/app/api/reading/import/route";
 
 /* POST /api/reading/import (SLN-450): the refusals, and an import that
@@ -77,4 +79,28 @@ describe("the reading import route", () => {
     expect(mocks.create).toHaveBeenCalledWith({ text: "Title,Exclusive Shelf,My Rating\nWatt,read,4\n", fileName: "goodreads_library_export.csv" });
     expect(mocks.setBronzeKey).not.toHaveBeenCalled();
   });
+});
+
+describe("empty Durtal uploads are successful no-ops",()=>{
+  for(const headers of [DURTAL_EXPORT_HEADERS_V2,DURTAL_EXPORT_HEADERS]) {
+    it.each(Object.entries(headers))("%s creates no import or raw S3 copy",async(entity,columns)=>{
+      for(const [write,extension,mime] of [[toCSV,"csv","text/csv"],[toTSV,"tsv","text/tab-separated-values"]] as const) {
+        const res=await POST(request(csv(`empty.${extension}`,write([],columns),mime)));
+        expect(res.status).toBe(200);
+        expect(await res.json()).toEqual({kind:"empty",entity,source:"durtal",rows:0});
+        expect(mocks.create).not.toHaveBeenCalled();expect(mocks.upload).not.toHaveBeenCalled();expect(mocks.setBronzeKey).not.toHaveBeenCalled();
+      }
+    });
+  }
+});
+
+it("refuses an invalid Unicode header before creating even a header-only import",async()=>{
+  for(const records of [[],[{work_id:"11111111-1111-4111-8111-111111111111"}]]) {
+    const text=toCSV(records,[...DURTAL_EXPORT_HEADERS.readings,"extra\u0000"]);
+    const response=await POST(request(csv("readings.csv",text)));
+    expect(response.status).toBe(400);
+    expect((await response.json()).error).toContain("column name");
+    expect(mocks.create).not.toHaveBeenCalled();
+    expect(mocks.upload).not.toHaveBeenCalled();
+  }
 });

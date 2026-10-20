@@ -5,6 +5,7 @@ import {
   READING_DATE_PRECISIONS,
   READING_FORMATS,
   READING_STATUSES,
+  READING_SOURCES,
   READING_UNITS,
   isOpenStatus,
   type ReadingDatePrecision,
@@ -12,15 +13,16 @@ import {
 import { halfStepRatingSchema } from "@/lib/validations/reading";
 import { DURTAL_READING_COLUMNS } from "./durtal-format";
 import { datesError, day, isbns, review, shown, text } from "./fields";
+import { integerCell, percentCell, instantCell, uuidCell } from "./history-parse";
 import type { ImportReading, ImportRow, ParsedFile } from "./types";
 
 /*
  * A Durtal reading CSV (SLN-450): the seed step's output, and the export of a
  * later step. One row is one reading. Every value is checked against the
  * tracker's constants; a row that breaks a rule cannot be imported, with the
- * reason. `start_page` is checked but not written: an imported reading starts
- * where its position is, as `writeReadings` writes it. Columns after
- * `source_key`, and unknown ones, are ignored.
+ * reason. Starting and current positions stay separate. Version 3 also carries the
+ * original timestamps and provenance; legacy absent fields remain qualified.
+ * Unknown columns are ignored.
  */
 
 const uuid = z.uuid();
@@ -49,7 +51,7 @@ function dated(dateCell: string, precisionCell: string, label: string, errors: s
   const precision = oneOf(precisionCell, READING_DATE_PRECISIONS, `${label} precision`, null, errors);
   if (!dateCell) return { on: null, precision: "unknown" };
   const on = day(dateCell);
-  if (!on) {
+  if (!on || on.startsWith("0000-")) {
     errors.push(`${label} "${shown(dateCell)}" is not a date such as 2019-04-14`);
     return { on: null, precision: "unknown" };
   }
@@ -83,8 +85,10 @@ export function mapDurtal(headers: string[], records: Record<string, string>[]):
     };
     const readingId = id("reading_id", true);
     const workId = id("work_id", true);
-    const editionId = id("edition_id", false);
-    const instanceId = editionId ? id("instance_id", false) : null;
+    const editionId = id("edition_id", true);
+    const instanceId = editionId ? id("instance_id", true) : null;
+    if (cell("instance_id") && !editionId) errors.push("An explicit copy requires its edition");
+    if (cell("source_key").length > 500) errors.push("source_key is too long");
 
     const status = oneOf(cell("status"), READING_STATUSES, "status", null, errors);
     if (!cell("status")) errors.push("The row has no status");
@@ -95,9 +99,9 @@ export function mapDurtal(headers: string[], records: Record<string, string>[]):
     const startPage = count(cell("start_page"), "start_page", 0, 100_000, errors);
     const page = count(cell("current_page"), "current_page", 0, 100_000, errors);
     const minutes = count(cell("current_minutes"), "current_minutes", 0, 1_000_000, errors);
-    const percentCell = cell("current_percent");
-    const percent = percentCell === "" ? null : Number(percentCell);
-    if (percent !== null && (!Number.isFinite(percent) || percent < 0 || percent > 100)) errors.push(`current_percent "${shown(percentCell)}" is not from 0 to 100`);
+    const currentPercentText = cell("current_percent");
+    const percent = currentPercentText === "" ? null : Number(currentPercentText);
+    if (percent !== null && (!Number.isFinite(percent) || percent < 0 || percent > 100)) errors.push(`current_percent "${shown(currentPercentText)}" is not from 0 to 100`);
     const chapter = text(cell("current_chapter"), 300);
     if (totalPages !== null && startPage !== null && startPage > totalPages) errors.push(`start_page ${startPage} is past the last page, ${totalPages}`);
     if (totalPages !== null && page !== null && page > totalPages) errors.push(`current_page ${page} is past the last page, ${totalPages}`);
@@ -143,11 +147,27 @@ export function mapDurtal(headers: string[], records: Record<string, string>[]):
       readingId,
       sourceKey,
     };
+    try {
+      if (record.export_version && record.export_version !== "3") throw new Error("Unsupported Durtal export version");
+      if (record.export_version === "3" && (["start_percent","start_minutes","source","location_id","last_read_at","created_at","updated_at"].some((key)=>!Object.hasOwn(record,key)) || !record.source)) throw new Error("Version 3 restore columns are missing");
+      const source = record.source || "import";
+      if (!(READING_SOURCES as readonly string[]).includes(source)) throw new Error("Invalid reading source");
+      const startPercent = percentCell(record.start_percent, "start_percent");
+      const startMinutes = integerCell(record.start_minutes, "start_minutes");
+      if (startMinutes !== null && totalMinutes !== null && startMinutes > totalMinutes) throw new Error("start_minutes is past the end");
+      reading.restore = { startPage, startPercent, startMinutes,
+        currentPage: page, currentPercent: Number.isFinite(percent) ? percent : null, currentMinutes: minutes, currentChapter: chapter,
+        source, locationId: uuidCell(record.location_id, "location_id"), lastReadAt: instantCell(record.last_read_at, "last_read_at"),
+        createdAt: instantCell(record.created_at, "created_at"), updatedAt: instantCell(record.updated_at, "updated_at") };
+      if (record.export_version === "3" && (!reading.restore.createdAt || !reading.restore.updatedAt)) throw new Error("Version 3 requires original timestamps");
+      if (!reading.restore.createdAt || !reading.restore.updatedAt) warnings.push("Legacy file: original creation or update time is unavailable; import time supplies missing timestamps.");
+      if (!Object.hasOwn(record, "start_percent")) warnings.push("Legacy file: starting percent and minutes are unavailable; no baseline is inferred.");
+    } catch (error) { errors.push(error instanceof Error ? error.message : "Invalid reading restore fields"); }
     const datesProblem = datesError(reading);
     if (datesProblem) errors.push(datesProblem);
     if (!title && !workId) errors.push("The row has neither a title nor a work_id");
     return {
-      kind: "readings",
+      kind: "readings", durtalRestore: true, rawCells: record,
       sourceBookId: null,
       title,
       authors,

@@ -19,11 +19,11 @@ import {
   undoReadingImport,
 } from "@/lib/actions/catalogue-client";
 import { refusalMessage } from "@/lib/actions/refusal";
-import { rowsChanged, undoDescription } from "@/lib/reading/import/action-words";
+import { rowsChanged, undoDescription, commitResultWords } from "@/lib/reading/import/action-words";
 import type { ImportDecision } from "@/lib/reading/import/match-rules";
 import type { ImportNoteView } from "@/lib/reading/import/notes";
 import type { RowLineKind, RowView } from "@/lib/reading/import/row-view";
-import { DELIMITED_IMPORT_MESSAGE, delimitedUploadFormat } from "@/lib/reading/import/formats";
+import { DELIMITED_IMPORT_MESSAGE, DURTAL_FILE_NAMES, type DurtalExportKind, delimitedUploadFormat } from "@/lib/reading/import/formats";
 
 /*
  * The reading import's buttons (SLN-450): small client islands on server
@@ -91,7 +91,12 @@ export function ImportUpload() {
       const form = new FormData();
       form.append("file", file);
       const res = await fetch("/api/reading/import", { method: "POST", body: form });
-      const body = (await res.json().catch(() => ({}))) as { importId?: string; error?: string };
+      const body = (await res.json().catch(() => ({}))) as { importId?: string; error?: string; kind?: string; entity?: string };
+      if (res.ok && body.kind === "empty") {
+        toast.success(`This Durtal ${DURTAL_FILE_NAMES[body.entity as DurtalExportKind] ?? "export"} file has no rows. Nothing needed importing.`);
+        setBusy(false);
+        return;
+      }
       if (!res.ok || !body.importId) throw new Error(body.error ?? "The file could not be imported");
       router.push(`/reading/import/${body.importId}`);
     } catch (err) {
@@ -124,7 +129,7 @@ export function ImportUpload() {
       </div>
       <h2 className="type-item-title">Import reading history</h2>
       <p className="mt-2 max-w-md text-sm leading-relaxed text-fg-secondary">
-        A Goodreads or StoryGraph export, or a Durtal reading CSV or TSV. You see every row and its book before anything is written.
+        A Goodreads or StoryGraph export, or a Durtal readings, sessions, or quotes and notes CSV or TSV. You see every row and its book before anything is written.
       </p>
       <Button variant="primary" className={`mt-5 ${coarse}`} busy={busy} onClick={() => input.current?.click()} data-import-choose="">
         Choose a CSV or TSV file
@@ -515,18 +520,7 @@ export function CommitImport({ importId, label, disabled }: { importId: string; 
         run(
           () => commitReadingImport({ importId }),
           (r) => {
-            const { written, present, refused, queued, notes } = r as { written: number; present: number; refused: number; queued: number; notes: number };
-            toast.success(
-              [
-                `${written} ${written === 1 ? "reading" : "readings"} written`,
-                present ? `${present} already in Durtal` : null,
-                refused ? `${refused} refused` : null,
-                queued ? `${queued} ${queued === 1 ? "book" : "books"} added to Up next` : null,
-                notes ? `${notes} ${notes === 1 ? "note" : "notes"} imported` : null,
-              ]
-                .filter(Boolean)
-                .join(" · "),
-            );
+            toast.success(commitResultWords(r as Parameters<typeof commitResultWords>[0]));
           },
           "The import did not finish. Try again.",
         );
@@ -547,6 +541,7 @@ export function UndoImport({
   goodreadsIds = 0,
   pendingClaims = 0,
   ratings = 0,
+  sessions = 0,
   size = "md",
 }: {
   importId: string;
@@ -557,12 +552,13 @@ export function UndoImport({
   goodreadsIds?: number;
   pendingClaims?: number;
   ratings?: number;
+  sessions?: number;
   size?: "sm" | "md";
 }) {
   const { pending, run } = useAction();
   const [asking, setAsking] = useState(false);
   const trigger = useRef<HTMLButtonElement>(null);
-  const description = undoDescription({ readings, queued, notes, goodreadsIds, pendingClaims, ratings });
+  const description = undoDescription({ readings, queued, notes, goodreadsIds, pendingClaims, ratings, sessions });
   return (
     <>
       <Button ref={trigger} variant="ghost" size={size} busy={pending} onClick={() => setAsking(true)} className={coarse} data-import-undo={importId}>
@@ -591,7 +587,7 @@ export function UndoImport({
                     setAsking(false);
                     // Undo goes once nothing is left to remove: focus goes to the import's status
                     keepFocus(() => summaryLine() ?? document.querySelector<HTMLElement>(`[data-import-item="${importId}"] a`), trigger.current);
-                    const { removed, kept, queueRemoved, queueKept, notesRemoved, notesKept, identifiersKept } = r as {
+                    const { removed, kept, queueRemoved, queueKept, notesRemoved, notesKept, identifiersKept, sessionsRemoved = 0, sessionsKept = 0 } = r as {
                       removed: number;
                       kept: number;
                       queueRemoved: number;
@@ -599,6 +595,7 @@ export function UndoImport({
                       notesRemoved: number;
                       notesKept: number;
                       identifiersKept: number;
+                      sessionsRemoved?: number; sessionsKept?: number;
                     };
                     toast.success(
                       [
@@ -606,6 +603,8 @@ export function UndoImport({
                         kept ? `${kept} edited after the import and kept` : null,
                         queueRemoved ? `${queueRemoved} ${queueRemoved === 1 ? "book" : "books"} taken off Up next` : null,
                         queueKept ? `${queueKept} Up next ${queueKept === 1 ? "item was" : "items were"} moved or edited after the import and ${queueKept === 1 ? "was" : "were"} kept` : null,
+                        sessionsRemoved ? `${sessionsRemoved} sessions removed` : null,
+                        sessionsKept ? `${sessionsKept} changed sessions kept` : null,
                         notesRemoved ? `${notesRemoved} ${notesRemoved === 1 ? "note" : "notes"} removed` : null,
                         notesKept ? `${notesKept} ${notesKept === 1 ? "note was" : "notes were"} edited after the import and ${notesKept === 1 ? "was" : "were"} kept` : null,
                         identifiersKept ? `${identifiersKept} Goodreads ${identifiersKept === 1 ? "ID was" : "IDs were"} kept because ownership changed, was shared, or could not be verified` : null,

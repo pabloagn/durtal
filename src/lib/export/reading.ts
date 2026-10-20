@@ -42,12 +42,17 @@ const translatorList = (editionId: SQL) => sql`coalesce((select jsonb_agg(a.name
 export async function readingExportRows(ids: string[] | null, native = false): Promise<Record<string, unknown>[]> {
   if (ids && !ids.length) return [];
   const only = ids ? sql`and r.id = any(${idArray(ids)})` : sql``;
-  const nativeFields = native ? sql`, ${authorList(sql`w.id`)} as __authors, ${translatorList(sql`r.edition_id`)} as __translators` : sql``;
+  const nativeFields = native ? sql`, ${authorList(sql`w.id`)} as __authors, ${translatorList(sql`r.edition_id`)} as __translators,
+    (extract(epoch from r.created_at) * 1000000)::bigint::text as __created_micros,
+    (extract(epoch from r.updated_at) * 1000000)::bigint::text as __updated_micros,
+    (extract(epoch from r.last_read_at) * 1000000)::bigint::text as __last_micros` : sql``;
   const rows = resultRows<Record<string, unknown> & { reading_id: string; source_key: string | null }>(
     await db.execute(sql`with cp as ${countedPagesSql()}
       select r.id::text as reading_id, r.work_id::text as work_id, r.edition_id::text as edition_id, r.instance_id::text as instance_id,
         w.title, ${authorsOf(sql`w.id`)} as authors, e.isbn_13 as isbn13,
         r.status, r.format, r.unit, r.total_pages, r.total_minutes, r.start_page,
+        3 as export_version, r.start_percent::float8 as start_percent, r.start_minutes, r.source, r.location_id::text as location_id,
+        to_json(r.created_at)#>>'{}' as created_at, to_json(r.updated_at)#>>'{}' as updated_at, to_json(r.last_read_at)#>>'{}' as last_read_at,
         r.current_page, r.current_percent::float8 as current_percent, r.current_minutes, r.current_chapter,
         r.started_on::text as started_on, r.started_precision, r.finished_on::text as finished_on, r.finished_precision,
         r.rating::float8 as rating, r.review_html, r.abandon_reason, r.abandon_note, r.source_key,
@@ -66,7 +71,7 @@ export async function readingExportRows(ids: string[] | null, native = false): P
   const byId = new Map<string, Record<string, unknown>>(rows.map((row) => {
     const legacy = { ...row, source_key: row.source_key ?? durtalReadingKey(row.reading_id) };
     return [row.reading_id, native ? nativeProjection("readings", legacy, {
-      authors: row.__authors, translators: row.__translators,
+      authors: row.__authors, translators: row.__translators, created_at: row.__created_micros, updated_at: row.__updated_micros, last_read_at: row.__last_micros,
       started_on: readingDate(row.started_on, row.started_precision), finished_on: readingDate(row.finished_on, row.finished_precision),
     }) : legacy];
   }));
@@ -87,10 +92,14 @@ export async function sessionExportRows(readingIds: string[] | null, native = fa
   if (readingIds && !readingIds.length) return [];
   const only = readingIds ? sql`and s.reading_id = any(${idArray(readingIds)})` : sql``;
   const nativeFields = native ? sql`, (extract(epoch from s.started_at) * 1000000)::bigint::text as __started_micros,
-    (extract(epoch from s.ended_at) * 1000000)::bigint::text as __ended_micros` : sql``;
+    (extract(epoch from s.ended_at) * 1000000)::bigint::text as __ended_micros,
+    (extract(epoch from s.created_at) * 1000000)::bigint::text as __created_micros,
+    (extract(epoch from s.updated_at) * 1000000)::bigint::text as __updated_micros` : sql``;
   const rows = resultRows<Record<string, unknown>>(
     await db.execute(sql`with cp as ${countedPagesSql()}
-      select s.id::text as session_id, s.reading_id::text as reading_id, w.title as work_title, s.read_on::text as day,
+      select s.id::text as session_id, s.reading_id::text as reading_id, 3 as export_version, r.work_id::text as work_id,
+        coalesce(r.source_key, 'durtal:' || r.id::text) as reading_source_key, s.edition_id::text as edition_id, s.pages_total, s.note, s.paused_seconds,
+        to_json(s.created_at)#>>'{}' as created_at, to_json(s.updated_at)#>>'{}' as updated_at, w.title as work_title, s.read_on::text as day,
         to_json(s.started_at)#>>'{}' as started_at, to_json(s.ended_at)#>>'{}' as ended_at, s.time_zone, s.duration_seconds,
         s.start_page, s.end_page, s.start_percent::float8 as start_percent, s.end_percent::float8 as end_percent,
         s.start_minutes, s.end_minutes, s.end_chapter,
@@ -103,12 +112,15 @@ export async function sessionExportRows(readingIds: string[] | null, native = fa
       order by search_normalize(w.title), w.id, s.read_on, coalesce(s.started_at, s.created_at), s.created_at, s.id`),
   );
   return native ? rows.map((row) => nativeProjection("reading-sessions", row, {
-    day: sqlDateDays(row.day), started_at: row.__started_micros, ended_at: row.__ended_micros,
+    day: sqlDateDays(row.day), started_at: row.__started_micros, ended_at: row.__ended_micros, created_at: row.__created_micros, updated_at: row.__updated_micros,
   })) : rows;
 }
 
 interface NoteRow {
   __created_micros?: string;
+  __updated_micros?: string;
+  comment_json: unknown;
+  updated_at: string;
   __authors?: string[];
   __translators?: string[];
   note_id: string;
@@ -138,10 +150,12 @@ interface NoteRow {
 async function noteRows(filter: NotesFilter, native = false): Promise<NoteRow[]> {
   const condition = notesCondition(filter);
   const nativeFields = native ? sql`, (extract(epoch from n.created_at) * 1000000)::bigint::text as __created_micros,
+    (extract(epoch from n.updated_at) * 1000000)::bigint::text as __updated_micros,
     ${authorList(sql`w.id`)} as __authors, ${translatorList(sql`n.edition_id`)} as __translators` : sql``;
   return resultRows<NoteRow>(
     await db.execute(sql`select n.id::text as note_id, n.work_id::text as work_id, w.title, ${authorsOf(sql`w.id`)} as authors,
-        n.kind, n.body, n.comment_html, n.page, n.end_page, n.page_roman, n.chapter, n.percent::float8 as percent, n.is_favourite,
+        3 as export_version, n.source_key, (select coalesce(pr.source_key, 'durtal:' || pr.id::text) from readings pr where pr.id=n.reading_id) as reading_source_key,
+        n.kind, n.body, n.comment_html, n.comment_json, to_json(n.updated_at)#>>'{}' as updated_at, n.page, n.end_page, n.page_roman, n.chapter, n.percent::float8 as percent, n.is_favourite,
         n.reading_id::text as reading_id, n.edition_id::text as edition_id, e.title as edition_title,
         ${translatorsOf(sql`n.edition_id`)} as translators, n.source, to_json(n.created_at)#>>'{}' as created_at,
         case when e.id is not null then jsonb_build_object('title', e.title, 'language', e.language, 'year', e.publication_year,
@@ -169,17 +183,18 @@ function noteEditionOf(n: NoteRow): NoteEdition | null {
 
 /** One row per quote or note; his thought as plain text */
 export async function noteExportRows(filter: NotesFilter, native = false): Promise<Record<string, unknown>[]> {
-  return (await noteRows(filter, native)).map(({ comment_html, is_favourite, page_roman, label_edition, ...row }) => {
+  return (await noteRows(filter, native)).map(({ comment_html, comment_json, is_favourite, page_roman, label_edition, ...row }) => {
     const legacy = {
     ...row,
     thought: comment_html ? stripHtmlToText(comment_html).trim() : null,
+    thought_html: comment_html, thought_json: comment_json == null ? null : JSON.stringify(comment_json),
     // Booleans: yes or no in CSV and TSV, true or false in JSON and Parquet
     favourite: is_favourite,
     page_roman,
     edition_label: editionLabelOf({ ...row, label_edition }),
     };
     return native ? nativeProjection("reading-notes", legacy, {
-      created_at: row.__created_micros, authors: row.__authors, translators: row.__translators,
+      created_at: row.__created_micros, updated_at: row.__updated_micros, authors: row.__authors, translators: row.__translators,
     }) : legacy;
   });
 }

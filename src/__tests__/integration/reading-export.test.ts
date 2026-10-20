@@ -280,6 +280,24 @@ describe.skipIf(!url)("the reading exports with PostgreSQL", () => {
     expect(rows.filter((row) => row.reading_id === openId).map((row) => row.pages_counted)).toEqual([60, 0]);
   });
 
+  it("keeps session exports in start order when end order differs, without changing counted pages", async () => {
+    const b = await book("Overlapping sittings");
+    const r = await reading(b, { status: "reading", start_percent: 0, total_pages: 300 });
+    // Starts A, B, C; finishes B, C, A. C has no start and uses its creation time.
+    const a = await session(r, { read_on: "2026-01-02", started_at: "2026-01-02T08:00:00Z", ended_at: "2026-01-02T12:00:00Z", created_at: "2026-01-02T14:00:00Z", end_percent: 70, pages_total: 300 });
+    const second = await session(r, { read_on: "2026-01-02", started_at: "2026-01-02T09:00:00Z", ended_at: "2026-01-02T10:00:00Z", created_at: "2026-01-02T13:00:00Z", end_percent: 40, pages_total: 300 });
+    const noStart = await session(r, { read_on: "2026-01-02", ended_at: "2026-01-02T11:00:00Z", created_at: "2026-01-02T10:30:00Z", end_percent: 50, pages_total: 300 });
+    // Counting still follows finishes: B adds 40%, C adds 10%, then A adds 20%.
+    const expected = [[a, 60], [second, 120], [noStart, 30]];
+    for (const native of [false, true]) {
+      const rows = await sessionExportRows([r], native);
+      expect(rows.map((row) => [row.session_id, row.pages_counted])).toEqual(expected);
+    }
+    const [header, ...rows] = parseCsv((await exportFile("reading-sessions")).text);
+    expect(rows.map((row) => row[header.indexOf("session_id")])).toEqual([a, second, noStart]);
+    expect(rows.map((row) => row[header.indexOf("pages_counted")])).toEqual(["60", "120", "30"]);
+  });
+
   it("guards a title or a passage that starts with = in every spreadsheet export, the works export too", async () => {
     const { formula } = await library();
     const guarded = (text: string, cell: string) => text.split(/\r?\n/).some((line) => line.split(",").includes(`'${cell}`));

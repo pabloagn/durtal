@@ -30,12 +30,17 @@ export interface ImportReading {
   /** Durtal files only: the reading the row was exported from */
   readingId: string | null;
   sourceKey: string;
+  restore?: ReadingRestore;
   /** "Earlier read, date unknown" and the like */
   note?: string;
 }
 
 export interface ImportRow {
-  kind: "readings" | "to_read";
+  kind: "readings" | "to_read" | "sessions" | "notes";
+  /** Exact Durtal restore payload, never used by Goodreads/StoryGraph. */
+  history?: HistoryPayload;
+  durtalRestore?: true;
+  rawCells?: Record<string, string>;
   /** The file's own book id (Goodreads Book Id) */
   sourceBookId: string | null;
   title: string;
@@ -73,3 +78,18 @@ export interface ParsedFile {
   /** What the file's columns cannot carry, for the preview's box */
   missing: string[];
 }
+
+export interface ReadingRestore {
+  startPage: number | null; startPercent: number | null; startMinutes: number | null;
+  currentPage: number | null; currentPercent: number | null; currentMinutes: number | null; currentChapter: string | null;
+  source: string; locationId: string | null; lastReadAt: string | null; createdAt: string | null; updatedAt: string | null;
+}
+export type HistoryPayload = {
+  entity: "sessions" | "notes";
+  summary?: string;
+  id: string; workId: string | null; readingId: string | null; readingSourceKey: string | null; editionId: string | null;
+  source: string; createdAt: string | null; updatedAt: string | null;
+  /** Column names exactly match persisted fields; timestamps stay strings with microseconds. */
+  values: Record<string, string | number | boolean | null>;
+};
+export type EmptyImport = { kind: "empty"; entity: import("./formats").DurtalExportKind; source: "durtal"; rows: 0 };

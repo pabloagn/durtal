@@ -102,3 +102,26 @@ export function shown(value: string | null | undefined) {
   const s = (value ?? "").trim();
   return s.length > 200 ? `${s.slice(0, 200)}…` : s;
 }
+
+/** PostgreSQL JSONB rejects these code units even though JSON.parse accepts them. */
+export function invalidUnicode(value: string): boolean {
+  for (let i=0;i<value.length;i++) {
+    const n=value.charCodeAt(i);
+    if (n===0 || (n>=0xdc00 && n<=0xdfff)) return true;
+    if (n>=0xd800 && n<=0xdbff) {
+      const next=value.charCodeAt(++i);
+      if (!(next>=0xdc00 && next<=0xdfff)) return true;
+    }
+  }
+  return false;
+}
+/** Keep invalid raw evidence readable without putting forbidden units into JSONB. */
+export function safeRawCell(value: string): string {
+  let out="";
+  for(let i=0;i<value.length;i++) {
+    const n=value.charCodeAt(i);
+    if(n>=0xd800 && n<=0xdbff && value.charCodeAt(i+1)>=0xdc00 && value.charCodeAt(i+1)<=0xdfff) {out+=value[i]+value[++i];continue;}
+    out+=n===0 || (n>=0xd800 && n<=0xdfff) ? `\\u${n.toString(16).padStart(4,"0")}` : value[i];
+  }
+  return out;
+}

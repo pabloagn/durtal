@@ -59,7 +59,7 @@ export default async function ReadingImportPage() {
                   <div className="flex shrink-0 items-center gap-3">
                     <Badge variant={STATUS[i.status]?.variant ?? "muted"}>{STATUS[i.status]?.label ?? i.status}</Badge>
                     {canUndoImport(i) && (
-                      <UndoImport importId={i.id} readings={i.readings} queued={i.queued} notes={i.notes} goodreadsIds={i.identifiers} pendingClaims={i.pendingClaims} ratings={i.ratings} size="sm" />
+                      <UndoImport importId={i.id} readings={i.readings} queued={i.queued} notes={i.notes} goodreadsIds={i.identifiers} pendingClaims={i.pendingClaims} ratings={i.ratings} sessions={i.sessions} size="sm" />
                     )}
                   </div>
                 </li>

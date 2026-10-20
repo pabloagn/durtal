@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { toCSV, toTSV } from "@/lib/utils/export";
 import { FORMAT_MIME, exportFormatsFor } from "@/lib/export/formats";
-import { exportedMessage, exportFormatName } from "@/components/shared/export-menu";
+import { exportedMessage, exportFormatName, EXPORT_FORMAT_LABELS } from "@/components/shared/export-menu";
 import { parseCsv, parseDelimited, restoreDurtalFormulaGuard } from "@/lib/reading/import/csv";
 import { DURTAL_READING_COLUMNS } from "@/lib/reading/import/durtal-format";
 import { GOODREADS_EXPORT_HEADER } from "@/lib/reading/import/formats";
@@ -89,13 +89,16 @@ describe("one export shape for every kind (SLN-894)", () => {
     expect(exportedMessage("readings", { filters: "status=finished" }, "csv")).toBe("Exported readings as CSV");
     expect(exportedMessage("reading-notes", { filters: "" }, "md")).toBe("Exported quotes and notes as Markdown");
     expect(exportFormatName("parquet")).toBe("Parquet");
+    expect(EXPORT_FORMAT_LABELS.md).toBe("Markdown (export only)");
+    expect(exportFormatName("md")).toBe("Markdown");
   });
 });
 
 describe("the reading exports' headers", () => {
   it("write the Durtal reading CSV first, then the read-only columns", () => {
     expect(READING_EXPORT_COLUMNS.slice(0, DURTAL_READING_COLUMNS.length)).toEqual([...DURTAL_READING_COLUMNS]);
-    expect(READING_EXPORT_COLUMNS.slice(DURTAL_READING_COLUMNS.length)).toEqual([...READING_READ_ONLY_COLUMNS]);
+    expect(READING_EXPORT_COLUMNS.slice(DURTAL_READING_COLUMNS.length, DURTAL_READING_COLUMNS.length + READING_READ_ONLY_COLUMNS.length)).toEqual([...READING_READ_ONLY_COLUMNS]);
+    expect(READING_EXPORT_COLUMNS.slice(DURTAL_READING_COLUMNS.length + READING_READ_ONLY_COLUMNS.length)).toEqual(["export_version", "start_percent", "start_minutes", "source", "location_id", "last_read_at", "created_at", "updated_at"]);
     expect(DURTAL_READING_COLUMNS.at(-1)).toBe("source_key");
   });
 

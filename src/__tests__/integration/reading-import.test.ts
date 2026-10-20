@@ -1,3 +1,11 @@
+import { randomUUID } from "node:crypto";
+import { sql } from "drizzle-orm";
+import * as atomicModule from "@/lib/db/atomic";
+import { toCSV } from "@/lib/utils/export";
+import { SESSION_EXPORT_COLUMNS, SESSION_EXPORT_COLUMNS_V2 } from "@/lib/export/columns";
+import { renderThought } from "@/lib/reading/import/thought";
+import { countedPagesSql } from "@/lib/reading/summary";
+import { parseImportFile } from "@/lib/reading/import/parse";
 import { requireDisposableDatabaseUrl, resetDisposableDatabase } from "./helpers/disposable-database";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import postgres from "postgres";
@@ -179,7 +187,7 @@ describe.skipIf(!url)("the reading import with PostgreSQL", () => {
       ]);
     });
 
-    it("matches a Durtal file's work id, and drops an edition of another book", async () => {
+    it("matches a Durtal file's work id, and refuses an edition of another book", async () => {
       const workId = await book("Watt", "Samuel Beckett");
       const own = await edition(workId);
       const other = await edition(await book("Molloy", "Samuel Beckett"));
@@ -191,8 +199,8 @@ describe.skipIf(!url)("the reading import with PostgreSQL", () => {
         "readings.csv",
       );
       const [a, b] = await rows(importId);
-      expect([a.match.reason, a.match.editionId, a.match.warnings]).toEqual(["Same Durtal book", own, []]);
-      expect([b.match.editionId, b.match.warnings]).toEqual([null, ["Edition not in Durtal; the reading is kept without it"]]);
+      expect([a.match.reason, a.match.editionId, a.match.warnings]).toEqual(["Exact Durtal parent", own, []]);
+      expect(b.match).toMatchObject({section:"cannot",note:"The explicit edition is missing or belongs to another book"});
     });
 
     it("finds likely, possible and no matches, and a book by its English edition title", async () => {
@@ -323,7 +331,7 @@ describe.skipIf(!url)("the reading import with PostgreSQL", () => {
         "readings.csv",
       );
       const [same, other] = await rows(importId);
-      expect([same.match.section, same.match.note]).toEqual(["present", "Same reading"]);
+      expect([same.match.section, same.match.note]).toEqual(["present", "Already in Durtal; existing edits kept"]);
       expect([other.match.section, other.match.note, other.decision]).toEqual(["cannot", "This book already has an open reading", "skip"]);
       const gr = await upload(goodreads([{ "Book Id": "1", Title: "Watt", Author: "Samuel Beckett", "Exclusive Shelf": "currently-reading", "Read Count": "0" }]));
       const [current] = await rows(gr.importId);
@@ -1026,4 +1034,192 @@ describe.skipIf(!url)("the reading import with PostgreSQL", () => {
       expect((await rows(importId))[0].written).toMatchObject({ ratingOutcome: "kept", bookRating: null });
     });
   });
+  describe("Durtal history restore (SLN-1090)",()=>{
+    const download=async(entity:string,format="csv")=>{
+      const response=await exportRoute(new NextRequest("http://localhost/api/export",{method:"POST",body:JSON.stringify({entity,format,all:true})}));
+      expect(response.status).toBe(200);return response.text();
+    };
+    const fixture=async()=>{
+      const workId=await book("History restore","Author");const editionId=await edition(workId,{pages:200});
+      const readingId=await value<string>(`insert into readings(work_id,edition_id,status,format,unit,started_precision,total_pages,start_page,start_percent,current_page,current_percent,current_chapter,source,created_at,updated_at)
+        values($1,$2,'reading','ebook','pages','unknown',200,50,25,160,80,'manual position','manual','1969-12-31T23:59:59.123456Z','1970-01-01T00:00:00.000001Z') returning id`,[workId,editionId]);
+      const sessionId=await value<string>(`insert into reading_sessions(reading_id,edition_id,format,read_on,time_zone,started_at,ended_at,duration_seconds,start_percent,end_percent,pages_total,note,source,paused_seconds,created_at,updated_at)
+        values($1,$2,'ebook','1969-12-31','Europe/Amsterdam','1969-12-31T23:59:58.123456Z','1969-12-31T23:59:59.999999Z',1,25,50,200,E'line\\ttwo\\nthree','timer',7,'1969-12-31T23:59:59.999999Z','1970-01-01T00:00:00.000001Z') returning id`,[readingId,editionId]);
+      const thought={type:"doc",content:[{type:"paragraph",content:[{type:"text",text:"code",marks:[{type:"code"}]},{type:"hardBreak"},{type:"text",text:"link",marks:[{type:"link",attrs:{href:"https://example.com",target:"_blank",rel:"noopener noreferrer nofollow",class:null}}]}]}]};
+      const noteId=await value<string>(`insert into reading_notes(work_id,reading_id,edition_id,kind,body,comment_html,comment_json,source,created_at,updated_at)
+        values($1,$2,$3,'quote',E'  literal\\tpassage\\nnext  ',$4,$5::jsonb,'manual','1969-12-31T23:59:59.999999Z','1970-01-01T00:00:00.000001Z') returning id`,[workId,readingId,editionId,renderThought(thought),JSON.stringify(thought)]);
+      return {workId,editionId,readingId,sessionId,noteId,thought};
+    };
+    const snapshot=async()=>value(`select jsonb_build_object(
+      'readings',(select jsonb_agg(to_jsonb(r) order by id) from readings r),
+      'sessions',(select jsonb_agg(to_jsonb(s) order by id) from reading_sessions s),
+      'notes',(select jsonb_agg(to_jsonb(n) order by id) from reading_notes n))`);
+
+    it("exports and reimports 30 books of readings, sessions and notes without modifying existing records",async()=>{
+      for(let i=0;i<30;i++) {
+        const workId=await book(`Restore ${i}`,"A Writer");
+        const id=await reading(workId,{totalPages:100,finishedOn:"2020-02-02",finishedPrecision:"day"});
+        await q(`insert into reading_sessions(reading_id,format,read_on,time_zone,start_percent,end_percent,pages_total,source) values($1,'print','2020-02-02','UTC',0,100,100,'manual')`,[id]);
+        await q(`insert into reading_notes(work_id,reading_id,kind,body,source) values($1,$2,'note','Existing edited note','manual')`,[workId,id]);
+      }
+      const before=await snapshot();
+      for(const entity of ["readings","reading-sessions","reading-notes"]) {
+        const created=await upload(await download(entity),`${entity}.csv`);
+        expect((await rows(created.importId)).map(r=>r.match.section)).toEqual(Array(30).fill("present"));
+        expect(await commitReadingImport({importId:created.importId})).toMatchObject({written:0,sessions:0,notes:0});
+      }
+      expect(await snapshot()).toEqual(before);
+    },60000);
+
+    it("restores new reading UUIDs, exact microseconds, original baselines and rich notes without moving current position",async()=>{
+      const f=await fixture();
+      const readingFile=await download("readings","tsv"), sessionFile=await download("reading-sessions","tsv"), noteFile=await download("reading-notes","tsv");
+      await q(`delete from reading_notes`);await q(`delete from reading_sessions`);await q(`delete from readings`);
+      const readingImport=await upload(readingFile,"readings.tsv");
+      expect(await commitReadingImport({importId:readingImport.importId})).toMatchObject({written:1});
+      const restored=await value<string>(`select id from readings where source_key=$1`,[`durtal:${f.readingId}`]);
+      expect(restored).not.toBe(f.readingId);
+      const before=await value(`select to_jsonb(r) from readings r where id=$1`,[restored]);
+      const sessions=await upload(sessionFile,"sessions.tsv"), notes=await upload(noteFile,"notes.tsv");
+      expect((await getImportPreview(sessions.importId))!.summary).toMatchObject({toSessions:1,toImport:0});
+      expect(await commitReadingImport({importId:sessions.importId})).toMatchObject({sessions:1});
+      expect(await commitReadingImport({importId:notes.importId})).toMatchObject({notes:1});
+      expect(await value(`select to_jsonb(r) from readings r where id=$1`,[restored])).toEqual(before);
+      expect(await value(`select (extract(epoch from ended_at)*1000000)::bigint::text from reading_sessions where id=$1`,[f.sessionId])).toBe("-1");
+      expect(await value(`select (extract(epoch from updated_at)*1000000)::bigint::text from reading_sessions where id=$1`,[f.sessionId])).toBe("1");
+      expect(await value(`select reading_id from reading_sessions where id=$1`,[f.sessionId])).toBe(restored);
+      expect(await value(`select paused_seconds from reading_sessions where id=$1`,[f.sessionId])).toBe(7);
+      const totals=await testDb!.execute(sql`select sum(c.pages)::float8 as pages from ${countedPagesSql()} c where c.reading_id=${restored}::uuid`);
+      expect(totals[0].pages).toBe(50);
+      expect(await value(`select comment_json from reading_notes where id=$1`,[f.noteId])).toEqual(f.thought);
+      const again=await upload(sessionFile,"again.tsv");
+      expect((await rows(again.importId))[0].match.section).toBe("present");
+      expect(await commitReadingImport({importId:again.importId})).toMatchObject({sessions:0});
+      expect(await undoReadingImport({importId:notes.importId})).toMatchObject({notesRemoved:1});
+      expect(await undoReadingImport({importId:sessions.importId})).toMatchObject({sessionsRemoved:1});
+      expect(await undoReadingImport({importId:readingImport.importId})).toMatchObject({removed:1});
+    });
+
+    it("never falls back from a live wrong-book UUID, or guesses a missing parent by title",async()=>{
+      const f=await fixture(), other=await book("Wrong book","Author");
+      const source=sessionExportRecord(f.readingId,f.workId,f.editionId);
+      const wrong=await upload(toCSV([{...source,work_id:other,reading_source_key:`durtal:${f.readingId}`}],SESSION_EXPORT_COLUMNS));
+      expect((await rows(wrong.importId))[0].match).toMatchObject({section:"cannot",note:"The reading UUID belongs to another book"});
+      const missing=await upload(toCSV([{...source,reading_id:randomUUID(),reading_source_key:"",work_title:"History restore"}],SESSION_EXPORT_COLUMNS));
+      expect((await rows(missing.importId))[0].match.section).toBe("cannot");
+      expect(await commitReadingImport({importId:wrong.importId})).toMatchObject({sessions:0});
+    });
+
+    function sessionExportRecord(readingId:string,workId:string,editionId:string|null=null) {
+      return {session_id:randomUUID(),reading_id:readingId,work_id:workId,edition_id:editionId,work_title:"History restore",day:"2020-01-01",time_zone:"UTC",format:"ebook",source:"manual",start_percent:25,end_percent:50,pages_total:200,export_version:3,created_at:"2020-01-01T00:00:00.123456Z",updated_at:"2020-01-01T00:00:00.123456Z"};
+    }
+
+    it("resolves legacy parents only through a unique insert-proven mapping",async()=>{
+      const workId=await book("Mapped history","Author"), oldId=randomUUID();
+      const file=(source_key:string)=>toCSV([{reading_id:oldId,work_id:workId,title:"Mapped history",status:"finished",format:"print",source_key}],DURTAL_READING_COLUMNS);
+      const first=await upload(file("legacy:exact-one"));
+      expect(await commitReadingImport({importId:first.importId})).toMatchObject({written:1});
+      const actual=await value<string>(`select id from readings where source_key='legacy:exact-one'`);
+      const legacy={...sessionExportRecord(oldId,workId),session_id:randomUUID()};
+      const child=await upload(toCSV([legacy],SESSION_EXPORT_COLUMNS_V2));
+      expect(await commitReadingImport({importId:child.importId})).toMatchObject({sessions:1});
+      expect(await value(`select reading_id from reading_sessions where id=$1`,[legacy.session_id])).toBe(actual);
+      // Historical journals can disagree even though the current writer will not create this ambiguity.
+      const secondActual=await value<string>(`insert into readings(work_id,status,format,unit,started_precision,finished_precision,source,source_key)
+        values($1,'finished','print','pages','unknown','unknown','manual','legacy:exact-two') returning id`,[workId]);
+      const second=await upload(file("legacy:exact-two"));
+      await q(`update reading_import_rows set written=$2::jsonb where import_id=$1`,[second.importId,JSON.stringify({parent:{oldReadingId:oldId,oldWorkId:workId,readingId:secondActual,workId,sourceKey:"legacy:exact-two",proof:"inserted"}})]);
+      const ambiguous=await upload(toCSV([{...legacy,session_id:randomUUID()}],SESSION_EXPORT_COLUMNS_V2));
+      expect((await rows(ambiguous.importId))[0].match).toMatchObject({section:"cannot",note:"Ambiguous reading parent mapping"});
+    });
+
+    it("concurrent commits journal ownership only once and preserve existing or edited rows on undo",async()=>{
+      const f=await fixture();const source=sessionExportRecord(f.readingId,f.workId,f.editionId);
+      const file=toCSV([source],SESSION_EXPORT_COLUMNS), first=await upload(file), second=await upload(file);
+      const outcomes=await Promise.all([commitReadingImport({importId:first.importId}),commitReadingImport({importId:second.importId})]);
+      expect(outcomes.reduce((n,r)=>n+(r.sessions??0),0)).toBe(1);
+      const owners=await q(`select import_id from reading_import_rows where written->'history'->>'id'=$1 and written->'history'->>'created'='true'`,[source.session_id]);
+      expect(owners).toHaveLength(1);
+      const loser=owners[0].import_id===first.importId?second.importId:first.importId;
+      expect(await undoReadingImport({importId:loser})).toMatchObject({sessionsRemoved:0});
+      expect(await value(`select count(*)::int from reading_sessions where id=$1`,[source.session_id])).toBe(1);
+      await q(`update reading_sessions set note='Edited after import' where id=$1`,[source.session_id]);
+      expect(await undoReadingImport({importId:owners[0].import_id})).toMatchObject({sessionsRemoved:0,sessionsKept:1});
+    });
+
+    it("keeps unmodified child snapshots after effective parent ownership changes",async()=>{
+      const f=await fixture(), source=sessionExportRecord(f.readingId,f.workId,null), file=toCSV([source],SESSION_EXPORT_COLUMNS);
+      const created=await upload(file);await commitReadingImport({importId:created.importId});
+      const other=await book("Moved parent","Other");
+      await q(`update readings set work_id=$1,edition_id=null where id=$2`,[other,f.readingId]);
+      expect(await undoReadingImport({importId:created.importId})).toMatchObject({sessionsRemoved:0,sessionsKept:1});
+    });
+
+    it("keeps current progress through edition switches and duration-only historical sessions",async()=>{
+      const f=await fixture(), otherEdition=await edition(f.workId,{title:"Long edition",pages:500});
+      await q(`delete from reading_sessions where reading_id=$1`,[f.readingId]);
+      const before=await value(`select to_jsonb(r) from readings r where id=$1`,[f.readingId]);
+      const first={...sessionExportRecord(f.readingId,f.workId,f.editionId),created_at:"2020-01-01T00:00:00.100001Z",updated_at:"2020-01-01T00:00:00.100001Z"};
+      const second={...sessionExportRecord(f.readingId,f.workId,otherEdition),start_percent:50,end_percent:60,pages_total:500,created_at:"2020-01-01T00:00:00.200001Z",updated_at:"2020-01-01T00:00:00.200001Z"};
+      const duration={...sessionExportRecord(f.readingId,f.workId,null),start_percent:null,end_percent:null,pages_total:null,duration_seconds:900,end_chapter:"Old chapter",created_at:"2020-01-01T00:00:00.300001Z",updated_at:"2020-01-01T00:00:00.300001Z"};
+      const imported=await upload(toCSV([first,second,duration],SESSION_EXPORT_COLUMNS));
+      expect(await commitReadingImport({importId:imported.importId})).toMatchObject({sessions:3});
+      expect(await value(`select to_jsonb(r) from readings r where id=$1`,[f.readingId])).toEqual(before);
+      const totals=await testDb!.execute(sql`select sum(c.pages)::float8 as pages from ${countedPagesSql()} c where c.reading_id=${f.readingId}::uuid`);
+      expect(totals[0].pages).toBe(100);
+      expect(await value(`select start_percent::float8 from reading_sessions where id=$1`,[second.session_id])).toBe(50);
+    });
+
+    it.each([50,51])("stops stale work when Undo interleaves after the first batch of %i rows",async(count)=>{
+      const f=await fixture();const records=Array.from({length:count},()=>sessionExportRecord(f.readingId,f.workId,f.editionId));
+      const created=await upload(toCSV(records,SESSION_EXPORT_COLUMNS));
+      const original=atomicModule.atomic;let interleaved=false;
+      const spy=vi.spyOn(atomicModule,"atomic").mockImplementation(async(build)=>{
+        const result=await original(build);
+        if(!interleaved && result.length===55) {
+          interleaved=true;
+          expect(await undoReadingImport({importId:created.importId})).toMatchObject({sessionsRemoved:50});
+        }
+        return result;
+      });
+      try {await expect(commitReadingImport({importId:created.importId})).rejects.toThrow("changed through Undo");}
+      finally {spy.mockRestore();}
+      expect(interleaved).toBe(true);
+      expect(await value(`select status from imports where id=$1`,[created.importId])).toBe("undone");
+      expect(await value(`select count(*)::int from reading_sessions where id=any($1::uuid[])`,[records.map(r=>r.session_id)])).toBe(0);
+      expect(await value(`select count(*)::int from reading_import_rows where import_id=$1 and written->'history' is not null`,[created.importId])).toBe(0);
+    });
+
+    it("uses UTC snapshots across different connection timezones and clears only its own journal keys",async()=>{
+      const f=await fixture(),source=sessionExportRecord(f.readingId,f.workId,f.editionId);
+      const created=await upload(toCSV([source],SESSION_EXPORT_COLUMNS));
+      const original=atomicModule.atomic;let zone="Asia/Tokyo";
+      const spy=vi.spyOn(atomicModule,"atomic").mockImplementation(async(build)=>{
+        const result=await original((d)=>[d.execute(sql`select set_config('TimeZone',${zone},true)`),...build(d)]);
+        return result.slice(1);
+      });
+      try {
+        expect(await commitReadingImport({importId:created.importId})).toMatchObject({sessions:1});
+        await q(`update reading_import_rows set written=written || '{"retainedEvidence":{"value":"keep"}}'::jsonb where import_id=$1`,[created.importId]);
+        zone="America/New_York";
+        expect(await undoReadingImport({importId:created.importId})).toMatchObject({sessionsRemoved:1,sessionsKept:0});
+      } finally {spy.mockRestore();}
+      expect(await value(`select written->'retainedEvidence' from reading_import_rows where import_id=$1`,[created.importId])).toEqual({value:"keep"});
+      expect(await value(`select written->'history' from reading_import_rows where import_id=$1`,[created.importId])).toBeNull();
+    });
+
+    it("retries after a later atomic chunk fails without duplicating the first 50 sessions",async()=>{
+      const f=await fixture();
+      const records=Array.from({length:51},(_,i)=>({...sessionExportRecord(f.readingId,f.workId,f.editionId),note:i===50?"stop here":"ok"}));
+      const created=await upload(toCSV(records,SESSION_EXPORT_COLUMNS));
+      await q(`create function public.durtal_test_reject_restore() returns trigger language plpgsql as $$ begin if new.note='stop here' then raise exception 'synthetic interrupted chunk'; end if; return new; end $$`);
+      await q(`create trigger reject_restore before insert on reading_sessions for each row execute function public.durtal_test_reject_restore()`);
+      try {await expect(commitReadingImport({importId:created.importId})).rejects.toThrow("synthetic interrupted chunk");}
+      finally {await q(`drop trigger reject_restore on reading_sessions`);await q(`drop function public.durtal_test_reject_restore()`);}
+      expect(await value(`select count(*)::int from reading_import_rows where import_id=$1 and written->'history'->>'created'='true'`,[created.importId])).toBe(50);
+      expect(await commitReadingImport({importId:created.importId})).toMatchObject({sessions:1});
+      expect(await value(`select count(*)::int from reading_import_rows where import_id=$1 and written->'history'->>'created'='true'`,[created.importId])).toBe(51);
+    });
+  });
+
 });

@@ -32,6 +32,7 @@ export interface RowView {
 
 /** The outcomes of a written row: "Written (2) · Already in Durtal (Same source)" */
 function outcomes(written: NonNullable<PreviewRow["written"]>) {
+  if (written.history) return written.history.outcome === "written" ? "Restored" : "Already in Durtal; existing edits kept";
   if (written.goodreadsClaim && !written.readings.length && !written.queueOutcome && !written.ratingOutcome)
     return "Goodreads ID recorded; remaining import pending";
   const counts = new Map<string, number>();
@@ -58,12 +59,21 @@ function queueOutcome(written: NonNullable<PreviewRow["written"]>) {
 
 export function rowView(row: PreviewRow, today: string): RowView {
   const { data, match, book, written } = row;
+  if (data.history) {
+    const closed = row.section === "cannot" || row.section === "present";
+    const lines: [RowLineKind, string][] = [["reason", match.note ?? match.reason ?? "Exact Durtal parent"], ...data.warnings.map((text): [RowLineKind,string] => ["note",text])];
+    if (written?.history) lines.push(["outcome",outcomes(written)]);
+    return {rowNo:row.rowNo,title:data.title || (data.history.entity === "sessions" ? "Reading session" : "Quote or note"),
+      line: data.history.summary ?? (data.history.entity === "sessions" ? "Historical session" : "Quote or note"),
+      book:book?{href:`/library/${book.slug ?? book.workId}`,title:book.title,line:book.author ?? "Unknown author",cover:book.cover}:null,
+      lines,actions:written || closed ? null : {decision:row.decision,canImport:!!book}};
+  }
   const toRead = row.section === "to_read" || (data.kind === "to_read" && !!data.queueKey);
   const anyway = row.section === "present" && importableAnyway(match.verdicts);
   const closed = row.section === "cannot" || row.section === "not_imported";
   // An e-book library row writes its rating even when its read is already in Durtal (SLN-658)
   const writes = !written && (match.verdicts.some((v) => v.verdict === "new") || match.rating === "set" || match.rating === "differs");
-  const rating = ratingLine({ section: row.section, fileRating: data.rating, bookRating: book?.rating, useFileRating: row.useFileRating, writes });
+  const rating = data.durtalRestore ? null : ratingLine({ section: row.section, fileRating: data.rating, bookRating: book?.rating, useFileRating: row.useFileRating, writes });
   // A book already in Up next, or being read, stays where it is: its note says so, and the commit skips it (SLN-956)
   const staysPut = !!(match.queue?.place || match.queue?.sameKey || match.queue?.open);
   const what = written || closed ? null : toRead ? (book && !staysPut ? "Goes to the bottom of Up next" : null) : writeLine(data.readings, match.verdicts, today, { anyway: anyway && row.decision === "import" });
@@ -98,7 +108,7 @@ export function rowView(row: PreviewRow, today: string): RowView {
             decision: row.decision,
             ...(book && (row.section !== "present" || anyway) ? { canImport: true } : {}),
             ...(anyway ? { anyway: true } : {}),
-            ...(row.section !== "present" ? { canChoose: true } : {}),
+            ...(!data.durtalRestore || row.section === "none" ? { canChoose: row.section !== "present" } : {}),
             ...(row.candidates.length
               ? {
                   candidates: row.candidates.map((c) => ({

@@ -12,9 +12,10 @@ export const READING_READ_ONLY_COLUMNS = [
 ] as const;
 
 /** The readings file: exactly the Durtal reading CSV, then the read-only columns */
-export const READING_EXPORT_COLUMNS = [...DURTAL_READING_COLUMNS, ...READING_READ_ONLY_COLUMNS] as const;
+export const READING_EXPORT_COLUMNS_V2 = [...DURTAL_READING_COLUMNS, ...READING_READ_ONLY_COLUMNS] as const;
+export const READING_EXPORT_COLUMNS = [...READING_EXPORT_COLUMNS_V2, "export_version", "start_percent", "start_minutes", "source", "location_id", "last_read_at", "created_at", "updated_at"] as const;
 
-export const SESSION_EXPORT_COLUMNS = [
+export const SESSION_EXPORT_COLUMNS_V2 = [
   "session_id",
   "reading_id",
   "work_title",
@@ -36,7 +37,9 @@ export const SESSION_EXPORT_COLUMNS = [
   "source",
 ] as const;
 
-export const NOTE_EXPORT_COLUMNS = [
+export const SESSION_EXPORT_COLUMNS = [...SESSION_EXPORT_COLUMNS_V2, "export_version", "work_id", "reading_source_key", "edition_id", "pages_total", "note", "paused_seconds", "created_at", "updated_at"] as const;
+
+export const NOTE_EXPORT_COLUMNS_V2 = [
   "note_id",
   "work_id",
   "title",
@@ -58,6 +61,8 @@ export const NOTE_EXPORT_COLUMNS = [
   "source",
   "created_at",
 ] as const;
+
+export const NOTE_EXPORT_COLUMNS = [...NOTE_EXPORT_COLUMNS_V2, "export_version", "reading_source_key", "source_key", "thought_html", "thought_json", "updated_at"] as const;
 
 export const BOOK_EXPORT_COLUMNS = [
   "title", "ebook_formats", "authors", "original_language", "original_year", "catalogue_status", "acquisition_priority", "rating",
@@ -84,3 +89,6 @@ export const DURTAL_EXPORT_HEADERS = {
   perfumes: PERFUME_EXPORT_COLUMNS, paintings: PAINTING_EXPORT_COLUMNS, readings: READING_EXPORT_COLUMNS,
   "reading-sessions": SESSION_EXPORT_COLUMNS, "reading-notes": NOTE_EXPORT_COLUMNS,
 } as const;
+
+/** Frozen v2 recognition; v3 appends fields and accepts these older files. */
+export const DURTAL_EXPORT_HEADERS_V2 = { ...DURTAL_EXPORT_HEADERS, readings: READING_EXPORT_COLUMNS_V2, "reading-sessions": SESSION_EXPORT_COLUMNS_V2, "reading-notes": NOTE_EXPORT_COLUMNS_V2 } as const;

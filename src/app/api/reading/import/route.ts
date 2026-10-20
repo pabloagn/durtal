@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { crossOriginRefusal } from "@/lib/api/same-origin";
 import { errorResponse } from "@/lib/api/rest";
 import { DELIMITED_IMPORT_MESSAGE, delimitedUploadFormat, ImportFileError } from "@/lib/reading/import/formats";
+import { emptyDurtalExport } from "@/lib/reading/import/parse";
 import { detectDelimiter } from "@/lib/reading/import/csv";
 import { createReadingImport, safeFileName, setBronzeKey } from "@/lib/reading/import/store";
 import { bronzeImportKey } from "@/lib/s3/keys";
@@ -33,6 +34,14 @@ export async function POST(req: NextRequest) {
     if (!delimitedUploadFormat(file.name, file.type)) return NextResponse.json({ error: DELIMITED_IMPORT_MESSAGE }, { status: 400 });
     const bytes = new Uint8Array(await file.arrayBuffer());
     const text = new TextDecoder("utf-8").decode(bytes);
+
+    try {
+      const entity = emptyDurtalExport(text);
+      if (entity) return NextResponse.json({ kind: "empty", entity, source: "durtal", rows: 0 }, { status: 200 });
+    } catch (err) {
+      if (err instanceof ImportFileError) return NextResponse.json({ error: err.message }, { status: 400 });
+      throw err;
+    }
 
     let created: Awaited<ReturnType<typeof createReadingImport>>;
     try {

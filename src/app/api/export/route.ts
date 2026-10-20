@@ -102,8 +102,11 @@ async function exportFile(
 ) {
   const disposition = `attachment; filename="${filename}${FORMAT_EXT[format]}"`;
   let body: string | Uint8Array;
-  if (format === "csv") body = toCSV(rows, headers, { forImport });
-  else if (format === "tsv") body = toTSV(rows, headers);
+  // v3 doubles authored leading apostrophes before the existing spreadsheet guard.
+  const delimited = definition?.version === 3 ? rows.map((row) => Object.fromEntries(Object.entries(row).map(([key, value]) =>
+    [key, typeof value === "string" && value.startsWith("'") ? `'${value}` : value]))) : rows;
+  if (format === "csv") body = toCSV(delimited, headers, { forImport });
+  else if (format === "tsv") body = toTSV(delimited, headers);
   else if (format === "json") {
     if (!definition) throw new Error("Missing native export definition");
     body = toJSON(definition, rows);

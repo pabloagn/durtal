@@ -128,8 +128,8 @@ export function summaryLine(s: SummaryCounts): string {
 }
 
 /** The commit button and the line under it: readings, private notes (SLN-453), books for Up next (SLN-452) */
-export function commitWords(toImport: number, pending: number, toQueue = 0, toNotes = 0, toRate = 0): { label: string; note: string | null } {
-  const imported = [toImport ? plural(toImport, "reading") : null, toNotes ? plural(toNotes, "note") : null, toRate ? plural(toRate, "rating") : null].filter(Boolean);
+export function commitWords(toImport: number, pending: number, toQueue = 0, toNotes = 0, toRate = 0, toSessions = 0): { label: string; note: string | null } {
+  const imported = [toSessions ? plural(toSessions, "session") : null, toImport ? plural(toImport, "reading") : null, toNotes ? plural(toNotes, "note") : null, toRate ? plural(toRate, "rating") : null].filter(Boolean);
   const queue = toQueue ? `add ${plural(toQueue, "book")} to Up next` : null;
   return {
     label: imported.length
@@ -149,7 +149,7 @@ export function cannotCarry(source: ImportSource, counts: { otherShelves: number
     lines.push("Goodreads keeps only the last read date: earlier reads have no dates.");
   }
   if (source === "storygraph") lines.push("Quarter stars are rounded to the nearest half: 3.75 is saved as 4, 3.25 as 3.5.");
-  if (source === "durtal") lines.push("A reading CSV holds readings only: no sessions, notes or quotes.");
+  if (source === "durtal") lines.push("Restore readings first, then their sessions and quotes or notes. Historical sessions keep the current reading position unchanged.");
   if (source === "ebook_library") {
     lines.push("Only the library's books that are e-books in Durtal, linked to their books, are here.");
     lines.push("The library keeps no start dates and one read a book: a reread is not imported.");

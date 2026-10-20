@@ -17,6 +17,7 @@ import {
   type QueueState,
 } from "./match-rules";
 import { lastFinishedOnSql } from "../summary";
+import { resolveRestores, restoreInput, restoreMatch } from "./history-match";
 import type { ImportRow, ImportSource } from "./types";
 
 /*
@@ -213,6 +214,11 @@ async function titleCandidates(entries: { i: number; title: string; author: stri
  * are matched too: later steps import to-read rows from them.
  */
 export async function matchRows(rows: ImportRow[]): Promise<RowMatch[]> {
+  if (rows.length && rows.every((row) => row.durtalRestore)) {
+    const resolved = await resolveRestores(rows.map((row,i) => restoreInput(row,i)));
+    const byNo = new Map(resolved.map((r) => [r.rowNo,r]));
+    return rows.map((row,i) => ({...restoreMatch(row,byNo.get(i)!),workId:byNo.get(i)!.workId}));
+  }
   const result: RowMatch[] = rows.map(() => ({ found: "none", workId: null, reason: null, editionId: null, instanceId: null, candidates: [], warnings: [] }));
   const ids = await durtalIds(rows);
   const keyed = await sourceKeyHits(unique(rows.flatMap((r) => r.readings.map((x) => x.sourceKey))));
@@ -321,6 +327,11 @@ export interface MatchedRow {
  * the other rows of the same book in the file. Rows in file order.
  */
 export async function withVerdicts(source: ImportSource, rows: MatchedRow[]): Promise<ImportMatch[]> {
+  if (source === "durtal" && rows.every((row) => row.data.durtalRestore)) {
+    const resolved = await resolveRestores(rows.map((row) => restoreInput(row.data,row.rowNo,row.match.chosen ? row.workId : null)));
+    const byNo = new Map(resolved.map((r) => [r.rowNo,r]));
+    return rows.map((row) => ({...restoreMatch(row.data,byNo.get(row.rowNo)!),chosen:row.match.chosen}));
+  }
   const counted = rows.filter((r) => r.workId && !r.data.error && r.data.kind === "readings");
   const existing = await existingReadingsOf(counted.map((r) => r.workId!));
   const verdicts = new Map<number, ImportMatch["verdicts"]>();

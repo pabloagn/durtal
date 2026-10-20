@@ -33,6 +33,7 @@ export interface ImportListItem {
   errorRecords: number;
   rawKept: boolean;
   readings: number;
+  sessions?: number;
   /** Up next items it added (SLN-452) */
   queued: number;
   /** Notes it wrote from private notes (SLN-453) */
@@ -54,6 +55,7 @@ export async function listReadingImports(limit = 100): Promise<ImportListItem[]>
         i.skipped_records as "skippedRecords", i.error_records as "errorRecords",
         i.s3_bronze_key is not null as "rawKept",
         (select count(*) from readings r where r.import_id = i.id)::int as readings,
+        (select count(*) from reading_import_rows j join reading_sessions s on s.id::text=j.written->'history'->>'id' where j.import_id=i.id and j.written->'history'->>'entity'='sessions' and j.written->'history'->>'created'='true')::int as sessions,
         (select count(*) from reading_queue q where q.import_id = i.id)::int as queued,
         (select count(*) from reading_notes n where n.import_id = i.id)::int as notes,
         (select count(*) from reading_import_rows x where x.import_id = i.id and coalesce(x.written->'bookRating', 'null'::jsonb) <> 'null'::jsonb)::int as ratings,
@@ -87,6 +89,8 @@ export interface ImportSummary {
   ratingsDiffer: number;
   /** Readings the commit button would write */
   toImport: number;
+  toSessions?: number;
+  toRestoreNotes?: number;
   /** E-book library ratings the commit would write to their books (SLN-658) */
   toRate: number;
   /** To-read rows the commit would add to Up next (SLN-452) */
@@ -114,7 +118,7 @@ export type PreviewReading = Omit<ImportReading, "reviewHtml"> & { hasReview: bo
 export interface PreviewRow {
   rowNo: number;
   section: ImportSection;
-  data: Omit<ImportRow, "reviewHtml" | "privateNotes" | "readings"> & { readings: PreviewReading[]; hasNotes: boolean };
+  data: Omit<ImportRow, "reviewHtml" | "privateNotes" | "readings" | "history" | "rawCells"> & { history?: { entity: "sessions" | "notes"; id: string; summary?: string }; readings: PreviewReading[]; hasNotes: boolean };
   match: ImportMatch;
   decision: ImportDecision;
   useFileRating: boolean;
@@ -144,6 +148,7 @@ export async function getImportPreview(importId: string, limits: Partial<Record<
         i.skipped_records as "skippedRecords", i.error_records as "errorRecords",
         i.s3_bronze_key is not null as "rawKept", i.error_log as "errorLog",
         (select count(*) from readings r where r.import_id = i.id)::int as readings,
+        (select count(*) from reading_import_rows j join reading_sessions s on s.id::text=j.written->'history'->>'id' where j.import_id=i.id and j.written->'history'->>'entity'='sessions' and j.written->'history'->>'created'='true')::int as sessions,
         (select count(*) from reading_queue q where q.import_id = i.id)::int as queued,
         (select count(*) from reading_notes n where n.import_id = i.id)::int as notes,
         (select count(*) from reading_import_rows x where x.import_id = i.id and coalesce(x.written->'bookRating', 'null'::jsonb) <> 'null'::jsonb)::int as ratings,
@@ -172,9 +177,9 @@ export async function getImportPreview(importId: string, limits: Partial<Record<
         count(*) filter (where r.data->>'kind' = 'to_read' and r.data->>'queueKey' is null)::int as "otherShelves",
         count(*) filter (where not ${open})::int as written,
         count(*) filter (where r.work_id is null and ${open} and r.match->>'section' in ('choose', 'none'))::int as "noBook",
-        count(*) filter (where ${open} and r.work_id is not null and r.data->>'rating' is not null and w.rating is not null
+        count(*) filter (where ${open} and not coalesce((r.data->>'durtalRestore')::boolean,false) and r.work_id is not null and r.data->>'rating' is not null and w.rating is not null
           and w.rating <> (r.data->>'rating')::numeric and r.match->>'section' not in ('present', 'cannot', 'not_imported', 'to_read'))::int as "ratingsDiffer",
-        coalesce(sum(case when r.decision = 'import' and ${open} and r.work_id is not null then
+        coalesce(sum(case when r.decision = 'import' and ${open} and r.work_id is not null and r.data->>'kind'='readings' then
           (select count(*) from jsonb_array_elements(r.match->'verdicts') v
             where v->>'verdict' = 'new' or (r.match->>'section' = 'present'
               and v->>'reason' in ('Undated read', 'Another read in Durtal', 'Being read in Durtal')))
@@ -182,6 +187,8 @@ export async function getImportPreview(importId: string, limits: Partial<Record<
         count(*) filter (where r.decision = 'import' and ${open} and r.work_id is not null
           and (r.match->>'rating' = 'set' or (r.match->>'rating' = 'differs' and r.use_file_rating))
           and r.match->>'section' not in ('present', 'cannot', 'not_imported', 'to_read'))::int as "toRate",
+        count(*) filter (where r.decision='import' and ${open} and r.match->>'section'='exact' and r.data->>'kind'='sessions')::int as "toSessions",
+        count(*) filter (where r.decision='import' and ${open} and r.match->>'section'='exact' and r.data->>'kind'='notes')::int as "toRestoreNotes",
         0::int as identifiers
       from reading_import_rows r
       left join works w on w.id = r.work_id
@@ -189,9 +196,10 @@ export async function getImportPreview(importId: string, limits: Partial<Record<
       where r.import_id = ${importId}::uuid`),
     db.execute(sql`
       select r.row_no as "rowNo", r.section, r.match, r.decision, r.use_file_rating as "useFileRating", r.written,
-        (r.data - 'reviewHtml' - 'privateNotes') || jsonb_build_object(
+        (r.data - 'reviewHtml' - 'privateNotes' - 'rawCells' - 'history') || jsonb_build_object(
+          'history', case when r.data->'history' is not null then jsonb_build_object('entity',r.data->'history'->>'entity','id',r.data->'history'->>'id','summary',r.data->'history'->>'summary') else null end,
           'hasNotes', r.data->>'privateNotes' is not null,
-          'readings', coalesce((select jsonb_agg((x - 'reviewHtml') || jsonb_build_object('hasReview', x->>'reviewHtml' is not null) order by o)
+          'readings', coalesce((select jsonb_agg((x - 'reviewHtml' - 'restore') || jsonb_build_object('hasReview', x->>'reviewHtml' is not null) order by o)
             from jsonb_array_elements(r.data->'readings') with ordinality as t(x, o)), '[]'::jsonb)) as data,
         case when w.id is null then null else jsonb_build_object(
           'workId', w.id, 'title', w.title, 'slug', w.slug, 'year', w.original_year, 'rating', w.rating::float8,

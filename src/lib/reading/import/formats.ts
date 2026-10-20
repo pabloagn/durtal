@@ -1,5 +1,6 @@
 import type { ImportSource } from "./types";
-import { DURTAL_EXPORT_HEADERS } from "@/lib/export/columns";
+import { DURTAL_READING_COLUMNS } from "./durtal-format";
+import { DURTAL_EXPORT_HEADERS_V2 } from "@/lib/export/columns";
 
 export const DELIMITED_IMPORT_MESSAGE = "Choose a CSV or TSV file: a Goodreads, StoryGraph or Durtal reading export";
 
@@ -43,9 +44,9 @@ export const GOODREADS_EXPORT_HEADER = [
 /** A file refused whole, with the reason the upload page shows */
 export class ImportFileError extends Error {}
 
-export type DurtalExportKind = keyof typeof DURTAL_EXPORT_HEADERS;
+export type DurtalExportKind = keyof typeof DURTAL_EXPORT_HEADERS_V2;
 
-const DURTAL_FILE_NAMES: Record<DurtalExportKind, string> = {
+export const DURTAL_FILE_NAMES: Record<DurtalExportKind, string> = {
   works: "books", authors: "people", films: "films", perfumes: "perfumes", paintings: "paintings",
   readings: "readings", "reading-sessions": "sessions", "reading-notes": "quotes and notes",
 };
@@ -53,10 +54,10 @@ const DURTAL_FILE_NAMES: Record<DurtalExportKind, string> = {
 /** Complete known headers may be reordered or carry extra versioned columns. */
 export function detectDurtalExport(headers: readonly string[]): DurtalExportKind | null {
   const present = new Set(headers);
-  const found = (Object.keys(DURTAL_EXPORT_HEADERS) as DurtalExportKind[])
-    .filter((kind) => DURTAL_EXPORT_HEADERS[kind].every((column) => present.has(column)));
+  const found = (Object.keys(DURTAL_EXPORT_HEADERS_V2) as DurtalExportKind[])
+    .filter((kind) => DURTAL_EXPORT_HEADERS_V2[kind].every((column) => present.has(column)));
   if (found.length > 1) throw new ImportFileError("This file combines different Durtal export headers");
-  return found[0] ?? null;
+  return found[0] ?? (DURTAL_READING_COLUMNS.every((column) => present.has(column)) ? "readings" : null);
 }
 
 export class UnsupportedDurtalExportError extends ImportFileError {
@@ -79,8 +80,8 @@ export class UnknownFormatError extends ImportFileError {
 export function detectFormat(headers: string[]): ImportSource {
   const has = (...names: string[]) => names.every((n) => headers.includes(n));
   const kind = detectDurtalExport(headers);
-  if (kind && kind !== "readings") throw new UnsupportedDurtalExportError(kind);
-  if (kind === "readings") return "durtal";
+  if (kind && kind !== "readings" && kind !== "reading-sessions" && kind !== "reading-notes") throw new UnsupportedDurtalExportError(kind);
+  if (kind) return "durtal";
   if (has("work_id", "source_key")) return "durtal";
   if (has("Title", "Exclusive Shelf", "My Rating")) return "goodreads";
   if (has("Read Status", "Star Rating")) return "storygraph";

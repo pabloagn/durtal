@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { ParquetReader } from "@dsnp/parquetjs";
 import { nativeJSON } from "@/lib/export/native";
-import { NATIVE_EXPORTS, type ExportDefinition, type NativeField } from "@/lib/export/schema";
+import { NATIVE_EXPORTS, NATIVE_EXPORTS_V2, type ExportDefinition, type NativeField } from "@/lib/export/schema";
 import { nativeParquet, parquetSchema, NATIVE_PARQUET_OPTIONS } from "@/lib/export/parquet";
 
 function sample(field: NativeField): unknown {
@@ -104,11 +104,15 @@ describe("eight fixed native contracts", () => {
     expect(NATIVE_EXPORTS["reading-sessions"].fields.started_at.kind).toBe("instant");
     expect(NATIVE_EXPORTS["reading-notes"].fields.favourite.kind).toBe("boolean");
     expect(NATIVE_EXPORTS.authors.legacyHeaders).toHaveLength(17);
-    expect(NATIVE_EXPORTS.readings.legacyHeaders.at(-1)).toBe("pages_read");
+    expect(NATIVE_EXPORTS_V2.readings.legacyHeaders.at(-1)).toBe("pages_read");
+    expect(NATIVE_EXPORTS.readings.version).toBe(3);
+    expect(NATIVE_EXPORTS["reading-sessions"].version).toBe(3);
+    expect(NATIVE_EXPORTS["reading-notes"].version).toBe(3);
+    expect(NATIVE_EXPORTS.works.version).toBe(2);
     expect(NATIVE_PARQUET_OPTIONS).toEqual({ rowGroupSize: 2048, pageSize: 2048, useDataPageV2: false, pageIndex: true });
   });
 
-  it.each(Object.entries(NATIVE_EXPORTS))("%s serializes one schema for empty/null-first/reversed rows and keys", async (_entity, definition) => {
+  it.each([...Object.entries(NATIVE_EXPORTS), ...Object.entries(NATIVE_EXPORTS_V2).filter(([key]) => ["readings", "reading-sessions", "reading-notes"].includes(key))])("%s serializes one schema for empty/null-first/reversed rows and keys", async (_entity, definition) => {
     const first = row(definition), other = fullRow(definition);
     const key = definition.legacyHeaders.find((name) => definition.fields[name].kind === "text")!;
     other[key] = "0001; name";

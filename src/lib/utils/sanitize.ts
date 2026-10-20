@@ -20,6 +20,7 @@ const ALLOWED_TAGS = [
 
 const ALLOWED_ATTRIBUTES: Record<string, string[]> = {
   a: ["href", "target", "rel"],
+  ol: ["start"],
   img: ["src", "alt", "width", "height"],
   pre: ["class"],
   code: ["class"],

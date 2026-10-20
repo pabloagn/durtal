@@ -1,3 +1,4 @@
+import { commitResultWords } from "@/lib/reading/import/action-words";
 import { describe, expect, it } from "vitest";
 import { canUndoImport, rowsChanged, undoDescription, undoRemoves } from "@/lib/reading/import/action-words";
 
@@ -38,5 +39,15 @@ describe("Undo for interrupted ID claims", () => {
     const description = undoDescription({ readings: 0, pendingClaims: 1, ratings: 1 });
     expect(description).toContain("the book ratings it set while they are unchanged");
     expect(description).not.toContain("No readings, notes or Up next items were written");
+  });
+});
+
+
+describe("commit results",()=>{
+  it("names actual restored and present sessions and notes without zero-reading noise",()=>{
+    const empty={written:0,present:0,refused:0,queued:0,notes:0};
+    expect(commitResultWords({...empty,sessions:2,sessionsPresent:1})).toBe("2 sessions restored · 1 session already in Durtal");
+    expect(commitResultWords({...empty,notes:1,notesPresent:2})).toBe("1 note imported · 2 notes already in Durtal");
+    expect(commitResultWords(empty)).toBe("Nothing new to import");
   });
 });

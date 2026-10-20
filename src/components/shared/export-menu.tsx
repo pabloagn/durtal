@@ -65,7 +65,7 @@ export const EXPORT_FORMAT_LABELS: Record<ExportFormat, string> = {
   csv: "CSV (.csv)",
   tsv: "TSV (.tsv)",
   parquet: "Parquet (.parquet)",
-  md: "Markdown (.md)",
+  md: "Markdown (export only)",
   json: "JSON (.json)",
 };
 
@@ -85,7 +85,7 @@ export function exportedMessage(entity: ExportEntity, selection: ExportSelection
  */
 export function exportActionItems(entity: ExportEntity, ids: string[]): EntityActionItem[] {
   return exportFormats(entity).map((format) => ({
-    label: `Export as ${exportFormatName(format)}`,
+    label: `Export as ${exportFormatName(format)}${format === "md" ? " (export only)" : ""}`,
     icon: Download,
     onClick: () => {
       const progress = toast.pending(`Exporting as ${exportFormatName(format)}`);

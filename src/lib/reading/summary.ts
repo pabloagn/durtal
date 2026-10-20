@@ -109,7 +109,7 @@ export function countedPagesSql() {
       greatest(0, coalesce(s.end_percent::float8, 0)
         - greatest(coalesce(r.start_percent::float8, 0),
           coalesce(max(s.end_percent::float8) over (partition by s.reading_id
-            order by s.read_on, coalesce(s.ended_at, s.started_at, s.created_at), s.created_at
+            order by s.read_on, coalesce(s.ended_at, s.started_at, s.created_at), s.created_at, s.id
             rows between unbounded preceding and 1 preceding), 0)))
         * coalesce(s.pages_total, r.total_pages, 0)::float8 / 100
         * (case when s.end_percent is null or coalesce(s.pages_total, r.total_pages) is null then 0 else 1 end) as pages
