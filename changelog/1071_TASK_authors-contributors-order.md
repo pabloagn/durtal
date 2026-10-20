@@ -106,3 +106,10 @@ Before this change, the edit dialogs had these problems:
 - **Tests:** `ui/work-form-authors` adds the focus after a move down and
   after Remove, and Enter while searching; `ui/edition-credits` adds Enter
   on a typed name beside a similar author.
+- **Checks on main after #613:** `pnpm typecheck` and `pnpm lint` clean,
+  `pnpm test:local` 8,778 of 8,779 (`reading-goals` timed out in a hook
+  under load and passes alone), `pnpm build`. The browser audit passes 18
+  of 18 page loads on a book page and Add book. In Edit edition, Chromium,
+  Firefox and WebKit keep the focus on Move down after a move, on Move up
+  once the row is last, and on the row before's Remove after a removal.
+  `page-weight.js` passes.
