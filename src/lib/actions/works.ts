@@ -164,7 +164,7 @@ export async function getWorksWith<T>(
     year: orderFn(works.originalYear),
     // Unrated works last in either direction; equal ratings by when they were
     // added, newest first by default, as the dashboard's Highest rated (SLN-1070)
-    rating: [resolvedOrder === "asc" ? sql`${works.rating} asc nulls last` : sql`${works.rating} desc nulls last`, orderFn(works.createdAt)],
+    rating: sql`${works.rating} ${sql.raw(resolvedOrder === "asc" ? "asc" : "desc")} nulls last, ${works.createdAt} ${sql.raw(resolvedOrder === "asc" ? "asc" : "desc")}`,
     authorFirstName: orderFn(works.createdAt), // page membership is selected below
     authorLastName: orderFn(works.createdAt), // page membership is selected below
     // The later of the last finish and the last progress; never read last either way
