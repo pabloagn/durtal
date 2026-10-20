@@ -37,3 +37,12 @@ told it apart from text. The layout audit flagged it as a plain command.
 - **Audits.** The browser audit passes 27 of 27 loads of `/reading`,
   `/reading/stats` and `/settings/reading`. Page weight passes on every
   route; `/reading` is 168 of 300 KB.
+
+### Review on current main (2026-10-20)
+
+- The icon follows what the button does: a pencil to edit this year's
+  goals, a plus to set a first one. The button sizes it (16px, as every
+  icon in a Button) and it is hidden from screen readers, since the label
+  names the button.
+- `ui/goal-dialog` checks the icon comes first, is hidden, and is a plus
+  for "Set a reading goal".
