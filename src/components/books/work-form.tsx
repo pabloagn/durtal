@@ -509,7 +509,7 @@ export function WorkForm({
                 // The name wraps in full, never cut. On touch, where the
                 // controls are 44px, and on a phone's width, it takes a line
                 // of its own with them under it, as a film's credits do
-                <div key={author.id} className={CREDIT_ROW}>
+                <div key={author.id} data-credit-row="" className={CREDIT_ROW}>
                   <span className={CREDIT_ROW_NAME}>{author.name}</span>
                   <Select
                     compact
@@ -535,6 +535,7 @@ export function WorkForm({
                     type="text"
                     role="combobox"
                     aria-label="Author's name"
+                    data-credit-search=""
                     aria-expanded={authorListOpen}
                     aria-controls={authorListOpen ? id("author-results") : undefined}
                     aria-autocomplete="list"
@@ -559,10 +560,11 @@ export function WorkForm({
                           Math.min(Math.max(currentAuthor + step, 0), Math.max(authorItems.length - 1, 0)),
                         );
                       } else if (e.key === "Enter" && authorSearch.trim()) {
-                        // Enter picks the highlighted name; it never saves the dialog
+                        // Enter picks the highlighted name once the search for
+                        // what was typed is in; it never saves the dialog
                         e.preventDefault();
                         const item = authorItems[currentAuthor];
-                        if (item) chooseAuthor(item);
+                        if (item && !isSearchingAuthors) chooseAuthor(item);
                       } else if (e.key === "Escape") {
                         // The author search closes; the dialog stays
                         e.preventDefault();

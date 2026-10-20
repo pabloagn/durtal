@@ -113,6 +113,18 @@ it("names each Remove after its person, with a 44px press area on touch", () => 
   expect(removes[0]!.className).toContain("pointer-coarse:size-11");
 });
 
+it("adds a typed name on Enter, though an author's name starts the same", () => {
+  search.results = [{ id: "c5", name: "John Smithson" }];
+  render([]);
+  const input = host.querySelector<HTMLInputElement>("#ed-contributor-name")!;
+  type(input, "John Smith");
+  expect(input.getAttribute("aria-expanded")).toBe("true");
+  expect(key(input, "Enter").defaultPrevented).toBe(true);
+  expect(input.value).toBe("");
+  expect(host.textContent).toContain("John Smith");
+  expect(host.querySelector('[aria-label="Remove John Smith"]')).not.toBeNull();
+});
+
 it("picks a contributor's name with the keyboard alone, and Escape only closes the list", async () => {
   search.results = [
     { id: "c3", name: "Brendan King" },
@@ -122,6 +134,9 @@ it("picks a contributor's name with the keyboard alone, and Escape only closes t
   const input = host.querySelector<HTMLInputElement>("#ed-contributor-name")!;
   type(input, "Br");
   expect(input.getAttribute("aria-expanded")).toBe("true");
+  // Nothing is chosen until the arrows choose it
+  expect(input.hasAttribute("aria-activedescendant")).toBe(false);
+  expect(key(input, "ArrowDown").defaultPrevented).toBe(true);
   expect(key(input, "ArrowDown").defaultPrevented).toBe(true);
   const options = [...host.querySelectorAll('[role="listbox"][aria-label="Authors found"] [role="option"]')];
   expect(input.getAttribute("aria-activedescendant")).toBe(options[1]!.id);

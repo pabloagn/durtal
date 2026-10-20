@@ -46,6 +46,8 @@ let contributorKeys = 0;
 const withKey = (entry: ContributorEntry): ContributorEntry =>
   entry.key ? entry : { ...entry, key: `contributor-${++contributorKeys}` };
 
+const CONTRIBUTOR_ROLE_OPTIONS = EDITION_CONTRIBUTOR_ROLES.map((r) => ({ value: r, label: enumLabel(r) }));
+
 export interface EditionFormValues {
   title: string;
   subtitle: string;
@@ -296,12 +298,14 @@ export function EditionForm({
   }
 
   // Author search runs on the server, so every author can be found
-  const { results: filteredAuthors } = useAuthorSearch(authorSearch);
-  // The suggestions take the arrows, Enter and Escape, as the other pickers do
+  const { results: filteredAuthors, isSearching: isSearchingNames } = useAuthorSearch(authorSearch);
+  // The suggestions take the arrows, Enter and Escape, as the other pickers
+  // do. None is chosen until the arrows choose one, so Enter adds a new name
+  // that only starts like an author's
   const nameListId = useId();
-  const [activeName, setActiveName] = useState(0);
+  const [activeName, setActiveName] = useState(-1);
   const nameListOpen = !!authorSearch && filteredAuthors.length > 0;
-  const currentName = Math.min(activeName, Math.max(filteredAuthors.length - 1, 0));
+  const currentName = Math.min(activeName, filteredAuthors.length - 1);
   function pickName(author: AuthorOption) {
     setNewContributorName(author.name);
     setAuthorSearch("");
@@ -704,16 +708,13 @@ export function EditionForm({
             {values.contributors.map((c, i) => (
               // The name wraps in full; on a phone or touch screen it takes
               // its own line with the role and the buttons under it
-              <div key={c.key} className={CREDIT_ROW}>
+              <div key={c.key} data-credit-row="" className={CREDIT_ROW}>
                 <span className={CREDIT_ROW_NAME}>{c.authorName}</span>
                 <Select
                   compact
                   ariaLabel={`Role of ${c.authorName}`}
                   value={c.role}
-                  options={EDITION_CONTRIBUTOR_ROLES.map((r) => ({
-                    value: r,
-                    label: enumLabel(r),
-                  }))}
+                  options={CONTRIBUTOR_ROLE_OPTIONS}
                   onChange={(e) => updateContributorRole(i, e.target.value)}
                 />
                 <CreditRowControls
@@ -737,6 +738,7 @@ export function EditionForm({
             <div className="relative">
               <Input
                 id="ed-contributor-name"
+                data-credit-search=""
                 placeholder="Author name..."
                 aria-label="Contributor's name"
                 role="combobox"
@@ -744,14 +746,14 @@ export function EditionForm({
                 aria-controls={nameListOpen ? nameListId : undefined}
                 aria-autocomplete="list"
                 aria-activedescendant={
-                  nameListOpen ? `${nameListId}-${currentName}` : undefined
+                  nameListOpen && currentName >= 0 ? `${nameListId}-${currentName}` : undefined
                 }
                 value={newContributorName}
                 onChange={(e) => {
                   setNewContributorName(e.target.value);
                   setAuthorSearch(e.target.value);
                   setPickedAuthor(null);
-                  setActiveName(0);
+                  setActiveName(-1);
                 }}
                 onKeyDown={(e) => {
                   if (isComposing(e)) return;
@@ -762,10 +764,11 @@ export function EditionForm({
                       Math.min(Math.max(currentName + step, 0), filteredAuthors.length - 1),
                     );
                   } else if (e.key === "Enter" && newContributorName.trim()) {
-                    // Enter picks the highlighted name, else adds the typed
-                    // one; it never saves the dialog
+                    // Enter picks the name the arrows chose, once the search
+                    // for what was typed is in, else adds the typed one; it
+                    // never saves the dialog
                     e.preventDefault();
-                    if (nameListOpen) pickName(filteredAuthors[currentName]!);
+                    if (nameListOpen && currentName >= 0 && !isSearchingNames) pickName(filteredAuthors[currentName]!);
                     else addContributor();
                   } else if (e.key === "Escape" && nameListOpen) {
                     // The suggestions close; the dialog stays
@@ -806,10 +809,7 @@ export function EditionForm({
               ariaLabel="Contributor's role"
               value={newContributorRole}
               onChange={(e) => setNewContributorRole(e.target.value)}
-              options={EDITION_CONTRIBUTOR_ROLES.map((r) => ({
-                value: r,
-                label: enumLabel(r),
-              }))}
+              options={CONTRIBUTOR_ROLE_OPTIONS}
             />
           </FormColumns>
           <Button

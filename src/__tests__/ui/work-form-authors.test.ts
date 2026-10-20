@@ -15,12 +15,12 @@ import { moveRow } from "@/components/shared/credit-row-controls";
 // SLN-1131: a book's authors can be put in order and each control names its
 // person; the name search takes the arrows, Enter and Escape. Remote
 // searches and toasts are replaced; the form itself is real.
-const search = vi.hoisted(() => ({ results: [] as { id: string; name: string }[] }));
+const search = vi.hoisted(() => ({ results: [] as { id: string; name: string }[], searching: false }));
 const toast = vi.hoisted(() => ({ error: vi.fn(), success: vi.fn() }));
 vi.mock("@/hooks/use-author-search", () => ({
   useAuthorSearch: (query: string) => ({
     results: query ? search.results : [],
-    isSearching: false,
+    isSearching: !!query && search.searching,
   }),
 }));
 vi.mock("@/lib/notifications/toast", () => ({ toast }));
@@ -102,6 +102,22 @@ it("moves an author up and down, and saves the order", () => {
   expect(latest.authors.map((a) => a.id)).toEqual(["a1", "a2"]);
 });
 
+it("keeps the focus on a row moved down, and gives a removed row's focus to the next one", async () => {
+  const VILLIERS = { id: "a5", name: "Villiers de l'Isle-Adam", role: "author" };
+  render([HUYSMANS, BLOY, VILLIERS]);
+  const down = button("Move Joris-Karl Huysmans down");
+  act(() => down.focus());
+  click(down);
+  expect(latest.authors.map((a) => a.id)).toEqual(["a2", "a1", "a5"]);
+  expect(document.activeElement).toBe(button("Move Joris-Karl Huysmans down"));
+  const remove = button("Remove Joris-Karl Huysmans");
+  act(() => remove.focus());
+  click(remove);
+  await act(() => new Promise((resolve) => requestAnimationFrame(resolve)));
+  expect(latest.authors.map((a) => a.id)).toEqual(["a2", "a5"]);
+  expect(document.activeElement).toBe(button("Remove Villiers de l'Isle-Adam"));
+});
+
 it("names each Remove after its person, and explains the last author", () => {
   render([HUYSMANS, BLOY]);
   const names = [...host.querySelectorAll("button[aria-label^='Remove ']")].map((b) => b.getAttribute("aria-label"));
@@ -135,6 +151,21 @@ it("picks an author from the search with the keyboard alone", () => {
   expect(latest.authors.map((a) => a.name)).toEqual(["Joris-Karl Huysmans", "Barbey d'Aurevilly"]);
 });
 
+it("adds nothing on Enter while the search for the typed name is still out", () => {
+  search.results = [{ id: "a3", name: "Villiers de l'Isle-Adam" }];
+  search.searching = true;
+  try {
+    render([HUYSMANS]);
+    click([...host.querySelectorAll("button")].find((b) => b.textContent?.trim() === "Add author")!);
+    const input = host.querySelector<HTMLInputElement>('input[role="combobox"]')!;
+    type(input, "Vix");
+    expect(key(input, "Enter").defaultPrevented).toBe(true);
+    expect(latest.authors.map((a) => a.id)).toEqual(["a1"]);
+  } finally {
+    search.searching = false;
+  }
+});
+
 it("closes the search on Escape without leaving the form", () => {
   render([HUYSMANS]);
   click([...host.querySelectorAll("button")].find((b) => b.textContent?.trim() === "Add author")!);
@@ -154,6 +185,6 @@ it("moves a row one place, and leaves the ends alone", () => {
 it("wraps an author's name in full, on a line of its own on touch and on a phone", () => {
   const controls = readFileSync(path.resolve(__dirname, "../../components/shared/credit-row-controls.tsx"), "utf8");
   expect(controls).not.toContain("truncate");
-  expect(controls).toMatch(/CREDIT_ROW_NAME =\s*"min-w-0 flex-1 whitespace-normal break-words [^"]*pointer-coarse:basis-full max-sm:basis-full"/);
+  expect(controls).toMatch(/CREDIT_ROW_NAME =\s*"min-w-0 flex-1 whitespace-normal break-words [^"]*pointer-coarse:basis-full [^"]*max-sm:basis-full"/);
   expect(controls).toContain("pointer-coarse:size-11");
 });

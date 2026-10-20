@@ -25,19 +25,31 @@ export function CreditRowControls({
   onMove: (step: -1 | 1) => void;
   onRemove: () => void;
 }) {
-  // A row moved to an end turns that way's button off: the focus goes to
-  // the other one rather than dropping to the page
+  // A moved row keeps the focus: React moves a row that goes down out of the
+  // page and back, which blurs it, and at an end that way's button turns off,
+  // so the focus goes to the other one rather than dropping to the page
   const up = useRef<HTMLButtonElement>(null);
   const down = useRef<HTMLButtonElement>(null);
   const pressed = useRef<-1 | 1 | 0>(0);
   useEffect(() => {
-    if (pressed.current === -1 && first) down.current?.focus();
-    if (pressed.current === 1 && last) up.current?.focus();
+    if (!pressed.current) return;
+    const towardsEnd = pressed.current === -1 ? first : last;
+    ((pressed.current === -1) !== towardsEnd ? up : down).current?.focus();
     pressed.current = 0;
-  }, [first, last]);
+  });
   const move = (step: -1 | 1) => {
     pressed.current = step;
     onMove(step);
+  };
+  // A removed row hands the focus to the next row's Remove, else the one
+  // before, else the list's name search
+  const remove = (button: HTMLElement) => {
+    const row = button.closest("[data-credit-row]");
+    const next =
+      (row?.nextElementSibling ?? row?.previousElementSibling)?.querySelector<HTMLElement>("[data-credit-remove]") ??
+      button.closest("form")?.querySelector<HTMLElement>("[data-credit-search]");
+    onRemove();
+    if (next) requestAnimationFrame(() => next.focus());
   };
   return (
     <CapAligned height={24} coarseHeight={44}>
@@ -68,7 +80,8 @@ export function CreditRowControls({
           type="button"
           aria-label={`Remove ${name}`}
           data-tooltip="Remove"
-          onClick={onRemove}
+          data-credit-remove=""
+          onClick={(e) => remove(e.currentTarget)}
           className={ICON_BUTTON}
         >
           <X className="h-3.5 w-3.5" strokeWidth={1.5} />
@@ -91,4 +104,4 @@ export function moveRow<T>(rows: T[], index: number, step: -1 | 1): T[] {
 export const CREDIT_ROW =
   "flex items-start gap-2 rounded-sm border border-glass-border bg-bg-primary px-2.5 py-2 text-sm pointer-coarse:flex-wrap pointer-coarse:leading-11 max-sm:flex-wrap";
 export const CREDIT_ROW_NAME =
-  "min-w-0 flex-1 whitespace-normal break-words text-fg-primary pointer-coarse:basis-full max-sm:basis-full";
+  "min-w-0 flex-1 whitespace-normal break-words text-fg-primary pointer-coarse:basis-full pointer-coarse:leading-6 max-sm:basis-full";

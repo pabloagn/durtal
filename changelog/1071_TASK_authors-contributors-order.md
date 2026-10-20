@@ -89,3 +89,20 @@ Before this change, the edit dialogs had these problems:
     a role change are saved in order; named Removes at 44px on touch; a pick
     by keyboard and Escape.
   - `ui/edition-draft-sections`: a removal is still an unsaved edit.
+
+### Review on current main (2026-10-20)
+
+- **The focus after a move.** A row moved down lost the focus: React moves
+  that row's node, which blurs it. Each row now puts the focus back on the
+  button pressed, or on the other one at an end.
+- **The focus after Remove.** It goes to the next row's Remove, else the one
+  before, else the contributor name search; it used to drop to the page.
+- **Enter in the name searches.** In the contributor name, no suggestion is
+  chosen until the arrows choose one, so Enter adds a new name that only
+  starts like an author's ("John Smith" beside "John Smithson"). In both
+  searches, Enter picks nothing while the search for what was typed is
+  still out, so it never picks a name from the previous search.
+- **Touch.** A wrapping name keeps a 24px line on touch, not the row's 44px.
+- **Tests:** `ui/work-form-authors` adds the focus after a move down and
+  after Remove, and Enter while searching; `ui/edition-credits` adds Enter
+  on a typed name beside a similar author.
