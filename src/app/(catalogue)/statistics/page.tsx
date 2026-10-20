@@ -1,9 +1,7 @@
 import Link from "next/link";
-import { BarChart3 } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { SectionHeading } from "@/components/shared/section-heading";
-import { EmptyState } from "@/components/ui/empty-state";
-import { DomainAddLink } from "@/components/domains/domain-add-link";
+import { NoOwnedBooks } from "@/components/statistics/no-owned-books";
 import { BarChart } from "@/components/reading/charts/bar-chart";
 import { Footnote, NumberTiles, RankList, StatsSection } from "@/components/reading/stats-parts";
 import { CoverFrame, CoverStrip, YearCovers, bookHref } from "@/components/statistics/covers";
@@ -15,6 +13,7 @@ import { COPY_FORMAT_LABELS } from "@/lib/constants/catalogue";
 import { n } from "@/lib/reading/charts";
 import { yearNumbers } from "@/lib/reading/stats";
 import { compactYearCounts, originsTitle, yearLabel } from "@/lib/statistics/charts";
+import { libraryTile } from "@/lib/statistics/tiles";
 import { libraryStatistics, type Extreme } from "@/lib/statistics/library";
 import type { InstanceFormat } from "@/lib/types";
 import { languageName } from "@/lib/utils/language";
@@ -98,13 +97,7 @@ export default async function StatisticsPage() {
 
       {numbers.books === 0 ? (
         <div className="space-y-14">
-          <EmptyState
-            icon={BarChart3}
-            title="No books on your shelves yet"
-            description="These numbers count the books you own: those with a copy in one of your locations."
-            action={<DomainAddLink kind="book" size="md" />}
-            heading="h2"
-          />
+          <NoOwnedBooks heading="h2" />
           {readingSection}
           {othersSection}
         </div>
@@ -115,16 +108,9 @@ export default async function StatisticsPage() {
           <StatsSection title="In numbers" id="numbers">
             <NumberTiles
               tiles={[
-                { label: "Books", value: n(numbers.books) },
-                { label: "Editions", value: n(numbers.editions) },
-                { label: "Owned copies", value: n(numbers.copies) },
-                // No page count is not zero pages (SLN-824): a dash, and the tile stays so the rows end full
-                numbers.pages > 0 ? { label: "Pages", value: n(numbers.pages) } : { label: "No page counts yet", value: "\u2014" },
-                { label: "Authors", value: n(numbers.authors) },
-                { label: "Publishers", value: n(numbers.publishers) },
-                { label: "Languages", value: n(numbers.languages) },
-                // Named as on the dashboard (SLN-886)
-                { label: "Authors' countries", value: n(numbers.countries) },
+                ...(["books", "editions", "copies", "pages", "authors", "publishers", "languages", "countries"] as const).map(
+                  (key) => libraryTile(key, numbers),
+                ),
               ]}
             />
             <Footnote>Books you own: a book counts once it is accessioned and one of its copies is on your shelves. Authors&apos; countries are their nationalities.</Footnote>

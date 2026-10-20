@@ -3,7 +3,8 @@ import { SkeletonBlock } from "@/components/shared/skeleton";
 import { NumberTiles } from "@/components/reading/stats-parts";
 import { WrittenChart } from "./written-chart";
 import { YearCovers } from "./covers";
-import { n } from "@/lib/reading/charts";
+import { libraryTile } from "@/lib/statistics/tiles";
+import { NoOwnedBooks } from "./no-owned-books";
 import { compactYearCounts, percentOf } from "@/lib/statistics/charts";
 import { libraryStatistics } from "@/lib/statistics/library";
 
@@ -37,15 +38,15 @@ async function Content({ reads }: { reads: StatisticsReads }) {
     breakdown: split,
     busiest: [busiest],
   } = await reads;
-  if (numbers.books === 0) return <p className="text-sm text-fg-secondary">No books on your shelves yet.</p>;
+  if (numbers.books === 0) return <NoOwnedBooks heading="h3" />;
   return (
     <div className="space-y-6" data-dashboard-statistics="">
       <NumberTiles
         tiles={[
-          // No page count is not zero pages, as on /statistics (SLN-824)
-          numbers.pages > 0 ? { label: "Pages on your shelves", value: n(numbers.pages) } : { label: "No page counts yet", value: "\u2014" },
-          { label: "Languages", value: n(numbers.languages) },
-          { label: "Authors' countries", value: n(numbers.countries) },
+          // Away from /statistics, the pages say whose they are
+          libraryTile("pages", numbers, "Pages on your shelves"),
+          libraryTile("languages", numbers),
+          libraryTile("countries", numbers),
           { label: "Read", value: `${percentOf(split.read, split.read + split.unread)}%` },
         ]}
       />

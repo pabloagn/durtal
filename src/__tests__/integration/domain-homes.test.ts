@@ -45,7 +45,7 @@ vi.mock("@/lib/s3/cleanup", async (importOriginal) => ({
   deleteUnusedObjects: vi.fn(async () => false),
 }));
 
-import { loadDomainCounts, loadRecentTiles } from "@/lib/catalogue/domain-homes";
+import { catalogueIsEmpty, loadDomainCounts, loadRecentTiles } from "@/lib/catalogue/domain-homes";
 import { createPerfume } from "@/lib/actions/perfumes";
 import { createFilm } from "@/lib/actions/films";
 import { createPainting } from "@/lib/actions/paintings";
@@ -128,6 +128,27 @@ describe.skipIf(!url)("collection homes and dashboard counts", () => {
     expect(await loadDomainCounts("film")).toEqual({ records: 2, creators: 1 });
     expect(await loadDomainCounts("painting")).toEqual({ records: 2, creators: 1 });
     expect((await getLibraryStats()).works).toBe(1);
+  });
+
+  it("counts as the books' Authors only people who wrote a book (SLN-1184)", async () => {
+    // A book person with no book yet, and a book's translator, are not authors
+    await createPerson({ name: "Andrei Tarkovsky", domains: ["book"] });
+    const [translator] = await c`insert into authors(name,slug) values ('H. T. Lowe-Porter','h-t-lowe-porter') returning id`;
+    const [edition] = await c`insert into editions(work_id,title) select id, title from works where slug = 'doctor-faustus' returning id`;
+    await c`insert into edition_contributors(edition_id,author_id,role) values (${edition.id},${translator.id},'translator')`;
+    expect((await getLibraryStats()).authors).toBe(1);
+    // A co-author is one
+    const [coAuthor] = await c`insert into authors(name,slug) values ('Theodor Adorno','theodor-adorno') returning id`;
+    await c`insert into work_authors(work_id,author_id,role,sort_order) select id, ${coAuthor.id}, 'co_author', 1 from works where slug = 'doctor-faustus'`;
+    expect((await getLibraryStats()).authors).toBe(2);
+  });
+
+  it("calls the catalogue empty until any collection has a record (SLN-1184)", async () => {
+    expect(await catalogueIsEmpty()).toBe(false);
+    await c`delete from works`;
+    expect(await catalogueIsEmpty()).toBe(true);
+    await createFilm({ title: "Stalker" });
+    expect(await catalogueIsEmpty()).toBe(false);
   });
 
   it("gives each tile its link, credited creators and date", async () => {
