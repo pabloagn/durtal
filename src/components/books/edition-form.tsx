@@ -6,7 +6,7 @@ import {
   FormColumns,
 } from "@/components/shared/form-section";
 import { useId, useState, type ReactNode } from "react";
-import { Plus, X } from "lucide-react";
+import { Plus } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { TitleInput } from "@/components/shared/title-input";
 import { Textarea } from "@/components/ui/textarea";
@@ -24,6 +24,13 @@ import {
   type PublisherOption,
 } from "@/components/publishers/publisher-picker";
 import { enumLabel, metadataSourceLabel } from "@/lib/utils/labels";
+import {
+  CREDIT_ROW,
+  CREDIT_ROW_NAME,
+  CreditRowControls,
+  moveRow,
+} from "@/components/shared/credit-row-controls";
+import { isComposing } from "@/lib/shortcuts/shortcuts";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -31,7 +38,15 @@ interface ContributorEntry {
   authorId: string;
   authorName: string;
   role: string;
+  /** The row's own key while the form is open, so a moved row keeps its focus */
+  key?: string;
 }
+
+let contributorKeys = 0;
+const withKey = (entry: ContributorEntry): ContributorEntry =>
+  entry.key ? entry : { ...entry, key: `contributor-${++contributorKeys}` };
+
+const CONTRIBUTOR_ROLE_OPTIONS = EDITION_CONTRIBUTOR_ROLES.map((r) => ({ value: r, label: enumLabel(r) }));
 
 export interface EditionFormValues {
   title: string;
@@ -216,7 +231,10 @@ export function EditionForm({
   listsNote,
   work,
 }: EditionFormProps) {
-  const [values, setValues] = useState<EditionFormValues>(initialValues);
+  const [values, setValues] = useState<EditionFormValues>(() => ({
+    ...initialValues,
+    contributors: initialValues.contributors.map(withKey),
+  }));
   const [newContributorName, setNewContributorName] = useState("");
   const [newContributorRole, setNewContributorRole] = useState("translator");
   const [authorSearch, setAuthorSearch] = useState("");
@@ -245,10 +263,17 @@ export function EditionForm({
         }
       : { authorId: "", authorName: trimmed, role: newContributorRole };
 
-    update("contributors", [...values.contributors, entry]);
+    update("contributors", [...values.contributors, withKey(entry)]);
     setNewContributorName("");
     setAuthorSearch("");
     setPickedAuthor(null);
+  }
+
+  function updateContributorRole(index: number, role: string) {
+    update(
+      "contributors",
+      values.contributors.map((c, i) => (i === index ? { ...c, role } : c)),
+    );
   }
 
   function removeContributor(index: number) {
@@ -273,7 +298,19 @@ export function EditionForm({
   }
 
   // Author search runs on the server, so every author can be found
-  const { results: filteredAuthors } = useAuthorSearch(authorSearch);
+  const { results: filteredAuthors, isSearching: isSearchingNames } = useAuthorSearch(authorSearch);
+  // The suggestions take the arrows, Enter and Escape, as the other pickers
+  // do. None is chosen until the arrows choose one, so Enter adds a new name
+  // that only starts like an author's
+  const nameListId = useId();
+  const [activeName, setActiveName] = useState(-1);
+  const nameListOpen = !!authorSearch && filteredAuthors.length > 0;
+  const currentName = Math.min(activeName, filteredAuthors.length - 1);
+  function pickName(author: AuthorOption) {
+    setNewContributorName(author.name);
+    setAuthorSearch("");
+    setPickedAuthor(author);
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -660,29 +697,35 @@ export function EditionForm({
       </Section>
 
       {/* Section 8: Contributors */}
-      <Section keepMounted title="Contributors">
+      <Section
+        keepMounted
+        title="Contributors"
+        // Open when it has entries: the translator often tells two editions apart
+        defaultOpen={initialValues.contributors.length > 0}
+      >
         {values.contributors.length > 0 && (
           <div className="space-y-1.5">
             {values.contributors.map((c, i) => (
-              <div
-                key={i}
-                className="flex items-center gap-2 rounded-sm border border-glass-border bg-bg-primary px-3 py-2"
-              >
-                <span className="flex-1 text-xs text-fg-secondary">
-                  {c.authorName}
-                </span>
-                <span className="text-xs text-fg-secondary capitalize">
-                  {c.role}
-                </span>
-                <button
-                  aria-label="Remove contributor"
-                  data-tooltip="Remove contributor"
-                  type="button"
-                  onClick={() => removeContributor(i)}
-                  className="text-fg-muted hover:text-accent-red"
-                >
-                  <X className="h-3 w-3" strokeWidth={1.5} />
-                </button>
+              // The name wraps in full; on a phone or touch screen it takes
+              // its own line with the role and the buttons under it
+              <div key={c.key} data-credit-row="" className={CREDIT_ROW}>
+                <span className={CREDIT_ROW_NAME}>{c.authorName}</span>
+                <Select
+                  compact
+                  ariaLabel={`Role of ${c.authorName}`}
+                  value={c.role}
+                  options={CONTRIBUTOR_ROLE_OPTIONS}
+                  onChange={(e) => updateContributorRole(i, e.target.value)}
+                />
+                <CreditRowControls
+                  name={c.authorName}
+                  first={i === 0}
+                  last={i === values.contributors.length - 1}
+                  onMove={(step) =>
+                    update("contributors", moveRow(values.contributors, i, step))
+                  }
+                  onRemove={() => removeContributor(i)}
+                />
               </div>
             ))}
           </div>
@@ -695,27 +738,65 @@ export function EditionForm({
             <div className="relative">
               <Input
                 id="ed-contributor-name"
+                data-credit-search=""
                 placeholder="Author name..."
                 aria-label="Contributor's name"
+                role="combobox"
+                aria-expanded={nameListOpen}
+                aria-controls={nameListOpen ? nameListId : undefined}
+                aria-autocomplete="list"
+                aria-activedescendant={
+                  nameListOpen && currentName >= 0 ? `${nameListId}-${currentName}` : undefined
+                }
                 value={newContributorName}
                 onChange={(e) => {
                   setNewContributorName(e.target.value);
                   setAuthorSearch(e.target.value);
                   setPickedAuthor(null);
+                  setActiveName(-1);
+                }}
+                onKeyDown={(e) => {
+                  if (isComposing(e)) return;
+                  if (nameListOpen && (e.key === "ArrowDown" || e.key === "ArrowUp")) {
+                    e.preventDefault();
+                    const step = e.key === "ArrowDown" ? 1 : -1;
+                    setActiveName(
+                      Math.min(Math.max(currentName + step, 0), filteredAuthors.length - 1),
+                    );
+                  } else if (e.key === "Enter" && newContributorName.trim()) {
+                    // Enter picks the name the arrows chose, once the search
+                    // for what was typed is in, else adds the typed one; it
+                    // never saves the dialog
+                    e.preventDefault();
+                    if (nameListOpen && currentName >= 0 && !isSearchingNames) pickName(filteredAuthors[currentName]!);
+                    else addContributor();
+                  } else if (e.key === "Escape" && nameListOpen) {
+                    // The suggestions close; the dialog stays
+                    e.preventDefault();
+                    setAuthorSearch("");
+                  }
                 }}
               />
-              {authorSearch && filteredAuthors.length > 0 && (
-                <div className="absolute top-full z-10 mt-0.5 w-full rounded-sm border border-glass-border bg-bg-secondary shadow-sm">
-                  {filteredAuthors.map((a) => (
+              {nameListOpen && (
+                <div
+                  id={nameListId}
+                  role="listbox"
+                  aria-label="Authors found"
+                  className="absolute top-full z-10 mt-0.5 w-full rounded-sm border border-glass-border bg-bg-secondary shadow-sm"
+                >
+                  {filteredAuthors.map((a, i) => (
                     <button
                       key={a.id}
+                      id={`${nameListId}-${i}`}
                       type="button"
-                      onClick={() => {
-                        setNewContributorName(a.name);
-                        setAuthorSearch("");
-                        setPickedAuthor(a);
-                      }}
-                      className="w-full px-3 py-1.5 text-left text-xs text-fg-secondary hover:bg-bg-tertiary hover:text-fg-primary"
+                      role="option"
+                      aria-selected={i === currentName}
+                      tabIndex={-1}
+                      onMouseEnter={() => setActiveName(i)}
+                      onClick={() => pickName(a)}
+                      className={`w-full px-3 py-1.5 text-left text-xs transition-colors pointer-coarse:min-h-11 ${
+                        i === currentName ? "bg-bg-tertiary text-fg-primary" : "text-fg-secondary"
+                      }`}
                     >
                       {a.name}
                     </button>
@@ -728,10 +809,7 @@ export function EditionForm({
               ariaLabel="Contributor's role"
               value={newContributorRole}
               onChange={(e) => setNewContributorRole(e.target.value)}
-              options={EDITION_CONTRIBUTOR_ROLES.map((r) => ({
-                value: r,
-                label: enumLabel(r),
-              }))}
+              options={CONTRIBUTOR_ROLE_OPTIONS}
             />
           </FormColumns>
           <Button
