@@ -311,8 +311,8 @@ It needs Docker with a Linux engine on cgroup v2 and its default seccomp profile
 
 ```bash
 pnpm ebooks:upload-service build-inspector                       # infra/ebooks/inspector at this commit; prints the pinned image
-pnpm ebooks:upload-service init --aws-profile durtal-personal    # once: service.json + bridge.json, private (0600) in a private folder
-pnpm ebooks:upload-service start --aws-profile durtal-personal   # runs until SIGINT/SIGTERM; non-zero exit on failure
+pnpm ebooks:upload-service init --app-credentials    # once: service.json + bridge.json, private (0600) in a private folder
+pnpm ebooks:upload-service start --app-credentials   # runs until SIGINT/SIGTERM; non-zero exit on failure
 ```
 
 - `init` binds the service to this database (refuses another), the inspector image (by digest), the Docker socket, a fixed loopback port (`--port`, default 47615: the service's host lock, held while it runs) and a new volume id. It never overwrites the files: run again after a new `build-inspector` and it only moves the service to the new image (the binding stays). A new database needs another `--state-dir`.
@@ -324,7 +324,7 @@ pnpm ebooks:upload-service start --aws-profile durtal-personal   # runs until SI
   mkdir -p ~/Library/Logs/Durtal && chmod 700 ~/Library/Logs/Durtal                        # the log folder must be private
   python3 scripts/deploy/upload_agent.py plan --repo ~/personal/durtal --state-dir ~/.durtal/ebook-upload \
     --log-directory ~/Library/Logs/Durtal --node "$(command -v node)" --docker "$(command -v docker)" \
-    --aws "$(command -v aws)" --output ~/Library/LaunchAgents/com.durtal.ebook-upload.plist
+    --output ~/Library/LaunchAgents/com.durtal.ebook-upload.plist
   launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.durtal.ebook-upload.plist   # install and start
   launchctl kill SIGTERM gui/$(id -u)/com.durtal.ebook-upload                              # restart, 1: stop it cleanly (it stays stopped)
   launchctl kickstart gui/$(id -u)/com.durtal.ebook-upload                                 # restart, 2: once print shows it is not running
@@ -332,7 +332,7 @@ pnpm ebooks:upload-service start --aws-profile durtal-personal   # runs until SI
   launchctl bootout gui/$(id -u)/com.durtal.ebook-upload                                   # stop and uninstall
   ```
 
-  When the app says uploads need the Mac to sign in again, run `aws sso login --profile durtal-personal`; the agent starts the service again within a minute and the message goes away. The log is `<log folder>/ebook-upload.log`. The plist holds the resolved paths of node, aws and docker, so after upgrading any of them (a Homebrew upgrade moves its folder), boot the agent out, delete the plist and run `plan` and `bootstrap` again.
+  With `--app-credentials` the service uses the app's own IAM keys (`AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` in the checkout's `.env.local`). They never expire, so no sign-in stops uploads. `--aws-profile durtal-personal` still works for a one-off run; with it, an expired sign-in stops the service until `aws sso login --profile durtal-personal`. The log is `<log folder>/ebook-upload.log`. The plist holds the resolved paths of node and docker, so after upgrading any of them (a Homebrew upgrade moves its folder), boot the agent out, delete the plist and run `plan` and `bootstrap` again.
 - A disposable preview runs its own service: `scripts/qa/preview-local.py --s3-dir S3DIR --upload-service DIR` (DIR a new folder: the preview's database is new each time) runs `init` and `start` with `--preview` after the database is up and before the app, and stops the service with SIGTERM when the preview stops.
 
 ### Mac standalone delivery configuration

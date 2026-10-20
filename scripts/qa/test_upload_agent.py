@@ -34,7 +34,7 @@ class UploadAgentTests(unittest.TestCase):
         (self.state / 'service.json').write_text('{}\n'); (self.state / 'service.json').chmod(0o600)
         self.logs = self.root / 'logs'; self.logs.mkdir(mode=0o700)
         self.tools = {}
-        for name, folder in (('node', 'node/bin'), ('docker', 'docker/bin'), ('aws', 'aws/bin')):
+        for name, folder in (('node', 'node/bin'), ('docker', 'docker/bin')):
             tool = self.root / folder / name
             tool.parent.mkdir(parents=True)
             tool.write_text('#!/bin/sh\n'); tool.chmod(0o755)
@@ -58,7 +58,7 @@ class UploadAgentTests(unittest.TestCase):
         # The pinned Node runs the service itself, so launchd's SIGTERM reaches it
         self.assertEqual(plist['ProgramArguments'], [
             self.tools['node'], '--import', 'tsx', 'scripts/ebooks/upload-service.ts', 'start',
-            '--aws-profile', 'durtal-personal', '--state-dir', str(self.state), '--env-dir', str(self.repo)])
+            '--app-credentials', '--state-dir', str(self.state), '--env-dir', str(self.repo)])
         self.assertEqual(plist['WorkingDirectory'], str(self.repo))
         # Restarted after a non-zero exit (a failure, or 78 for an expired sign-in), no sooner than a minute apart
         self.assertEqual(plist['KeepAlive'], {'SuccessfulExit': False})
@@ -70,7 +70,7 @@ class UploadAgentTests(unittest.TestCase):
         self.assertEqual(plist['StandardOutPath'], str(self.logs / 'ebook-upload.log'))
         self.assertEqual(plist['StandardErrorPath'], str(self.logs / 'ebook-upload.log'))
         self.assertEqual(plist['EnvironmentVariables']['PATH'].split(':'),
-                         [str(Path(self.tools[name]).parent) for name in ('node', 'docker', 'aws')] + ['/usr/bin', '/bin'])
+                         [str(Path(self.tools[name]).parent) for name in ('node', 'docker')] + ['/usr/bin', '/bin'])
         self.assertEqual((self.root / 'agent.plist').stat().st_mode & 0o777, 0o600)
         self.assertFalse(any('/private/tmp' in str(value) for value in plist['ProgramArguments']))
         # Nothing secret is written into it
@@ -113,7 +113,7 @@ class UploadAgentTests(unittest.TestCase):
         output = self.root / 'cli.plist'
         argv = ['upload_agent.py', 'plan', '--repo', str(self.repo), '--state-dir', str(self.state),
                 '--log-directory', str(self.logs), '--node', self.tools['node'], '--docker', self.tools['docker'],
-                '--aws', self.tools['aws'], '--output', str(output)]
+                '--output', str(output)]
         printed = io.StringIO()
         with patch.object(sys, 'argv', argv), contextlib.redirect_stdout(printed):
             agent.main()
