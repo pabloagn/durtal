@@ -71,6 +71,7 @@ import {
   searchPublisherOptions,
   createPublisherFromName,
   getUnmatchedEditionNames,
+  getTargetOrderSeed,
 } from "@/lib/actions/publishers";
 import {
   getPublisherNameInbox,
@@ -865,6 +866,33 @@ describe.skipIf(!url)(
       expect((await getAcquisitionTargets(w.id))[0].state).toBe("wanted");
       await cancelAcquisitionTarget(t.id);
       expect(await getAcquisitionTargets(w.id)).toHaveLength(0);
+    });
+    it("orders a target again only when asked: a replayed create is refused with the open order (SLN-1119)", async () => {
+      const p = await publisher(),
+        w = await work();
+      const t = await createAcquisitionTarget({ workId: w.id, publisherId: p.id });
+      expect((await getTargetOrderSeed(t.id))?.openOrder).toBeNull();
+      const input = {
+        workId: w.id,
+        acquisitionTargetId: t.id,
+        orderDate: "2026-09-25",
+        acquisitionMethod: "online_order" as const,
+      };
+      const first = await createOrder(input);
+      const open = {
+        message: "This target already has an open order, placed 25 September 2026.",
+        href: `/provenance?order=${first.id}`,
+      };
+      expect((await getTargetOrderSeed(t.id))?.openOrder).toEqual(open);
+      await expect(createOrder(input)).rejects.toMatchObject(open);
+      expect(await db.select().from(schema.orders)).toHaveLength(1);
+      const again = await createOrder(input, { orderAgain: true });
+      expect((await db.select().from(schema.orders)).map((o) => o.id).sort()).toEqual([first.id, again.id].sort());
+      // Cancelled or delivered, an order no longer holds the target
+      await updateOrderStatus(first.id, "cancelled");
+      await updateOrderStatus(again.id, "cancelled");
+      expect((await getTargetOrderSeed(t.id))?.openOrder).toBeNull();
+      await expect(createOrder(input)).resolves.toBeTruthy();
     });
     it("validates target scope, uniqueness and edition/copy consistency at the database boundary", async () => {
       const p = await publisher(),

@@ -105,6 +105,11 @@ export const AUCTION_PIPELINE: OrderStatus[] = [
 
 export const IMMEDIATE_PIPELINE: OrderStatus[] = ["purchased", "received"];
 
+/** The provenance board with this order's panel open (SLN-1119) */
+export const orderHref = (id: string) => `/provenance?order=${id}`;
+/** Whether a refusal's link names an order: the target is on order already */
+export const isOrderHref = (href: string | undefined): href is string => !!href?.startsWith("/provenance?order=");
+
 export const BOOK_IN_HAND_STATUSES: OrderStatus[] = [
   "delivered",
   "purchased",

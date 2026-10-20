@@ -40,6 +40,7 @@ import {
 } from "@/lib/validations/publishers";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
 import { targetState } from "@/lib/publishers/conditions";
+import { openTargetOrder } from "@/lib/publishers/open-order";
 import type { PosterImage } from "@/lib/utils/edition-image";
 import { isbnPrefixLabel, publisherSlug } from "@/lib/publishers/names";
 import { countryLookup, resolveCountry } from "@/lib/utils/countries";
@@ -755,12 +756,15 @@ export async function getTargetOrderSeed(id: string) {
       ),
     );
   if (!target) return null;
-  const work = await db.query.works.findFirst({
-    where: eq(works.id, target.workId),
-    with: { workAuthors: { with: { author: true } }, media: true },
-  });
+  const [work, openOrder] = await Promise.all([
+    db.query.works.findFirst({
+      where: eq(works.id, target.workId),
+      with: { workAuthors: { with: { author: true } }, media: true },
+    }),
+    openTargetOrder(target.id),
+  ]);
   if (!work) return null;
-  return { target, work: { ...work, slug: work.slug ?? "" } };
+  return { target, work: { ...work, slug: work.slug ?? "" }, openOrder };
 }
 
 export async function fulfilTargetWithCopy(
