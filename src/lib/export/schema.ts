@@ -1,4 +1,5 @@
-import { NOTE_EXPORT_COLUMNS, READING_EXPORT_COLUMNS, SESSION_EXPORT_COLUMNS } from "./columns";
+import { BOOK_EXPORT_COLUMNS, PEOPLE_EXPORT_COLUMNS, FILM_EXPORT_COLUMNS, PERFUME_EXPORT_COLUMNS, PAINTING_EXPORT_COLUMNS, NOTE_EXPORT_COLUMNS, READING_EXPORT_COLUMNS, SESSION_EXPORT_COLUMNS } from "./columns";
+export { BOOK_EXPORT_COLUMNS, PEOPLE_EXPORT_COLUMNS, FILM_EXPORT_COLUMNS, PERFUME_EXPORT_COLUMNS, PAINTING_EXPORT_COLUMNS } from "./columns";
 
 export type NativeField = Readonly<
   | { kind: "text" | "int32" | "int64" | "double" | "boolean" | "date" | "instant"; nullable: boolean }
@@ -21,25 +22,6 @@ const list = (element: NativeField = text(false)): NativeField => ({ kind: "list
 const struct = (fields: Record<string, NativeField>, nullable = true): NativeField => ({ kind: "struct", nullable, fields });
 const point = () => struct({ year: scalar("int32", false), month: year(), day: year() });
 export const CATALOGUE_DATE = struct({ precision: text(false), start: point(), end: point(), approximate: boolean(false), label: text() });
-
-export const BOOK_EXPORT_COLUMNS = [
-  "title", "ebook_formats", "authors", "original_language", "original_year", "catalogue_status", "acquisition_priority", "rating",
-  "is_anthology", "isbn_13", "isbn_10", "publisher", "acquisition_targets", "edition_publishers", "imprint", "publication_year",
-  "edition_language", "binding", "page_count", "edition_count", "instance_count", "notes",
-] as const;
-export const PEOPLE_EXPORT_COLUMNS = [
-  "name", "sort_name", "first_name", "last_name", "real_name", "roles", "nationality", "gender", "birth_year", "birth_month", "birth_day",
-  "death_year", "death_month", "death_day", "bio", "website", "works_count",
-] as const;
-export const FILM_EXPORT_COLUMNS = [
-  "title", "original_title", "directors", "writers", "cast", "released", "runtime", "countries", "languages", "genres", "physical_copies", "digital_copies", "rating", "favourite", "notes", "description",
-] as const;
-export const PERFUME_EXPORT_COLUMNS = [
-  "title", "houses", "manufacturers", "perfumers", "released", "concentrations", "families", "accords", "top_notes", "heart_notes", "base_notes", "other_notes", "bottles", "samples", "decants", "rating", "favourite", "notes", "description",
-] as const;
-export const PAINTING_EXPORT_COLUMNS = [
-  "title", "painters", "painted", "movements", "genres", "techniques", "media", "supports", "original", "original_owner", "height_cm", "width_cm", "objects_owned", "rating", "favourite", "notes", "description",
-] as const;
 
 const target = struct({
   id: text(false), workId: text(false), editionId: text(), publisherId: text(), perfumeVariantId: text(), perfumeContainer: text(),

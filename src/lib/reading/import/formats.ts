@@ -1,4 +1,16 @@
 import type { ImportSource } from "./types";
+import { DURTAL_EXPORT_HEADERS } from "@/lib/export/columns";
+
+export const DELIMITED_IMPORT_MESSAGE = "Choose a CSV or TSV file: a Goodreads, StoryGraph or Durtal reading export";
+
+/** Browser-provided MIME types vary; the parser still identifies the contents. */
+export function delimitedUploadFormat(name: string, mime = ""): "csv" | "tsv" | null {
+  const extension = /\.(csv|tsv)$/i.exec(name)?.[1].toLowerCase();
+  if (extension !== "csv" && extension !== "tsv") return null;
+  const type = mime.toLowerCase().split(";", 1)[0].trim();
+  return ["", "text/csv", "application/csv", "text/tab-separated-values", "text/tsv", "text/plain", "application/vnd.ms-excel", "application/octet-stream"].includes(type)
+    ? extension : null;
+}
 
 /** The full Goodreads export header, in Goodreads' order: the fixtures and a later step's export use it */
 export const GOODREADS_EXPORT_HEADER = [
@@ -31,6 +43,31 @@ export const GOODREADS_EXPORT_HEADER = [
 /** A file refused whole, with the reason the upload page shows */
 export class ImportFileError extends Error {}
 
+export type DurtalExportKind = keyof typeof DURTAL_EXPORT_HEADERS;
+
+const DURTAL_FILE_NAMES: Record<DurtalExportKind, string> = {
+  works: "books", authors: "people", films: "films", perfumes: "perfumes", paintings: "paintings",
+  readings: "readings", "reading-sessions": "sessions", "reading-notes": "quotes and notes",
+};
+
+/** Complete known headers may be reordered or carry extra versioned columns. */
+export function detectDurtalExport(headers: readonly string[]): DurtalExportKind | null {
+  const present = new Set(headers);
+  const found = (Object.keys(DURTAL_EXPORT_HEADERS) as DurtalExportKind[])
+    .filter((kind) => DURTAL_EXPORT_HEADERS[kind].every((column) => present.has(column)));
+  if (found.length > 1) throw new ImportFileError("This file combines different Durtal export headers");
+  return found[0] ?? null;
+}
+
+export class UnsupportedDurtalExportError extends ImportFileError {
+  constructor(public readonly kind: Exclude<DurtalExportKind, "readings">) {
+    const name = DURTAL_FILE_NAMES[kind];
+    super(kind === "reading-sessions" || kind === "reading-notes"
+      ? `This is Durtal's ${name} file. Importing ${name} is not available here yet.`
+      : `This is Durtal's ${name} file. Only reading history imports here.`);
+  }
+}
+
 export class UnknownFormatError extends ImportFileError {
   constructor(headers: string[]) {
     const shown = headers.slice(0, 12).map((h) => h.slice(0, 40)).join(", ");
@@ -41,6 +78,9 @@ export class UnknownFormatError extends ImportFileError {
 /** The file's format by its header names, never by column position */
 export function detectFormat(headers: string[]): ImportSource {
   const has = (...names: string[]) => names.every((n) => headers.includes(n));
+  const kind = detectDurtalExport(headers);
+  if (kind && kind !== "readings") throw new UnsupportedDurtalExportError(kind);
+  if (kind === "readings") return "durtal";
   if (has("work_id", "source_key")) return "durtal";
   if (has("Title", "Exclusive Shelf", "My Rating")) return "goodreads";
   if (has("Read Status", "Star Rating")) return "storygraph";

@@ -23,6 +23,7 @@ import { rowsChanged, undoRemoves } from "@/lib/reading/import/action-words";
 import type { ImportDecision } from "@/lib/reading/import/match-rules";
 import type { ImportNoteView } from "@/lib/reading/import/notes";
 import type { RowLineKind, RowView } from "@/lib/reading/import/row-view";
+import { DELIMITED_IMPORT_MESSAGE, delimitedUploadFormat } from "@/lib/reading/import/formats";
 
 /*
  * The reading import's buttons (SLN-450): small client islands on server
@@ -82,7 +83,7 @@ export function ImportUpload() {
   async function send(file: File | undefined) {
     if (!file) return;
     setError(null);
-    if (!/\.csv$/i.test(file.name)) return refuse("Only CSV files can be imported: a Goodreads, StoryGraph or Durtal export");
+    if (!delimitedUploadFormat(file.name, file.type)) return refuse(DELIMITED_IMPORT_MESSAGE);
     if (file.size === 0) return refuse("This file is empty");
     if (file.size > MAX_BYTES) return refuse("This file is over 10 MB. Export a smaller one.");
     setBusy(true);
@@ -123,18 +124,18 @@ export function ImportUpload() {
       </div>
       <h2 className="type-item-title">Import reading history</h2>
       <p className="mt-2 max-w-md text-sm leading-relaxed text-fg-secondary">
-        A Goodreads or StoryGraph export, or a Durtal reading CSV. You see every row and its book before anything is written.
+        A Goodreads or StoryGraph export, or a Durtal reading CSV or TSV. You see every row and its book before anything is written.
       </p>
       <Button variant="primary" className={`mt-5 ${coarse}`} busy={busy} onClick={() => input.current?.click()} data-import-choose="">
-        Choose a CSV file
+        Choose a CSV or TSV file
       </Button>
       <input
         ref={input}
         type="file"
-        accept=".csv,text/csv"
+        accept=".csv,.tsv,text/csv,text/tab-separated-values"
         className="sr-only"
         tabIndex={-1}
-        aria-label="CSV file"
+        aria-label="CSV or TSV file"
         data-import-file=""
         onChange={(e) => void send(e.target.files?.[0])}
       />

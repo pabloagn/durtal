@@ -31,11 +31,11 @@ describe("the reading import route", () => {
     expect(res.status).toBe(403);
     expect(mocks.create).not.toHaveBeenCalled();
   });
-  it("refuses a file that is not a CSV", async () => {
+  it("refuses a file that is not CSV or TSV", async () => {
     for (const file of [csv("export.xlsx", "x", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"), csv("export.csv", "x", "image/png")]) {
       const res = await POST(request(file));
       expect(res.status).toBe(400);
-      expect((await res.json()).error).toBe("Only CSV files can be imported: a Goodreads, StoryGraph or Durtal export");
+      expect((await res.json()).error).toBe("Choose a CSV or TSV file: a Goodreads, StoryGraph or Durtal reading export");
     }
     expect(mocks.create).not.toHaveBeenCalled();
   });
@@ -60,6 +60,13 @@ describe("the reading import route", () => {
     expect(res.status).toBe(201);
     expect(mocks.upload).toHaveBeenCalledWith("bronze/imports/0b5f2f48-3d43-4c1e-9e43-3c1f6d1b2a10/My_Goodreads_1_.csv", expect.any(Uint8Array), "text/csv");
     expect(mocks.setBronzeKey).toHaveBeenCalledWith("0b5f2f48-3d43-4c1e-9e43-3c1f6d1b2a10", "bronze/imports/0b5f2f48-3d43-4c1e-9e43-3c1f6d1b2a10/My_Goodreads_1_.csv");
+  });
+  it("accepts a BOM TSV and retains its raw bytes and content type", async () => {
+    const text = "\uFEFFwork_id\tsource_key\r\nwork\tdurtal:key\r\n";
+    const res = await POST(request(csv("Reading history.TSV", text, "text/tab-separated-values")));
+    expect(res.status).toBe(201);
+    expect(mocks.create).toHaveBeenCalledWith({ text: text.slice(1), fileName: "Reading history.TSV" });
+    expect(mocks.upload).toHaveBeenCalledWith(expect.stringContaining("Reading_history.TSV"), new TextEncoder().encode(text), "text/tab-separated-values");
   });
   it("creates the import when S3 refuses, and the raw file is not kept", async () => {
     vi.spyOn(console, "warn").mockImplementation(() => {});

@@ -1,4 +1,4 @@
-import { csvTable } from "./csv";
+import { csvTable, detectDelimiter, restoreDurtalFormulaGuard } from "./csv";
 import { mapDurtal } from "./durtal";
 import { detectFormat, ImportFileError } from "./formats";
 import { mapGoodreads } from "./goodreads";
@@ -16,10 +16,14 @@ import type { ParsedFile } from "./types";
  */
 export function parseImportFile(text: string): ParsedFile & { rowNos: number[] } {
   if (!text.replace(/^\uFEFF/, "").trim()) throw new ImportFileError("This file is empty");
-  const { headers, rows } = csvTable(text);
+  const { headers, rows } = csvTable(text, detectDelimiter(text), false);
   const kept = rows.map((r, i) => ({ r, no: i + 1 })).filter(({ r }) => Object.values(r).some((v) => v.trim()));
-  const records = kept.map((k) => k.r);
   const source = detectFormat(headers);
+  // Goodreads/StoryGraph cells are authored data. Only known Durtal reading
+  // files use Durtal's legacy spreadsheet escape (which has no provenance marker).
+  const records = kept.map(({ r }) => source === "durtal"
+    ? Object.fromEntries(Object.entries(r).map(([key, value]) => [key, restoreDurtalFormulaGuard(value)]))
+    : r);
   const parsed =
     source === "durtal" ? mapDurtal(headers, records) : source === "goodreads" ? mapGoodreads(headers, records) : mapStorygraph(headers, records);
   return { ...parsed, rowNos: kept.map((k) => k.no) };
