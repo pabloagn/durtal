@@ -46,3 +46,7 @@ told it apart from text. The layout audit flagged it as a plain command.
   names the button.
 - `ui/goal-dialog` checks the icon comes first, is hidden, and is a plus
   for "Set a reading goal".
+- **Checks on main after #616:** `pnpm typecheck` and `pnpm lint` clean,
+  `pnpm test:local` and `pnpm build` pass. The browser audit passes 27 of
+  27 page loads of `/reading`, `/reading/stats` and `/settings/reading`.
+  `page-weight.js` passes.
