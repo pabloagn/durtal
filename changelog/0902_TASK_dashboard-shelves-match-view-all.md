@@ -66,3 +66,16 @@ index's figures as record counts.
   `/people?sort=latestBook` and `/library?sort=rating`. Page weight passes;
   `/` is 254 of 300 KB. The Latest book query takes 1.5 ms on the survey
   dump.
+
+### Review on current main (2026-10-20)
+
+- Main now picks a page's ids and loads its cards with one order expression
+  (SLN-938), so the rating sort's newest-first tie-break joins the rating in
+  one SQL fragment. `integration/half-star-ratings` orders its ties the same
+  way: rating, newest, then id.
+- **Checks on main after #619:** `pnpm typecheck` and `pnpm lint` clean and
+  `pnpm build` passes. The browser audit passes 36 of 36 page loads of `/`,
+  `/people`, `/people?sort=latestBook` and `/library?sort=rating`.
+  `page-weight.js` passes. Locally, the seven database tests that failed
+  before the fix pass in their five suites; the full `pnpm test:local` run
+  stopped when the disk filled, so CI's database run is the full check.
