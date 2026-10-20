@@ -200,4 +200,3 @@ export async function fetchAuthorsForExport(ids: string[] | null, native = false
       }) : legacy;
     });
 }
-
