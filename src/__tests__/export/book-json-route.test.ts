@@ -116,7 +116,7 @@ describe("additive book JSON export", () => {
         .status,
     ).toBe(200);
     expect((await POST(request({ entity: "works", ids: [id], format: "json" }))).status).toBe(404);
-    expect((await POST(request({ entity: "works", all: true, format: "csv" }))).status).toBe(404);
+    expect((await POST(request({ entity: "works", all: true, format: "csv" }))).status).toBe(200);
   });
 
   it("exports the eligible format union from one position-free availability batch", async () => {

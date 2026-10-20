@@ -97,6 +97,6 @@ describe("commonplaceMarkdown", () => {
   });
 
   it("says so when there is nothing", () => {
-    expect(commonplaceMarkdown([], "2026-10-06")).toBe("# Commonplace book\n\nExported from Durtal on 6 October 2026: No quotes or notes.\n");
+    expect(commonplaceMarkdown([], "2026-10-06")).toBe("# Commonplace book\n\nNo quotes or notes to export from Durtal on 6 October 2026.\n");
   });
 });

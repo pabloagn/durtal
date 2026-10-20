@@ -92,11 +92,8 @@ describe("Durtal table header recognition", () => {
 });
 
 describe("reading CSV/TSV compatibility", () => {
-  it("parses the same Unicode reading from both legacy exported formats", () => {
-    // The existing TSV exporter flattens embedded tabs/newlines. Keep this
-    // compatibility row lossless; raw quoted TSV is exercised above.
-    const singleLine = { ...reading, review_html: "<p>One, same review.</p>" };
-    expect(parseImportFile(toTSV([singleLine], DURTAL_EXPORT_HEADERS.readings))).toEqual(parseImportFile(toCSV([singleLine], DURTAL_EXPORT_HEADERS.readings)));
+  it("parses the same quoted multiline Unicode reading from both exported formats", () => {
+    expect(parseImportFile(toTSV([reading], DURTAL_EXPORT_HEADERS.readings))).toEqual(parseImportFile(toCSV([reading], DURTAL_EXPORT_HEADERS.readings)));
   });
 
   it("retains Durtal's existing formula-guard round trip without changing unrelated apostrophes", () => {

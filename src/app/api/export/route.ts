@@ -94,7 +94,7 @@ const SINGULAR: Partial<Record<EntityType, string>> = {
  */
 async function exportFile(
   rows: Record<string, unknown>[],
-  headers: readonly string[] | undefined,
+  headers: readonly string[],
   format: Exclude<ExportFormat, "md">,
   filename: string,
   forImport = false,
@@ -149,7 +149,15 @@ async function readingExport(
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
+    let body: unknown;
+    try {
+      body = await req.json();
+    } catch {
+      return NextResponse.json({ error: "The export request must be a JSON object." }, { status: 400 });
+    }
+    if (body === null || typeof body !== "object" || Array.isArray(body)) {
+      return NextResponse.json({ error: "The export request must be a JSON object." }, { status: 400 });
+    }
     const { entity, ids, all, filters, format } = body as {
       entity?: string;
       ids?: string[];
@@ -226,9 +234,9 @@ export async function POST(req: NextRequest) {
         ? await fetchWorksForExport(selection, native)
         : await fetchAuthorsForExport(selection, native);
 
-    if (rows.length === 0 && !(native && all === true)) {
+    if (rows.length === 0 && all !== true) {
       return NextResponse.json(
-        { error: "No records found for the given IDs." },
+        { error: "No matching records were found." },
         { status: 404 },
       );
     }

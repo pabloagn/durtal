@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { toCSV, toTSV } from "@/lib/utils/export";
 import { FORMAT_MIME, exportFormatsFor } from "@/lib/export/formats";
 import { exportedMessage, exportFormatName } from "@/components/shared/export-menu";
-import { parseCsv } from "@/lib/reading/import/csv";
+import { parseCsv, parseDelimited, restoreDurtalFormulaGuard } from "@/lib/reading/import/csv";
 import { DURTAL_READING_COLUMNS } from "@/lib/reading/import/durtal-format";
 import { GOODREADS_EXPORT_HEADER } from "@/lib/reading/import/formats";
 import { READING_EXPORT_COLUMNS, READING_READ_ONLY_COLUMNS } from "@/lib/export/reading";
@@ -31,8 +31,7 @@ describe("toCSV and toTSV", () => {
     expect(csv.split("\n").slice(1)).toEqual(['"\'=HYPERLINK(""x"")"', "'+1", "'-x", "'@SUM", "'\tlead", '"\'\rlead"', "-2", "4.5", "a=b"]);
     const tsv = toTSV(rows, ["t"]);
     expect(tsv.startsWith(BOM)).toBe(true);
-    // TSV turns tabs and line breaks into spaces after the guard
-    expect(tsv.split("\n").slice(1)).toEqual(["'=HYPERLINK(\"x\")", "'+1", "'-x", "'@SUM", "' lead", "' lead", "-2", "4.5", "a=b"]);
+    expect(parseDelimited(tsv, "\t").slice(1).map(([cell]) => restoreDurtalFormulaGuard(cell))).toEqual(rows.map(({ t }) => String(t)));
   });
 
   it("leave a file for another app to import as stored: no guard, no byte order mark", () => {
@@ -50,13 +49,23 @@ describe("toCSV and toTSV", () => {
     expect(csv.startsWith(BOM)).toBe(true);
     expect(parseCsv(csv).slice(1).map(([cell]) => cell)).toEqual(values);
   });
+
+  it("round-trips TSV tabs, CR, LF, quotes, leading quote characters and empty cells", () => {
+    const values = ["one\tcell", "two\nlines", "two\r\nlines", "two\rlines", 'say "hi"', '"starts with a quote', "", "Émilie \u{10000}", "\tindented"];
+    const rows = values.map((value, id) => ({ id, value }));
+    const tsv = toTSV(rows, ["id", "value"]);
+    expect(tsv.startsWith(`${BOM}id\tvalue\n`)).toBe(true);
+    expect(parseDelimited(tsv, "\t").slice(1).map(([id, value]) => [id, restoreDurtalFormulaGuard(value)]))
+      .toEqual(values.map((value, id) => [String(id), value]));
+    expect(tsv).toContain('"say ""hi"""');
+  });
 });
 
 describe("legacy nested spreadsheet cells", () => {
   it("keeps nested object key order, boolean words and Date milliseconds", () => {
     const row = { target: { id: "0001", createdAt: new Date("2026-10-16T10:20:30.123Z") }, favourite: false, missing: null };
     expect(toCSV([row])).toBe('﻿target,favourite,missing\n"{""id"":""0001"",""createdAt"":""2026-10-16T10:20:30.123Z""}",no,');
-    expect(toTSV([row])).toBe('﻿target\tfavourite\tmissing\n{"id":"0001","createdAt":"2026-10-16T10:20:30.123Z"}\tno\t');
+    expect(toTSV([row])).toBe('﻿target\tfavourite\tmissing\n"{""id"":""0001"",""createdAt"":""2026-10-16T10:20:30.123Z""}"\tno\t');
   });
 });
 

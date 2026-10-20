@@ -44,8 +44,8 @@ function escapeCSV(value: unknown, guard = true): string {
 
 function escapeTSV(value: unknown): string {
   const str = cellText(value);
-  // Tabs and newlines replaced with spaces
-  return str.replace(/[\t\n\r]/g, " ");
+  // The same quoting rule as CSV, with tabs as the separator. Keep text intact.
+  return /[\t\n\r"]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
 }
 
 /**
