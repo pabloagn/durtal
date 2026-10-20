@@ -5,8 +5,8 @@ import { describe, expect, it } from "vitest";
 // What a "use client" module imports ships to the browser. The book page's
 // Read button once reached node:crypto through the e-book conditions, which
 // broke the dev server and put the crypto polyfill in the page (SLN-1065).
-// No client module may reach a node: built-in or the server environment
-// (serverEnv; publicEnv is for the browser). A "use server" module ships only
+// No client module may reach a node: built-in, the database client or the
+// server environment (SLN-1278). A "use server" module ships only
 // a reference to its actions, so the walk stops there.
 const src = path.resolve(__dirname, "../..");
 const files = (dir: string): string[] => readdirSync(dir).flatMap((name) => {
@@ -21,26 +21,37 @@ const resolve = (from: string, spec: string): string | null => {
     if (existsSync(file) && statSync(file).isFile()) return file;
   return null;
 };
-/** The modules a file imports for their values, each with the names it takes:
- * type-only imports and exports ship nothing. A dynamic import() is a chunk
- * of its own, loaded only when called, and is not followed. */
-const imports = (source: string): { spec: string; names: string[] }[] => {
+/** The modules a file imports for their values: type-only imports and
+ * exports ship nothing. A dynamic import() is a lazy chunk of its own, but
+ * that chunk still ships to the browser, so it is followed too: Pick one for
+ * me reached the database client through one (SLN-1278). `typeof import()`
+ * and `import().Type` are types and ship nothing. */
+const imports = (source: string): string[] => {
   const code = source.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
-  const found: { spec: string; names: string[] }[] = [];
+  const found: string[] = [];
   for (const m of code.matchAll(/(?:^|[;\n])\s*(import|export)\s+(type\s+)?([^'";]*?)\s*from\s*["']([^"']+)["']/g)) {
     if (m[2]) continue;
     const names = m[3].match(/^\{([^}]*)\}$/)?.[1].split(",").map((n) => n.trim()).filter(Boolean);
     if (names?.length && names.every((n) => n.startsWith("type "))) continue;
-    found.push({ spec: m[4], names: names ?? [m[3]] });
+    found.push(m[4]);
   }
-  for (const m of code.matchAll(/(?:^|[;\n])\s*import\s*["']([^"']+)["']/g)) found.push({ spec: m[1], names: [] });
+  for (const m of code.matchAll(/(?:^|[;\n])\s*import\s*["']([^"']+)["']/g)) found.push(m[1]);
+  for (const m of code.matchAll(/(?<!typeof\s*)\bimport\(\s*["']([^"']+)["']\s*\)(?!\s*\.\s*[A-Z])/g)) found.push(m[1]);
   return found;
 };
-const forbidden = ({ spec, names }: { spec: string; names: string[] }) =>
-  spec.startsWith("node:") || (spec === "@/lib/env" && names.some((name) => !/^(type\s+)?publicEnv$/.test(name)));
+/** The database client and schema, its query helpers and the server
+ * environment, by resolved file (the browser takes publicEnv from
+ * env-public), and the packages behind them. drizzle-orm's `sql` tag alone
+ * tree-shakes away; its pg-core builders do not. */
+const SERVER_ONLY = ["lib/db/", "lib/env.ts", "lib/harmonization/store.ts"];
+const SERVER_PACKAGES = ["drizzle-orm/pg-core", "drizzle-orm/neon", "@neondatabase/", "@aws-sdk/"];
+const serverOnly = (file: string) => {
+  const relative = path.relative(src, file).split(path.sep).join("/");
+  return SERVER_ONLY.some((prefix) => relative.startsWith(prefix));
+};
 const serverActions = (source: string) => /^\s*["']use server["']/.test(source);
 
-describe("client modules reach no server-only module (SLN-1065)", () => {
+describe("client modules reach no server-only module (SLN-1065, SLN-1278)", () => {
   const all = files(src);
   const roots = all.filter((file) => /^\s*["']use client["']/.test(readFileSync(file, "utf8")));
 
@@ -48,7 +59,7 @@ describe("client modules reach no server-only module (SLN-1065)", () => {
     expect(roots.length).toBeGreaterThan(50);
   });
 
-  it("reaches no node: built-in and no server environment from any client module", () => {
+  it("reaches no node: built-in, database client or server environment from any client module", () => {
     const seen = new Map<string, string[]>();
     const bad: string[] = [];
     const queue: [string, string[]][] = roots.map((file) => [file, [path.relative(src, file)]]);
@@ -57,9 +68,12 @@ describe("client modules reach no server-only module (SLN-1065)", () => {
       seen.set(file, chain);
       const source = readFileSync(file, "utf8");
       if (chain.length > 1 && serverActions(source)) continue;
-      for (const found of imports(source)) {
-        if (forbidden(found)) { bad.push([...chain, found.spec].join(" -> ")); continue; }
-        const next = resolve(file, found.spec);
+      for (const spec of imports(source)) {
+        const next = resolve(file, spec);
+        if (spec.startsWith("node:") || SERVER_PACKAGES.some((name) => spec.startsWith(name)) || (next && serverOnly(next))) {
+          bad.push([...chain, spec].join(" -> "));
+          continue;
+        }
         if (next && !seen.has(next)) queue.push([next, [...chain, path.relative(src, next)]]);
       }
     }
