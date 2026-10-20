@@ -73,3 +73,23 @@ it, so it needed nothing more.
 - **Audits.** The browser audit passes 45 of 45 loads of `/library/new`,
   `/locations`, `/series`, `/collections` and `/provenance`. Page weight
   passes on every route.
+
+### Review on current main (2026-10-20)
+
+- Main had since given each dialog's Save its reason (`useSaveReason`, #601,
+  SLN-1057): the line that says what is missing, read with the button. In the
+  fifteen dialogs both changes touched, the reason now sits in the footer at
+  the row's start, and the button keeps its `aria-describedby`. The footer's
+  own missing-field hints gave way to it, so each dialog says one reason.
+  Add books keeps its count where no reason shows.
+- **Browsers.** On a private preview, with Add series and Add collection
+  open, the Add button sits in the footer, in view and outside the scrolling
+  body, naming its form, in Chromium, Firefox and WebKit at 844 × 390,
+  390 × 760 and 320 × 640.
+- **Checks on main after #620:** `pnpm typecheck` and `pnpm lint` clean,
+  `pnpm test` (every suite without a database, 753 files) and `pnpm build`
+  pass. The change touches no database code; CI's database run is the full
+  check, as the container's disk no longer fits a local one. The browser
+  audit passes 54 of 54 page loads of `/library/new`, `/locations`,
+  `/series`, `/collections`, `/provenance` and `/taxonomy`. `page-weight.js`
+  passes.
