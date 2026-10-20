@@ -11,11 +11,21 @@ import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import dotenv from "dotenv";
 
-export async function loadEnvironment(options: { preview?: string; envDir: string; awsProfile?: string }): Promise<{ url: string; preview: boolean }> {
+/**
+ * `appCredentials` keeps the app's own IAM keys from the env file, which never
+ * expire: the upload service uses them, so it never waits for a person to
+ * sign in again. Other commands still take the personal sign-in.
+ */
+export async function loadEnvironment(options: { preview?: string; envDir: string; awsProfile?: string; appCredentials?: boolean }): Promise<{ url: string; preview: boolean }> {
   if (!options.preview) {
     dotenv.config({ path: [resolve(options.envDir, ".env.local"), resolve(options.envDir, ".env")], quiet: true });
     const url = process.env.PREVIEW_DATABASE_URL ?? process.env.DATABASE_URL;
     if (!url) throw new Error("DATABASE_URL is required");
+    if (options.appCredentials) {
+      if (options.awsProfile) throw new Error("Use either --app-credentials or --aws-profile, not both");
+      if (!process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY) throw new Error("--app-credentials needs AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY in the env file");
+      return { url, preview: false };
+    }
     if (!options.awsProfile) throw new Error("Non-preview eBook commands require --aws-profile durtal-personal");
     const { initializePersonalSession } = await import("./personal-session");
     await initializePersonalSession(options.awsProfile);

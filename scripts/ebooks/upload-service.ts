@@ -8,22 +8,24 @@
  *
  * - `pnpm ebooks:upload-service build-inspector`: builds the inspector image
  *   from infra/ebooks/inspector at this checkout and prints its pinned name.
- * - `pnpm ebooks:upload-service init (--aws-profile P | --preview PORT)`:
+ * - `pnpm ebooks:upload-service init (--app-credentials | --aws-profile P | --preview PORT)`:
  *   writes the private service.json and bridge.json under the state folder
  *   (default ~/.durtal/ebook-upload) for this database and the inspector
  *   built at this checkout. Run again after a new build-inspector to move the
  *   service to the new image; the volume, port and bridge stay.
- * - `pnpm ebooks:upload-service start (--aws-profile P | --preview PORT)`:
+ * - `pnpm ebooks:upload-service start (--app-credentials | --aws-profile P | --preview PORT)`:
  *   runs the service until SIGINT/SIGTERM. Exits non-zero when it fails, so
  *   its launchd agent restarts it (scripts/deploy/upload_agent.py); 78 when
  *   the AWS sign-in expired, after leaving that reason beside its socket for
  *   the app to show. The app needs EBOOK_UPLOAD_BRIDGE=<state
- *   folder>/bridge.json (docs/11_DEPLOYMENT.md).
+ *   folder>/bridge.json (docs/11_DEPLOYMENT.md). With --app-credentials it
+ *   uses the app's own IAM keys from the env file, which never expire, so no
+ *   sign-in can stop it.
  *
  *   pnpm ebooks:upload-service build-inspector
  *   pnpm ebooks:upload-service init [--image NAME@sha256:...] [--port N] [--docker PATH]
- *     [--docker-socket PATH] [--state-dir DIR] (--aws-profile P | --preview PORT) [--env-dir DIR]
- *   pnpm ebooks:upload-service start [--state-dir DIR] (--aws-profile P | --preview PORT) [--env-dir DIR]
+ *     [--docker-socket PATH] [--state-dir DIR] (--app-credentials | --aws-profile P | --preview PORT) [--env-dir DIR]
+ *   pnpm ebooks:upload-service start [--state-dir DIR] (--app-credentials | --aws-profile P | --preview PORT) [--env-dir DIR]
  */
 import { register } from "node:module";
 import { parseArgs } from "node:util";
@@ -64,6 +66,7 @@ const { values, positionals } = parseArgs({
     "docker-socket": { type: "string" },
     preview: { type: "string" },
     "aws-profile": { type: "string" },
+    "app-credentials": { type: "boolean", default: false },
     "env-dir": { type: "string", default: process.cwd() },
   },
 });
@@ -158,7 +161,7 @@ async function buildInspector() {
 }
 
 async function init() {
-  const { url } = await loadEnvironment({ preview: values.preview, envDir: values["env-dir"]!, awsProfile: values["aws-profile"] });
+  const { url } = await loadEnvironment({ preview: values.preview, envDir: values["env-dir"]!, awsProfile: values["aws-profile"], appCredentials: values["app-credentials"] });
   const { uploadTargetFingerprint } = await import("@/lib/ebooks/upload-core/receipts");
   const targetFingerprint = uploadTargetFingerprint(url);
   const docker = dockerExecutable();
@@ -193,7 +196,7 @@ async function init() {
 
 async function start() {
   const config = await readPrivateConfig(paths.service, uploadServiceConfigSchema);
-  const { url } = await loadEnvironment({ preview: values.preview, envDir: values["env-dir"]!, awsProfile: values["aws-profile"] });
+  const { url } = await loadEnvironment({ preview: values.preview, envDir: values["env-dir"]!, awsProfile: values["aws-profile"], appCredentials: values["app-credentials"] });
   const { uploadTargetFingerprint } = await import("@/lib/ebooks/upload-core/receipts");
   if (uploadTargetFingerprint(url) !== config.bridge.targetFingerprint)
     throw new Error(`${paths.service} belongs to another database than this environment's`);

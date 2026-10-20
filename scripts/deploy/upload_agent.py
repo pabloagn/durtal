@@ -2,12 +2,12 @@
 """SLN-1326: the launchd agent that keeps the e-book upload service running.
 
 `plan` writes the agent's plist and installs nothing. The service runs from a
-checkout, as `pnpm ebooks:upload-service start` does, but under the pinned
+checkout, as `pnpm ebooks:upload-service start --app-credentials` does
+(the app's own IAM keys, which never expire), but under the pinned
 Node directly, so launchd's SIGTERM reaches the service itself: it then waits
 for running inspections and settles its spool before it exits. launchd starts
 it again after any non-zero exit, no sooner than THROTTLE_SECONDS after the
-last start: a failure, or 78 when the AWS sign-in expired (the app then says
-"Uploads need the Mac to sign in to AWS again"). A clean stop stays stopped,
+last start. A clean stop stays stopped,
 as does the service's own stop after three failed checks in a row (SLN-1467).
 Installing and loading the plist is a step on the Mac (docs/11_DEPLOYMENT.md,
 Browser uploads).
@@ -21,7 +21,6 @@ import plistlib
 from mac_release import Refusal, executable, file_hash, owned_path
 
 LABEL = 'com.durtal.ebook-upload'
-PROFILE = 'durtal-personal'
 # macOS empties these; nothing the agent needs may live there
 VOLATILE = (Path('/tmp'), Path('/private/tmp'), Path('/var/tmp'), Path('/private/var/tmp'),
             Path('/var/folders'), Path('/private/var/folders'))
@@ -46,7 +45,7 @@ def private_folder(path, what):
     return path
 
 
-def plan(repo, state_dir, log_directory, node, docker, aws, output):
+def plan(repo, state_dir, log_directory, node, docker, output):
     repo = lasting(repo, 'The checkout')
     if not (repo / 'scripts/ebooks/upload-service.ts').is_file() or not (repo / 'node_modules/tsx/package.json').is_file():
         raise Refusal('The checkout needs scripts/ebooks/upload-service.ts and its installed packages')
@@ -57,7 +56,7 @@ def plan(repo, state_dir, log_directory, node, docker, aws, output):
     if not service.is_file() or service.stat().st_mode & 0o077:
         raise Refusal('Run pnpm ebooks:upload-service init first: the state folder has no private service.json')
     logs = private_folder(log_directory, 'The log folder')
-    tools = {name: executable(path)['path'] for name, path in (('node', node), ('docker', docker), ('aws', aws))}
+    tools = {name: executable(path)['path'] for name, path in (('node', node), ('docker', docker))}
     path = []
     for folder in [str(Path(tool).parent) for tool in tools.values()] + ['/usr/bin', '/bin']:
         if folder not in path:
@@ -66,10 +65,10 @@ def plan(repo, state_dir, log_directory, node, docker, aws, output):
     agent = {
         'Label': LABEL,
         'ProgramArguments': [tools['node'], '--import', 'tsx', 'scripts/ebooks/upload-service.ts', 'start',
-                             '--aws-profile', PROFILE, '--state-dir', str(state), '--env-dir', str(repo)],
+                             '--app-credentials', '--state-dir', str(state), '--env-dir', str(repo)],
         'WorkingDirectory': str(repo),
         'RunAtLoad': True,
-        # Restart after a failure or an expired sign-in; a SIGTERM stop, or three
+        # Restart after a failure; a SIGTERM stop, or three
         # failed checks in a row, exits 0 and stays down
         'KeepAlive': {'SuccessfulExit': False},
         'ThrottleInterval': THROTTLE_SECONDS,
@@ -91,10 +90,10 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     subs = parser.add_subparsers(dest='mode', required=True)
     p = subs.add_parser('plan')
-    for name in ('repo', 'state-dir', 'log-directory', 'node', 'docker', 'aws', 'output'):
+    for name in ('repo', 'state-dir', 'log-directory', 'node', 'docker', 'output'):
         p.add_argument('--' + name, required=True)
     args = parser.parse_args()
-    result = plan(args.repo, args.state_dir, args.log_directory, args.node, args.docker, args.aws, args.output)
+    result = plan(args.repo, args.state_dir, args.log_directory, args.node, args.docker, args.output)
     print(json.dumps(result, sort_keys=True))
 
 
