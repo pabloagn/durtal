@@ -67,3 +67,23 @@ with item 7 of the dashboard survey (empty Statistics had no purpose sentence).
     book and a translator and counts a co-author; the catalogue is empty
     until any collection has a record.
   - `statistics/pages-tile-and-origins-title` follows the shared tiles.
+
+### Review on current main (2026-10-20)
+
+- Main had since given `/statistics` its own empty state, with the reading
+  and other collections' sections below it (#588, SLN-1174).
+  `NoOwnedBooks` takes its place there and keeps those sections, its
+  plainer sentence ("These numbers count the books you own: those with a
+  copy in one of your locations.") and its 40px Add book. The dashboard's
+  Statistics shows the same state without the Add.
+- The dashboard reads `numbers`, `written`, `breakdown` and the busiest year
+  in one statement (task 1005); the empty check rides beside it, so the page
+  stays two round trips.
+- **Browsers.** On a private preview emptied of books, editions and copies,
+  `/` shows "Nothing catalogued yet" with one visible Add book in Chromium,
+  Firefox and WebKit (the header's Add gives way once the check is in), and
+  `/statistics` its own state with one Add book. The browser audit passes 18
+  of 18 loads of `/` and `/statistics` empty, and 18 of 18 on the seeded
+  preview.
+- **Checks on main after #618:** `pnpm typecheck` and `pnpm lint` clean,
+  `pnpm test:local` and `pnpm build` pass. `page-weight.js` passes.
