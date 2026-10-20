@@ -520,6 +520,30 @@ describe.skipIf(!url)("library filters with PostgreSQL", () => {
     expect(await backfillCoverColors({ limit: 0 })).toMatchObject({ covers: { processed: 0 }, remaining: { covers: 2 } });
   });
 
+  it("writes stored palettes' colours 500 rows a statement, not one (SLN-1315)", async () => {
+    const work = await book("A thousand posters");
+    await q(
+      `insert into media(work_id, type, s3_key, is_active, color_palette)
+        select $1, 'poster', 'gold/media/p-' || n || '.webp', false, $2::jsonb from generate_series(1, 1000) n`,
+      [work, JSON.stringify(palette([20, 120, 40]))],
+    );
+    const cover = await edition(work);
+    await q(`update editions set cover_palette = $2::jsonb where id = $1`, [cover, JSON.stringify(palette([170, 30, 30]))]);
+    const updates: string[] = [];
+    debugHook = (query) => {
+      if (/^\s*update/i.test(query)) updates.push(query);
+    };
+    try {
+      expect((await backfillCoverColors({ limit: 0 })).colored).toBe(1001);
+    } finally {
+      debugHook = null;
+    }
+    // 1,000 posters in two statements, the edition in a third
+    expect(updates).toHaveLength(3);
+    expect(await value(`select count(*)::int from media where work_id = $1 and color_bucket = 'green'`, [work])).toBe(1000);
+    expect(await value(`select cover_color_bucket from editions where id = $1`, [cover])).toBe("red");
+  });
+
   it("moves a batch past the images it could not read; the route has a dry run (PR #113 review)", async () => {
     for (const [title, key] of [
       ["Broken one", "gold/covers/broken-1.webp"],

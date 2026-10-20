@@ -1,7 +1,8 @@
 /**
  * Cover colours for the covers stored before SLN-405, in batches:
  *
- * 1. Every stored palette without its named colour gets one (no download).
+ * 1. Every stored palette without its named colour gets one (no download),
+ *    `PER_UPDATE` rows a statement.
  * 2. Posters without a palette: the palette is read from the thumbnail.
  * 3. Edition covers without a palette: the same, from the cover thumbnail.
  *
@@ -13,7 +14,8 @@
  * `POST /api/media/backfill-palettes` and
  * `scripts/maintenance/backfill-cover-colors.ts`.
  */
-import { and, asc, count, eq, gt, isNotNull, isNull } from "drizzle-orm";
+import { and, asc, count, eq, gt, isNotNull, isNull, sql } from "drizzle-orm";
+import type { PgColumn } from "drizzle-orm/pg-core";
 import { db } from "@/lib/db";
 import { editions, media } from "@/lib/db/schema";
 import { readS3Object } from "@/lib/s3/read-object";
@@ -42,6 +44,19 @@ function readPlace(after: string | undefined): { kind: "poster" | "cover"; id: s
 
 const posterWithout = and(eq(media.type, "poster"), isNull(media.colorPalette));
 const coverWithout = and(isNotNull(editions.thumbnailS3Key), isNull(editions.coverPalette));
+
+/** Rows one `update … from (values …)` writes (SLN-1315) */
+const PER_UPDATE = 500;
+
+/** Each row's colour into `column` of its table, `PER_UPDATE` rows a round trip */
+async function writeColors(column: PgColumn, colors: { id: string; bucket: string }[]) {
+  for (let start = 0; start < colors.length; start += PER_UPDATE) {
+    const rows = colors.slice(start, start + PER_UPDATE).map(({ id, bucket }) => sql`(${id}::uuid, ${bucket})`);
+    await db.execute(
+      sql`update ${column.table} t set ${sql.identifier(column.name)} = v.bucket from (values ${sql.join(rows, sql`, `)}) as v(id, bucket) where t.id = v.id`,
+    );
+  }
+}
 
 async function paletteOf(key: string): Promise<ColorPalette> {
   return extractColorPalette(await readS3Object(key));
@@ -74,18 +89,18 @@ export async function backfillCoverColors({
     .select({ id: editions.id, palette: editions.coverPalette })
     .from(editions)
     .where(and(isNotNull(editions.coverPalette), isNull(editions.coverColorBucket)));
-  for (const row of uncoloredMedia) {
-    const bucket = colorBucketOfPalette(row.palette as ColorPalette);
-    if (!bucket) continue;
-    if (!dryRun) await db.update(media).set({ colorBucket: bucket }).where(eq(media.id, row.id));
-    result.colored++;
+  const colored = (rows: { id: string; palette: unknown }[]) =>
+    rows.flatMap(({ id, palette }) => {
+      const bucket = colorBucketOfPalette(palette as ColorPalette | null);
+      return bucket ? [{ id, bucket }] : [];
+    });
+  const mediaColors = colored(uncoloredMedia);
+  const coverColors = colored(uncoloredCovers);
+  if (!dryRun) {
+    await writeColors(media.colorBucket, mediaColors);
+    await writeColors(editions.coverColorBucket, coverColors);
   }
-  for (const row of uncoloredCovers) {
-    const bucket = colorBucketOfPalette(row.palette);
-    if (!bucket) continue;
-    if (!dryRun) await db.update(editions).set({ coverColorBucket: bucket }).where(eq(editions.id, row.id));
-    result.colored++;
-  }
+  result.colored = mediaColors.length + coverColors.length;
 
   // 2. Posters without a palette
   const batch = Math.max(0, limit);

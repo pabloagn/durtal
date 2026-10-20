@@ -15,18 +15,7 @@ import { COPY_FORMAT_LABELS } from "@/lib/constants/catalogue";
 import { n } from "@/lib/reading/charts";
 import { yearNumbers } from "@/lib/reading/stats";
 import { compactYearCounts, originsTitle, yearLabel } from "@/lib/statistics/charts";
-import {
-  breakdown,
-  busiestYears,
-  copyStats,
-  extremes,
-  favouriteCovers,
-  libraryNumbers,
-  rankings,
-  ratingSpread,
-  writtenYears,
-  type Extreme,
-} from "@/lib/statistics/library";
+import { libraryStatistics, type Extreme } from "@/lib/statistics/library";
 import type { InstanceFormat } from "@/lib/types";
 import { languageName } from "@/lib/utils/language";
 import { shortCountryName } from "@/lib/utils/nationality-param";
@@ -51,15 +40,8 @@ const CREATORS: Record<HomeKind, string> = {
  * Computed per request; never cached.
  */
 export default async function StatisticsPage() {
-  const [numbers, written, ranks, split, ratings, copies, ends, covers, reading, others] = await Promise.all([
-    libraryNumbers(),
-    writtenYears(),
-    rankings(),
-    breakdown(),
-    ratingSpread(),
-    copyStats(),
-    extremes(),
-    favouriteCovers(),
+  const [library, reading, others] = await Promise.all([
+    libraryStatistics(["numbers", "written", "busiest", "favourites", "rankings", "breakdown", "ratings", "copies", "extremes"]),
     yearNumbers(null),
     Promise.all(
       getEnabledWorkKinds()
@@ -67,7 +49,7 @@ export default async function StatisticsPage() {
         .map(async (kind) => ({ kind, counts: await loadDomainCounts(kind) })),
     ),
   ]);
-  const years = await busiestYears(written.years);
+  const { numbers, written, busiest: years, favourites: covers, rankings: ranks, breakdown: split, ratings, copies, extremes: ends } = library;
   const unrated = split.unrated;
 
   // Shown with or without books on the shelves (SLN-1174): readings need no copy, and the other collections are not books

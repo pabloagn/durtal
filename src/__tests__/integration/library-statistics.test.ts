@@ -25,7 +25,10 @@ vi.mock("@/lib/db", () => ({
     },
   ),
 }));
-import { breakdown, busiestYears, copyStats, extremes, favouriteCovers, libraryNumbers, rankings, ratingSpread, writtenYears } from "@/lib/statistics/library";
+import { libraryStatistics, type StatisticsPart } from "@/lib/statistics/library";
+
+/** One part, read as a page reads it */
+const part = async <P extends StatisticsPart>(name: P, options?: { busiest?: number }) => (await libraryStatistics([name], options))[name];
 
 /*
  * Library statistics against PostgreSQL (SLN-742): only owned books count (a
@@ -126,7 +129,7 @@ describe.skipIf(!url)("library statistics with PostgreSQL", () => {
   });
 
   it("counts the owned books, their editions and their held copies", async () => {
-    expect(await libraryNumbers()).toEqual({
+    expect(await part("numbers")).toEqual({
       books: 3,
       editions: 4,
       copies: 5,
@@ -139,7 +142,7 @@ describe.skipIf(!url)("library statistics with PostgreSQL", () => {
   });
 
   it("puts the owned books in the years they were written", async () => {
-    const written = await writtenYears();
+    const written = await part("written");
     expect(written).toEqual({
       years: [
         { year: 1884, count: 2 },
@@ -147,7 +150,7 @@ describe.skipIf(!url)("library statistics with PostgreSQL", () => {
       ],
       undated: 0,
     });
-    const busiest = await busiestYears(written.years);
+    const busiest = await part("busiest");
     expect(busiest).toHaveLength(1);
     expect(busiest[0]).toMatchObject({ year: 1884, books: 2 });
     // Best rated first, with the card's cover and the first writer
@@ -158,7 +161,7 @@ describe.skipIf(!url)("library statistics with PostgreSQL", () => {
   });
 
   it("ranks languages, countries, categories, authors and houses by owned books", async () => {
-    const ranks = await rankings();
+    const ranks = await part("rankings");
     expect(ranks.languages).toEqual([{ key: "fr", name: "fr", count: 3 }]);
     expect(ranks.countries).toEqual([
       { key: "FR", name: "France", count: 2 },
@@ -174,7 +177,7 @@ describe.skipIf(!url)("library statistics with PostgreSQL", () => {
   });
 
   it("splits read, rated, translated and digital", async () => {
-    expect(await breakdown()).toEqual({
+    expect(await part("breakdown")).toEqual({
       read: 1,
       unread: 2,
       rated: 2,
@@ -184,7 +187,7 @@ describe.skipIf(!url)("library statistics with PostgreSQL", () => {
       print: 4,
       digital: 1,
     });
-    const spread = await ratingSpread();
+    const spread = await part("ratings");
     expect(spread).toHaveLength(10);
     expect(spread.filter((r) => r.count)).toEqual([
       { rating: 3.5, count: 1 },
@@ -193,7 +196,7 @@ describe.skipIf(!url)("library statistics with PostgreSQL", () => {
   });
 
   it("counts copies by format, place and the year they came", async () => {
-    const copies = await copyStats();
+    const copies = await part("copies");
     expect(copies.formats).toEqual([
       { format: "paperback", count: 2 },
       { format: "epub", count: 1 },
@@ -213,12 +216,12 @@ describe.skipIf(!url)("library statistics with PostgreSQL", () => {
   });
 
   it("finds the oldest, newest, longest and shortest owned books", async () => {
-    const ends = await extremes();
+    const ends = await part("extremes");
     expect(ends.oldest).toMatchObject({ title: "Against Nature", value: 1884, author: "Joris-Karl Huysmans" });
     expect(ends.newest).toMatchObject({ title: "Bruges-la-Morte", value: 1892 });
     expect(ends.longest).toMatchObject({ title: "En Route", value: 450, cover: "covers/b.jpg" });
     expect(ends.shortest).toMatchObject({ title: "Bruges-la-Morte", value: 120, cover: null });
-    expect((await favouriteCovers()).map((c) => c.title)).toEqual(["Against Nature", "En Route"]);
+    expect((await part("favourites")).map((c) => c.title)).toEqual(["Against Nature", "En Route"]);
   });
 
   it("keeps page maxima, held-edition scope, nulls and title/id ties unchanged", async () => {
@@ -240,7 +243,7 @@ describe.skipIf(!url)("library statistics with PostgreSQL", () => {
         added.push(id);
         await copy(await edition(id, { pages }));
       }
-      const ends = await extremes();
+      const ends = await part("extremes");
       const firstTie = [...added.slice(0, 2)].sort()[0];
       expect(ends.oldest).toMatchObject({ workId: firstTie, value: 100 });
       expect(ends.longest).toMatchObject({ workId: firstTie, value: 900 });
@@ -250,11 +253,23 @@ describe.skipIf(!url)("library statistics with PostgreSQL", () => {
     }
   });
 
+  it("reads every part in one statement, as each reads alone (SLN-1315)", async () => {
+    const parts = ["numbers", "written", "busiest", "favourites", "rankings", "breakdown", "ratings", "copies", "extremes"] as const;
+    const alone = Object.fromEntries(await Promise.all(parts.map(async (name) => [name, await part(name)])));
+    const execute = vi.spyOn(testDb!, "execute");
+    try {
+      expect(await libraryStatistics(parts)).toEqual(alone);
+      expect(execute).toHaveBeenCalledTimes(1);
+    } finally {
+      execute.mockRestore();
+    }
+  });
+
   // Last: it adds a book
   it("shows a year's covered books before its blank ones, best rated first among each", async () => {
     const blank = await work("A Rebours", { year: 1884, rating: 5 });
     await copy(await edition(blank));
-    const [year] = await busiestYears((await writtenYears()).years, 1);
+    const [year] = await part("busiest", { busiest: 1 });
     expect(year.covers.map((c) => [c.title, c.cover])).toEqual([
       ["Against Nature", "covers/a.jpg"],
       ["En Route", "covers/b.jpg"],
