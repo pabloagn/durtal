@@ -19,6 +19,7 @@ import { DialogFocusScope, useDialogFocusScope } from "./dialog-focus-scope";
 import { Button } from "./button";
 import { useUnsavedGuard, type UnsavedPrompt } from "./unsaved-guard";
 import { shortcutProps } from "@/lib/shortcuts/shortcuts";
+import { useIsMac } from "@/components/shortcuts/kbd";
 
 interface DialogProps {
   open: boolean;
@@ -332,6 +333,7 @@ export function Dialog({
  */
 export function UnsavedChangesPrompt({ prompt }: { prompt: UnsavedPrompt }) {
   const main = useRef<HTMLButtonElement>(null);
+  const mac = useIsMac();
   useEffect(() => {
     main.current?.focus();
   }, []);
@@ -362,7 +364,7 @@ export function UnsavedChangesPrompt({ prompt }: { prompt: UnsavedPrompt }) {
             className="mr-auto -ml-3"
             onClick={prompt.keepEditing}
             data-shortcut={prompt.canSave ? undefined : "save"}
-            {...(prompt.canSave ? {} : shortcutProps("mod enter"))}
+            {...(prompt.canSave ? {} : shortcutProps("mod enter", mac))}
           >
             Keep editing
           </Button>
@@ -370,7 +372,7 @@ export function UnsavedChangesPrompt({ prompt }: { prompt: UnsavedPrompt }) {
             Discard
           </Button>
           {prompt.canSave && (
-            <Button type="button" variant="primary" onClick={prompt.save} {...shortcutProps("mod enter")}>
+            <Button type="button" variant="primary" onClick={prompt.save} {...shortcutProps("mod enter", mac)}>
               Save
             </Button>
           )}
