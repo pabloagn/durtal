@@ -333,7 +333,10 @@ the identify queue and the harmonize workspace (16 files).
 2. **Pickers and managers** (resolved in SLN-634). Collections and Manage
    media close on Enter through Done. ⌘Enter in their own field (the
    collection name, the image URL) presses that field's Create & add or
-   Add (`data-shortcut="save"`), not Done. Pick one for me presses Start
+   Add (`data-shortcut="save"`), not Done. In the collection name, Add
+   adds to the collection with that name, else the only one the name finds,
+   lit in the list ("deca" adds to Decadents); Create & add appears only when
+   the name finds none, or several and none by that name (SLN-1350). Pick one for me presses Start
    reading. In Match again the selected source filter is the primary, so
    Enter presses it again and nothing changes.
 3. **Danger confirmations** (Delete, Remove highlight, Undo import, Discard

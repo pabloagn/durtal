@@ -153,12 +153,25 @@ export function AddToCollectionDialog({
       setBusy(false);
     }
   }
+  // Accents and case are ignored, as in every search: "decadents" finds
+  // "Décadents", and adds to it rather than making a second one
+  const filtered =
+    data?.collections.filter((c) =>
+      normalizeSearchText(c.name).includes(normalizeSearchText(query)),
+    ) ?? [];
+  /**
+   * The collection Enter adds to: the one with this name, else the only one
+   * the name finds (SLN-1350: "deca" adds to Decadents). With none, or several
+   * and none named exactly, Enter creates the collection typed.
+   */
+  const target = query.trim()
+    ? (filtered.find((c) => sameName(c.name, query)) ?? (filtered.length === 1 ? filtered[0] : undefined))
+    : undefined;
   async function create(event: React.FormEvent) {
     event.preventDefault();
     if (saving.current || !query.trim() || !chosen) return;
-    const existing = data?.collections.find((c) => sameName(c.name, query));
-    if (existing) {
-      await toggle(existing.id, false);
+    if (target) {
+      await toggle(target.id, false);
       return;
     }
     saving.current = true;
@@ -211,12 +224,6 @@ export function AddToCollectionDialog({
       setBusy(false);
     }
   }
-  // Accents and case are ignored, as in every search: "decadents" finds
-  // "Décadents", and adds to it rather than making a second one
-  const filtered =
-    data?.collections.filter((c) =>
-      normalizeSearchText(c.name).includes(normalizeSearchText(query)),
-    ) ?? [];
   return (
     <Dialog
       open={open}
@@ -318,10 +325,9 @@ export function AddToCollectionDialog({
                 disabled={busy || !query.trim() || !chosen}
                 variant="primary"
                 data-shortcut="save"
+                aria-label={target ? `Add to ${target.name}` : query.trim() ? `Create & add “${query.trim()}”` : undefined}
               >
-                {data.collections.some((c) => sameName(c.name, query))
-                  ? "Add"
-                  : "Create & add"}
+                {target ? "Add" : "Create & add"}
               </Button>
             </form>
             <div className="max-h-64 space-y-1 overflow-y-auto overflow-x-hidden">
@@ -340,7 +346,8 @@ export function AddToCollectionDialog({
                       aria-label={c.name}
                       disabled={busy || !chosen}
                       onClick={() => toggle(c.id, all)}
-                      className="flex w-full items-start gap-3 rounded-sm px-2 py-2 text-left hover:bg-bg-tertiary disabled:opacity-50 pointer-coarse:min-h-11"
+                      // The row Enter adds to is lit, as a highlighted choice
+                      className={`flex w-full items-start gap-3 rounded-sm px-2 py-2 text-left hover:bg-bg-tertiary disabled:opacity-50 pointer-coarse:min-h-11 ${c.id === target?.id ? "bg-bg-tertiary" : ""}`}
                     >
                       {/* The box and icon sit on the name's first line, as it may wrap */}
                       <span className="flex h-6 shrink-0 items-center">
