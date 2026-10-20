@@ -13,7 +13,7 @@ import { insertDates, newDate, type Db } from "./work-store";
 
 /**
  * Receiving and returning a film, perfume or painting order (SLN-374). A book
- * order only promotes the book's status; a typed order brings in the holding
+ * order brings in a book copy (`book-receipt.ts`); a typed order brings in the holding
  * its target names, once, in the same write as the status that receives it:
  * a bottle of the target's formulation and size, a copy of its version,
  * release and medium, the object it buys, or a new reproduction of the object

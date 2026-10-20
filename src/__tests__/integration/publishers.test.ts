@@ -847,6 +847,7 @@ describe.skipIf(!url)(
         acquisitionTargetId: t.id,
         orderDate: "2026-09-25",
         acquisitionMethod: "online_order" as const,
+        destinationLocationId: (await db.insert(schema.locations).values({ name: "Shelf", type: "physical" }).returning())[0].id,
       };
       await expect(
         createOrder({ ...input, editionId: wrong.id }),
@@ -861,8 +862,10 @@ describe.skipIf(!url)(
       await updateOrder(o.id, { editionId: e.id });
       await updateOrderStatus(o.id, "delivered");
       expect((await getAcquisitionTargets(w.id))[0].state).toBe("received");
-      expect((await getPublisherCatalogue(p.id, "owned")).rows).toHaveLength(0); // receipt is not a copy record
+      // The delivery brought in a copy of the received edition; its return deaccessions it
+      expect((await getPublisherCatalogue(p.id, "owned")).rows.map((r) => r.edition.id)).toEqual([e.id]);
       await updateOrderStatus(o.id, "returned");
+      expect((await getPublisherCatalogue(p.id, "owned")).rows).toHaveLength(0);
       expect((await getAcquisitionTargets(w.id))[0].state).toBe("wanted");
       await cancelAcquisitionTarget(t.id);
       expect(await getAcquisitionTargets(w.id)).toHaveLength(0);
@@ -946,12 +949,15 @@ describe.skipIf(!url)(
         .set({ status: "deaccessioned" })
         .where(eq(schema.instances.id, copy.id));
       await createAcquisitionTarget({ workId: w.id, editionId: e.id });
+      // A gift of another publisher's edition: its copy is not the wanted one
+      const other = await edition(w.id, (await publisher("Penguin")).name);
       await createOrder({
         workId: w.id,
-        editionId: e.id,
+        editionId: other.id,
         acquisitionMethod: "gift",
         status: "received",
         orderDate: "2026-09-25",
+        destinationLocationId: copy.locationId,
       });
       expect((await getPublisherCatalogue(p.id, "owned")).rows).toHaveLength(0);
       expect((await getAcquisitionTargets(w.id))[0].state).toBe("wanted");

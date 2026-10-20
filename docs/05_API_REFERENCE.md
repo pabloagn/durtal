@@ -290,7 +290,7 @@ Change order details: price, dates, carrier, tracking, notes and the other `crea
 
 ### `POST /api/orders/[id]/status`
 
-Move an order to a new status, as the order page does: the transition is checked, the history is recorded, `shippedDate` / `actualDeliveryDate` are set when empty, and the work's catalogue status follows (`accessioned` on arrival). Needs the token.
+Move an order to a new status, as the order page does: the transition is checked, the history is recorded, `shippedDate` / `actualDeliveryDate` are set when empty, and the work's catalogue status follows (`accessioned` on arrival). A book order that reaches `delivered`, `purchased` or `received` brings in its copy, as `docs/02_DATA_MODEL.md` (`orders`) describes; `returned` deaccessions that copy. Needs the token.
 
 **Body**: `{ "status": "delivered", "notes": "optional" }`
 
