@@ -71,3 +71,10 @@ SLN-1149, from items 4, 5 and 6 of `findings/phone-pass-survey-2026-10-18.md`.
   as narrow tablets already did. Filed as SLN-1509.
 - **Tests:** `ui/sideways-phone` pins the Read action's rule too;
   `ui/catalogue-ebook-actions` follows its new class.
+- **Checks on main after #614:** `pnpm typecheck` and `pnpm lint` clean,
+  `pnpm test:local` and `pnpm build` pass. The browser audit passes 36 of
+  36 page loads on `/`, `/library`, `/people` and `/films`. A scripted check
+  on /people in Chromium, Firefox and WebKit: with touch at 844×390 there is
+  no ⌘K and no palette keys, the sidebar is the 56px rail, and the sort is
+  the menu; with a mouse at 1440, ⌘K, the palette's keys and the five sort
+  chips show. `page-weight.js` passes.
