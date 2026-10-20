@@ -168,16 +168,25 @@ only those drawn:
    each with its cover, title, author, progress, position, the estimate
    (SLN-451), Log and Open eBook; this year's goal line (SLN-455); then
    **Recently finished**, up to four covers with the read's rating and finish
-   date. One client component with small props (`DashboardReading`,
+   date, with "Journal" to `/reading/journal`. One client component with small props (`DashboardReading`,
    `src/components/reading/reading-tiles.tsx`), as Recent people is
    (`RecentPeopleGrid`), so "/" stays within its 300 KB budget.
 2. **Recent additions** (`#recent`): the 10 newest records across the open
-   collections, newest first. A book shows as its book card; other records as
-   a `DomainTileCard`.
+   collections, newest first, then by id, as the library's `sort=recent`. A
+   book shows as its book card; other records as a `DomainTileCard`. "View
+   all" (`/library?sort=recent`) shows while every card is a book.
 3. **Statistics**: the place for SLN-742's section.
 4. **Collections** (`#collections`): the first 4 in their curated order.
 5. **Highest rated** (`#highest-rated`), **Wanted** (`#wanted`) and **Recent
-   people** (`#people`): book sections.
+   people** (`#people`): book sections. Each opens on the same cards as its
+   "View all" list (SLN-1070): Highest rated in the library's `sort=rating`
+   order (rating, then newest, then id), and Recent people as `/people`'s
+   "Latest book" sort (`sort=latestBook`): every writer of the newest books,
+   each once, by their latest book and their place on it.
+
+A jump from the rail lands the section's rule 24px under the top, under the
+phone's bar too. Where the touch pill shows, the page keeps 4rem of
+`scroll-padding-bottom`, so a control reached with Tab stops above it.
 
 **Statistics** (SLN-742): pages on the shelves, languages, authors' countries and the share read, then the year with the most books as five of its covers, then when the books were written (years or decades), with "View all" to `/statistics`. Its body (`DashboardStatistics`, `src/components/statistics/dashboard-statistics.tsx`) loads in its own Suspense boundary; the dashboard draws the section and its heading. Its reads (`statisticsReads`) start with the dashboard's first ones (SLN-795).
 
@@ -658,6 +667,8 @@ Everyone in the catalogue, in every collection: writers, translators, directors,
 **Views**: grid, list, map and timeline (the map and timeline show book people, who carry places and dates).
 
 **Filters**: Collection (the collections a person belongs to, `person_domains`) and Role (any credited role, such as "Films: Director" or "Books: Translator"; each choice shows how many people hold it), plus nationality, gender, zodiac sign, status and birth and death years. Search, sort and pagination as before.
+
+**Sorts**: Name, Last name, Recent (when the record was added), Latest book (by each writer's newest book, then that book's id and their place on it; people with no book last: the dashboard's Recent people, SLN-1070), Born, Books (how many), and Best match while searching.
 
 ---
 

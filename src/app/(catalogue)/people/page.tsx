@@ -86,7 +86,8 @@ function peopleQuery(searchParams: PeopleParams) {
     | "lastName"
     | "recent"
     | "birth"
-    | "works";
+    | "works"
+    | "latestBook";
   const order = (searchParams.order ?? undefined) as "asc" | "desc" | undefined;
   const nationalityFilter = parseNationalityCodes(searchParams.nationality) ?? [];
   const genderFilter = searchParams.gender?.split(",").filter(Boolean);

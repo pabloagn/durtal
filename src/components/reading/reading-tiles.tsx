@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { SpriteIcon, type SpriteIconName } from "@/components/ui/sprite-icon";
@@ -114,10 +115,11 @@ export interface TileItem {
   paused?: boolean;
 }
 
-function SectionLink({ href }: { href: string }) {
+/** A heading's link, named for where it goes: under Reading's own "View all", Recently finished's reads "Journal" (SLN-1070) */
+function SectionLink({ href, children }: { href: string; children: ReactNode }) {
   return (
     <Link href={href} className="flex shrink-0 items-center gap-1 whitespace-nowrap text-xs text-fg-secondary transition-colors hover:text-fg-primary touch-hit">
-      View all
+      {children}
       <ArrowRight className="h-3 w-3" strokeWidth={1.5} />
     </Link>
   );
@@ -192,7 +194,7 @@ export function DashboardReading({
       )}
       {finished.length > 0 && (
         <div className={tiles.length > 0 || goal ? "mt-10" : ""}>
-          <SectionHeading as="h3" title="Recently finished" action={<SectionLink href="/reading/journal" />} />
+          <SectionHeading as="h3" title="Recently finished" action={<SectionLink href="/reading/journal">Journal</SectionLink>} />
           {/* Two covers a row on a phone, as the dashboard's other cover grids */}
           <div className="@container">
             <FinishedCovers reads={finished} className="catalogue-grid catalogue-density-compact" />

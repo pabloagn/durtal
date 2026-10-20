@@ -90,9 +90,9 @@ describe.skipIf(!url)("half-star ratings with PostgreSQL", () => {
     expect((await getWorks({ sort: "rating" }))[0].rating).toBe(4.5);
   });
 
-  it("pages a rating sort in SQL with ties by id, as one order across pages (SLN-938)", async () => {
+  it("pages a rating sort in SQL with ties by newest then id, as one order across pages (SLN-938, SLN-1070)", async () => {
     for (const [title, rating] of [["A", 4], ["B", 4], ["C", 4], ["D", 3], ["E", null], ["F", 4]] as const) await book(title, rating);
-    const order = (await q(`select title from works order by rating desc nulls last, id`)).map((r) => r.title);
+    const order = (await q(`select title from works order by rating desc nulls last, created_at desc, id`)).map((r) => r.title);
     const pages = [];
     for (const offset of [0, 2, 4]) pages.push(...(await getWorks({ sort: "rating", limit: 2, offset })).map((w) => w.title));
     expect(pages).toEqual(order);

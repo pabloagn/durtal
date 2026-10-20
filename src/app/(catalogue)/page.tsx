@@ -123,8 +123,10 @@ function IndexGroup({ kind, wide = false, children }: { kind: keyof typeof WORK_
 /** A section of the front page: a rule, its title with "View all", then its content */
 function DashboardSection({ id, title, href, children }: { id: string; title: string; href?: string; children: ReactNode }) {
   return (
-    // Focus lands here after a jump from the rail; the heading names it
-    <section id={id} tabIndex={-1} aria-labelledby={`${id}-title`} className="mt-12 scroll-mt-16 border-t border-glass-border pt-8 outline-none md:scroll-mt-6">
+    // Focus lands here after a jump from the rail; the heading names it.
+    // A jump lands its rule 24px under the top, below the phone's bar too: the
+    // page's scroll-padding-top already clears the bar (SLN-1070)
+    <section id={id} tabIndex={-1} aria-labelledby={`${id}-title`} className="mt-12 scroll-mt-6 border-t border-glass-border pt-8 outline-none">
       <SectionHeading
         id={`${id}-title`}
         title={title}
@@ -294,19 +296,23 @@ async function DashboardContent() {
     ...stats.recentWorks.map((work) => ({
       key: work.id,
       createdAt: work.createdAt,
+      book: true,
       card: <BookCard key={work.id} {...workToCardProps(work)} ebook={digital.get(work.id)?.read ?? null} readerReturnTo="/" />,
     })),
     ...others.flatMap(({ kind, recent: tiles }) =>
       tiles.map((tile) => ({
         key: tile.id,
         createdAt: tile.createdAt,
+        book: false,
         card: <DomainTileCard key={tile.id} kind={kind} tile={tile} />,
       })),
     ),
   ]
-    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+    // The library's own order: newest first, then by id (SLN-1070)
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime() || (a.key < b.key ? -1 : a.key > b.key ? 1 : 0))
     .slice(0, SHELF);
-  const singleDomain = others.length === 0;
+  // View all is the library's newest books, so it is offered while every card is a book
+  const recentBooksOnly = recent.every((item) => item.book);
   const book = (work: Parameters<typeof workToCardProps>[0]) => (
     <BookCard key={work.id} {...workToCardProps(work)} ebook={digital.get(work.id)?.read ?? null} readerReturnTo="/" />
   );
@@ -326,7 +332,7 @@ async function DashboardContent() {
     sections.push({
       id: "recent",
       title: "Recent additions",
-      href: singleDomain ? "/library?sort=recent" : undefined,
+      href: recentBooksOnly ? "/library?sort=recent" : undefined,
       content: <PhonePairGrid>{recent.map((item) => item.card)}</PhonePairGrid>,
     });
   }
@@ -372,7 +378,8 @@ async function DashboardContent() {
     sections.push({
       id: "people",
       title: "Recent people",
-      href: "/people?sort=recent",
+      // People by their latest book, as the shelf is (SLN-1070)
+      href: "/people?sort=latestBook",
       content: (
         <RecentPeopleGrid
           people={stats.recentAuthors}
