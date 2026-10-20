@@ -90,6 +90,17 @@ describe.skipIf(!url)("half-star ratings with PostgreSQL", () => {
     expect((await getWorks({ sort: "rating" }))[0].rating).toBe(4.5);
   });
 
+  it("pages a rating sort in SQL with ties by id, as one order across pages (SLN-938)", async () => {
+    for (const [title, rating] of [["A", 4], ["B", 4], ["C", 4], ["D", 3], ["E", null], ["F", 4]] as const) await book(title, rating);
+    const order = (await q(`select title from works order by rating desc nulls last, id`)).map((r) => r.title);
+    const pages = [];
+    for (const offset of [0, 2, 4]) pages.push(...(await getWorks({ sort: "rating", limit: 2, offset })).map((w) => w.title));
+    expect(pages).toEqual(order);
+    // A page loads its own cards only, each with its relations
+    const [first] = await getWorks({ sort: "rating", limit: 1, offset: 5 });
+    expect(first).toMatchObject({ title: "E", workAuthors: [], editions: [], media: [] });
+  });
+
   it("keeps 3.5 through an unrelated Edit work save", async () => {
     const id = await book("Watt", 3.5);
     const author = await value(`insert into authors(name, slug) values ('Samuel Beckett', $1) returning id`, [`samuel-beckett-${++serial}`]);
