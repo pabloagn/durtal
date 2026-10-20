@@ -571,7 +571,7 @@ A book's readings newest first (fingerprint, ordinal, sessions and time, edition
 The header control, the Reading section and its dialogs call `startReading`, `logProgress` and `undoProgress`, `pauseReading`, `resumeReading`, `finishReading`, `abandonReading`, `reopenReading` (the Undo of finish and abandon, and "Resume this reading" with `toStatus: "reading"`), `addPastReading`, `updateReading`, `deleteReading` and `restoreReading`. Every write sends the browser's `timeZone` and, on an existing reading, the fingerprint from `getReadingsForWork` or the last write. A "212/480" log first sets the page count with `updateReading`.
 
 ### `getNextInSeries(workId, homeId)`
-After a finish: the series' next volume to read (`nextToRead` in `src/lib/reading/series.ts`: the first volume in series order not finished, after the last finished one) with where its copy is (the copy at hand at the home, else its first copy in the collection, else "Not owned"). Null when the book is in no series or every later volume is read.
+After a finish: the series' next volume to read (`nextToRead` in `src/lib/reading/series-next.ts`, by `nextVolume` in `src/lib/reading/series.ts`: the first volume in series order not finished, after the last finished one) with where its copy is (the copy at hand at the home, else its first copy in the collection, else "Not owned"). Null when the book is in no series or every later volume is read.
 
 ### `findPageCount(editionId)`
 An edition's page count from ISBNdb (by ISBN-13), then Open Library (by its edition key), or null. It writes nothing: saving it to the edition is the match flow's job.

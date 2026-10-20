@@ -35,7 +35,7 @@ vi.mock("@/lib/cache", () => ({
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn(), revalidateTag: vi.fn() }));
 vi.mock("@/lib/activity/record", () => ({ recordActivity: vi.fn() }));
 import { atHandCopySql, isAtHand } from "@/lib/reading/at-hand";
-import { nextToRead } from "@/lib/reading/series";
+import { nextToRead } from "@/lib/reading/series-next";
 import { queryBookReadingOverview, queryReadingChoices, queryReadingChoice } from "@/lib/reading/overview";
 import { readingRecord } from "@/lib/reading/labels";
 import { readingRecordFromSummary } from "@/lib/reading/overview-summary";

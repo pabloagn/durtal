@@ -147,11 +147,3 @@ export function serverEnv(): ServerEnv {
 
 /** The bucket name has a default, so it is safe to read at module load. */
 export const S3_BUCKET = process.env.S3_BUCKET || DEFAULT_S3_BUCKET;
-
-/**
- * Public variables, inlined into the client bundle at build time.
- * Next.js only inlines literal `process.env.NEXT_PUBLIC_*` reads.
- */
-export const publicEnv = {
-  NEXT_PUBLIC_MAPBOX_TOKEN: process.env.NEXT_PUBLIC_MAPBOX_TOKEN || undefined,
-};

@@ -20,7 +20,7 @@ import {
   SettingsIntro,
 } from "@/components/settings/settings-group";
 import { checkIntegration } from "@/lib/actions/integrations";
-import { publicEnv } from "@/lib/env";
+import { publicEnv } from "@/lib/env-public";
 import type {
   CheckResult,
   CheckStatus,

@@ -1494,7 +1494,7 @@ export async function getNextInSeries(workId: string, homeId: string | null) {
     .from(works)
     .where(eq(works.id, id));
   if (!work?.seriesId) return null;
-  const { nextToRead } = await import("@/lib/reading/series");
+  const { nextToRead } = await import("@/lib/reading/series-next");
   const next = await nextToRead(work.seriesId);
   if (!next || next.id === id) return null;
   const { atHandCopySql, copyWhereabouts } = await import("@/lib/reading/at-hand");
@@ -1682,7 +1682,7 @@ export async function getReadYearRange(): Promise<{ min: number | null; max: num
  */
 export async function getSeriesNextToRead(seriesId: string) {
   const id = z.uuid().parse(seriesId);
-  const { nextToRead } = await import("@/lib/reading/series");
+  const { nextToRead } = await import("@/lib/reading/series-next");
   const next = await nextToRead(id);
   if (!next) return null;
   const { copyWhereabouts } = await import("@/lib/reading/at-hand");

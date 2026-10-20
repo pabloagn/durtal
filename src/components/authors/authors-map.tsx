@@ -32,7 +32,7 @@ import {
 } from "@/lib/utils/map-groups";
 import { shortCountryName, withNationalityFilter } from "@/lib/utils/nationality-param";
 import { LIST_PREFERENCES } from "@/lib/preferences";
-import { publicEnv } from "@/lib/env";
+import { publicEnv } from "@/lib/env-public";
 import { countLabel, lifeDates } from "@/lib/utils/format";
 
 interface AuthorProperties {

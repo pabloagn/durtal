@@ -2,6 +2,7 @@ import { VENUE_TYPES } from "@/lib/catalogue/venues";
 import { pgEnum } from "drizzle-orm/pg-core";
 import { WORK_KINDS } from "@/lib/catalogue/kinds";
 import { ATTRIBUTIONS } from "@/lib/catalogue/credits";
+import { CATALOGUE_STATUSES } from "@/lib/types";
 
 export const attributionEnum = pgEnum("attribution_enum", ATTRIBUTIONS);
 
@@ -13,14 +14,7 @@ export const genderEnum = pgEnum("gender_enum", ["male", "female"]);
 
 export const workKindEnum = pgEnum("work_kind_enum", WORK_KINDS);
 
-export const catalogueStatusEnum = pgEnum("catalogue_status_enum", [
-  "tracked",
-  "shortlisted",
-  "wanted",
-  "on_order",
-  "accessioned",
-  "deaccessioned",
-]);
+export const catalogueStatusEnum = pgEnum("catalogue_status_enum", CATALOGUE_STATUSES);
 
 export const acquisitionPriorityEnum = pgEnum("acquisition_priority_enum", [
   "none",

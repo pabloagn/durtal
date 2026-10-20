@@ -11,10 +11,7 @@
  */
 import { z } from "zod/v4";
 import { WORK_READING_STATES, type WorkReadingState } from "./constants";
-import { catalogueStatusEnum } from "@/lib/db/schema/enums";
-
-export type CatalogueStatus = (typeof catalogueStatusEnum.enumValues)[number];
-export const CATALOGUE_STATUSES = catalogueStatusEnum.enumValues;
+import { CATALOGUE_STATUSES, type CatalogueStatus } from "@/lib/types";
 
 /** The Reading filter's values: the reading states, and "queued" (in Up next) */
 export const READING_FILTER_VALUES = [...WORK_READING_STATES, "queued"] as const;

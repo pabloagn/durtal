@@ -50,7 +50,7 @@ vi.mock("@/components/layout/page-header", async () => {
 import { setSuggestionFeedback, removeSuggestionFeedback, restoreSuggestionFeedback } from "@/lib/actions/suggestions";
 import { getWorkCount } from "@/lib/actions/works";
 import { executeMerge, previewMerge } from "@/lib/harmonization/merge";
-import { nextToRead } from "@/lib/reading/series";
+import { nextToRead } from "@/lib/reading/series-next";
 import { getBookPredictionContext, getSuggestionContext, predictionGateOn } from "@/lib/reading/suggest/context";
 import { evaluatePredictions, predict, predictionSource, predictionText, type Prediction } from "@/lib/reading/suggest/predict";
 import { DEFAULT_SUGGESTION_PARAMS } from "@/lib/reading/suggest/params";
