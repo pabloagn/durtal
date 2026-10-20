@@ -1,6 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod/v4";
+import { ExpectedActionError } from "@/lib/actions/expected-error";
 import { serverEnv } from "@/lib/env";
 
 /**
@@ -48,6 +49,9 @@ export function errorResponse(err: unknown, fallback: string): NextResponse {
       { status: 400 },
     );
   }
+  // A refusal that says what to change, such as a delivery with no place for its copy
+  if (err instanceof ExpectedActionError)
+    return NextResponse.json({ error: err.message }, { status: 422 });
   console.error(`[api] ${fallback}:`, err);
   return NextResponse.json({ error: fallback }, { status: 500 });
 }

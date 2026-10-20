@@ -106,6 +106,7 @@ describe.skipIf(!url)("acquisition targets for films, perfumes and paintings", (
     const book = await work("book", "Watt");
     const edition = await value(`insert into editions(work_id, title, language) values ($1, 'Watt', 'en') returning id`, [book]);
     const target = await value(`insert into acquisition_targets(work_id) values ($1) returning id`, [book]);
+    const shelf = await place("Study");
     const order = await createOrder({
       workId: book,
       acquisitionTargetId: target,
@@ -113,9 +114,11 @@ describe.skipIf(!url)("acquisition targets for films, perfumes and paintings", (
       acquisitionMethod: "in_store_purchase",
       status: "purchased",
       orderDate: "2026-10-01",
+      destinationLocationId: shelf,
     });
     expect(order.status).toBe("purchased");
-    expect(await value(`select count(*)::int from instances`)).toBe(0);
+    // A book order brings in a book copy, of the edition it names
+    expect([...await q(`select edition_id, location_id from instances`)]).toEqual([{ edition_id: edition, location_id: shelf }]);
     const { id: perfumeId } = await perfume();
     for (const statement of [
       () => q(`insert into acquisition_targets(work_id) values ($1)`, [perfumeId]),

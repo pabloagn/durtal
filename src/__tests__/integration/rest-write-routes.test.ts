@@ -205,13 +205,24 @@ describe.skipIf(!url)("REST write routes with PostgreSQL", () => {
     });
 
     it("moves the status, records it, and refuses an invalid move with the allowed ones", async () => {
-      const { body } = await answer(await postOrder(request("POST", "/api/orders", order())));
+      // With no destination and no location for new copies, the delivery says what to set
+      const nowhere = await answer(await postOrder(request("POST", "/api/orders", order())));
+      expect(await answer(await postStatus(request("POST", "/x", { status: "delivered" }), params(nowhere.body.id)))).toEqual({
+        status: 422,
+        body: { error: "Choose where the book arrives: set the order's destination, or a location for new copies in Settings." },
+      });
+      const { body } = await answer(
+        await postOrder(request("POST", "/api/orders?allowDuplicate=1", order({ destinationLocationId: locationId }))),
+      );
       const delivered = await answer(
         await postStatus(request("POST", "/x", { status: "delivered", notes: "In the letterbox" }), params(body.id)),
       );
       expect(delivered.status).toBe(200);
       expect(delivered.body.status).toBe("delivered");
       expect(delivered.body.actualDeliveryDate).toBeTruthy();
+      // The delivered book's copy is at the order's destination
+      const [copy] = await db.select().from(schema.instances);
+      expect(copy).toMatchObject({ id: delivered.body.instanceId, editionId, locationId });
       const history = await db
         .select({ to: schema.orderStatusHistory.toStatus })
         .from(schema.orderStatusHistory)

@@ -75,6 +75,12 @@ import {
   typedKind,
 } from "@/lib/catalogue/acquisition-receipt";
 import {
+  bookNotYetReceived,
+  bookReceiptQueries,
+  bookReturnQueries,
+  planBookCopy,
+} from "@/lib/catalogue/book-receipt";
+import {
   nextCatalogueStatus,
   type CatalogueStatus,
 } from "@/lib/utils/order-status-sync";
@@ -563,20 +569,31 @@ export async function createOrder(
     : validated;
   if (receiving)
     await checkDestination(target!, receiptOrder(validated.workId, fields));
+  // A book bought in a shop or received as a gift arrives with its copy
+  const bookOrder = bookReceiptOrder(validated.workId, validated);
+  const plan =
+    !kind && BOOK_IN_HAND_STATUSES.includes(status) && !validated.instanceId
+      ? await planBookCopy(bookOrder)
+      : null;
 
-  // The holding (if it arrives now), the order and its first history row are one write
+  // The holding or copy (if it arrives now), the order and its first history row are one write
   let at = 0;
+  let copyId: string | null = null;
   const results = await withReadableErrors(() => atomic((d) => {
     const receipt = receiving
       ? receiptQueries(d, target!, receiptOrder(validated.workId, fields), receivedOn)
       : null;
-    at = receipt?.queries.length ?? 0;
+    const bookReceipt = plan ? bookReceiptQueries(d, plan, bookOrder, receivedOn) : null;
+    copyId = bookReceipt?.link.instanceId ?? null;
+    const arrivals = [...(receipt?.queries ?? []), ...(bookReceipt?.queries ?? [])];
+    at = arrivals.length;
     return [
-      ...(receipt?.queries ?? []),
-      ...newOrderQueries(d, randomUUID(), validated.workId, fields, status, receipt?.link),
+      ...arrivals,
+      ...newOrderQueries(d, randomUUID(), validated.workId, fields, status, receipt?.link ?? bookReceipt?.link),
     ];
   }));
   const [order] = results[at] as (typeof orders.$inferSelect)[];
+  if (copyId) recordActivity("work", validated.workId, "work.instance_added", { targetId: copyId });
 
   // Sync work catalogue status from all orders for this work
   await syncWorkCatalogueStatusFromAllOrders(
@@ -584,8 +601,34 @@ export async function createOrder(
     `Order created with status "${status}"`,
   );
 
-  invalidate(CACHE_TAGS.orders, ...(receiving ? [CACHE_TAGS.works, CACHE_TAGS.locations] : []));
+  invalidate(CACHE_TAGS.orders, ...(receiving || plan ? [CACHE_TAGS.works, CACHE_TAGS.locations] : []));
   return order;
+}
+
+/** The parts of a book order its copy reads */
+function bookReceiptOrder(
+  workId: string,
+  o: Pick<
+    OrderFields,
+    | "editionId"
+    | "acquisitionMethod"
+    | "price"
+    | "totalCost"
+    | "currency"
+    | "destinationLocationId"
+    | "destinationSubLocationId"
+  >,
+) {
+  return {
+    workId,
+    editionId: o.editionId ?? null,
+    acquisitionMethod: o.acquisitionMethod,
+    price: o.price ?? null,
+    totalCost: o.totalCost ?? null,
+    currency: o.currency ?? null,
+    destinationLocationId: o.destinationLocationId ?? null,
+    destinationSubLocationId: o.destinationSubLocationId ?? null,
+  };
 }
 
 /** The parts of an order a receipt reads */
@@ -760,6 +803,8 @@ export async function updateOrderStatus(
       actualDeliveryDate: true,
       workId: true,
       acquisitionTargetId: true,
+      editionId: true,
+      instanceId: true,
       venueId: true,
       price: true,
       totalCost: true,
@@ -822,15 +867,25 @@ export async function updateOrderStatus(
     today;
   if (receiving)
     await checkDestination(target!, receiptOrder(current.workId, current));
+  // A book order brings in its copy when received, once, and deaccessions it
+  // when returned
+  const plan =
+    !kind && BOOK_IN_HAND_STATUSES.includes(newStatus) && !current.instanceId
+      ? await planBookCopy(current)
+      : null;
+  const returningBook = !kind && newStatus === "returned";
 
   // The change, checked against the status it was validated from, what it
   // brings in or sends back, and its history row are one write: a concurrent
   // change makes this one fail
   let at = 0;
+  let copyId: string | null = null;
   const results = await withReadableErrors(() => atomic((d) => {
     const receipt = receiving
       ? receiptQueries(d, target!, receiptOrder(current.workId, current), receivedOn)
       : null;
+    const bookReceipt = plan ? bookReceiptQueries(d, plan, current, receivedOn) : null;
+    copyId = bookReceipt?.link.instanceId ?? null;
     const queries: unknown[] = [
       d.execute(sql`select id from orders where id=${id}::uuid for update`),
       d.execute(
@@ -840,7 +895,9 @@ export async function updateOrderStatus(
         ),
       ),
       ...(receipt ? [notYetReceived(d, id), ...receipt.queries] : []),
+      ...(bookReceipt ? [bookNotYetReceived(d, id), ...bookReceipt.queries] : []),
       ...(returning ? returnQueries(d, current, today) : []),
+      ...(returningBook ? bookReturnQueries(d, current.instanceId, today) : []),
     ];
     at = queries.length;
     return [
@@ -850,7 +907,7 @@ export async function updateOrderStatus(
         .set({
           status: newStatus,
           ...additionalFields,
-          ...(receipt?.link ?? {}),
+          ...(receipt?.link ?? bookReceipt?.link ?? {}),
           updatedAt: new Date(),
         })
         .where(eq(orders.id, id))
@@ -864,6 +921,7 @@ export async function updateOrderStatus(
     ];
   }));
   const [updated] = results[at] as (typeof orders.$inferSelect)[];
+  if (copyId) recordActivity("work", current.workId, "work.instance_added", { targetId: copyId });
 
   // C1: always sync work status from all orders (handles cancel, return, delivery)
   await syncWorkCatalogueStatusFromAllOrders(
@@ -873,7 +931,7 @@ export async function updateOrderStatus(
 
   invalidate(
     CACHE_TAGS.orders,
-    ...(receiving || returning ? [CACHE_TAGS.works, CACHE_TAGS.locations] : []),
+    ...(receiving || returning || plan || returningBook ? [CACHE_TAGS.works, CACHE_TAGS.locations] : []),
   );
   return updated;
 }

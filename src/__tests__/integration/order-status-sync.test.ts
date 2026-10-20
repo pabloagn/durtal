@@ -12,6 +12,7 @@ import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { asc, eq } from "drizzle-orm";
 import * as schema from "@/lib/db/schema";
+import { todayLocal } from "@/lib/utils/date";
 
 // Explicit opt-in only: never load DATABASE_URL or any live environment files.
 const url = process.env.DURTAL_ORDER_STATUS_TEST_DATABASE_URL;
@@ -51,6 +52,7 @@ import {
   createOrder,
   deleteOrder,
   searchWorksForOrder,
+  updateOrder,
   updateOrderStatus,
 } from "@/lib/actions/orders";
 import { deleteWork, getWorkDeleteSummary } from "@/lib/actions/works";
@@ -71,19 +73,36 @@ describe.skipIf(!url)("order status sync with PostgreSQL (SLN-280)", () => {
     recordActivity.mockClear();
   }, 30000);
 
+  /** A book with one edition */
   async function work(catalogueStatus: Status) {
     const [row] = await db
       .insert(schema.works)
       .values({ title: "Against Nature", catalogueStatus })
       .returning();
+    await edition(row.id);
     return row.id;
   }
-  function order(workId: string) {
+  async function edition(workId: string) {
+    const [row] = await db
+      .insert(schema.editions)
+      .values({ workId, title: "Against Nature" })
+      .returning();
+    return row.id;
+  }
+  async function place(name = "Amsterdam", type: "physical" | "digital" = "physical") {
+    const [row] = await db.insert(schema.locations).values({ name, type }).returning();
+    return row.id;
+  }
+  function order(workId: string, destinationLocationId: string | null = null) {
     return createOrder({
       workId,
       acquisitionMethod: "online_order",
       orderDate: "2026-09-25",
+      destinationLocationId,
     });
+  }
+  function copies() {
+    return db.select().from(schema.instances);
   }
   async function status(workId: string) {
     const [row] = await db
@@ -114,11 +133,86 @@ describe.skipIf(!url)("order status sync with PostgreSQL (SLN-280)", () => {
 
   it("follows a wanted work through order and delivery", async () => {
     const id = await work("wanted");
-    const o = await order(id);
+    const o = await order(id, await place());
     expect(await status(id)).toBe("on_order");
     await updateOrderStatus(o.id, "delivered");
     expect(await status(id)).toBe("accessioned");
     expect(await history(id)).toEqual(["wanted→on_order", "on_order→accessioned"]);
+  });
+
+  it("brings the delivered book's copy to the order's destination, once, and links it", async () => {
+    const id = await work("wanted");
+    const amsterdam = await place();
+    const o = await order(id, amsterdam);
+    await updateOrder(o.id, { price: "18.00", totalCost: "21.50", currency: "EUR" });
+    const delivered = await updateOrderStatus(o.id, "delivered");
+
+    const [copy] = await copies();
+    expect(copy).toMatchObject({
+      locationId: amsterdam,
+      subLocationId: null,
+      format: "paperback",
+      status: "available",
+      acquisitionType: "purchased",
+      acquisitionDate: delivered.actualDeliveryDate,
+      acquisitionPrice: "21.50",
+      acquisitionCurrency: "EUR",
+    });
+    // The order records the edition that arrived and the copy it brought in
+    expect(delivered).toMatchObject({ instanceId: copy.id, editionId: copy.editionId });
+    expect(recordActivity).toHaveBeenCalledWith("work", id, "work.instance_added", { targetId: copy.id });
+    await expect(updateOrderStatus(o.id, "delivered")).rejects.toThrow("Invalid transition");
+    expect(await copies()).toHaveLength(1);
+  });
+
+  it("brings a copy bought in a shop with the order, as a gift for a gift", async () => {
+    const id = await work("wanted");
+    const shelf = await place();
+    for (const acquisitionMethod of ["in_store_purchase", "gift"] as const)
+      await createOrder({ workId: id, acquisitionMethod, status: acquisitionMethod === "gift" ? "received" : "purchased", orderDate: "2026-09-25", destinationLocationId: shelf });
+    expect((await copies()).map((c) => c.acquisitionType).sort()).toEqual(["gift", "purchased"]);
+    expect(await status(id)).toBe("accessioned");
+  });
+
+  it("puts the copy at the location for new copies when the order names none, and refuses what it cannot place", async () => {
+    const noEdition = (await db.insert(schema.works).values({ title: "Là-bas", catalogueStatus: "wanted" }).returning())[0].id;
+    const twoEditions = await work("wanted");
+    await edition(twoEditions);
+    const oneEdition = await work("wanted");
+    const refused = [
+      [await order(noEdition), "This book has no edition yet. Add the edition that arrived on the book's page first."],
+      [await order(twoEditions), "This book has more than one edition. Choose the edition that arrived on the order first."],
+      [await order(oneEdition), "Choose where the book arrives: set the order's destination, or a location for new copies in Settings."],
+    ] as const;
+    for (const [o, message] of refused) {
+      await expect(updateOrderStatus(o.id, "delivered")).rejects.toThrow(message);
+      expect((await db.select().from(schema.orders).where(eq(schema.orders.id, o.id)))[0].status).toBe("placed");
+    }
+    expect(await copies()).toEqual([]);
+
+    // The location for new copies (Settings -> General) receives it; a digital one takes no paper format
+    const ebooks = await place("eBooks", "digital");
+    await db.insert(schema.appSettings).values({ newCopyLocationId: ebooks })
+      .onConflictDoUpdate({ target: schema.appSettings.id, set: { newCopyLocationId: ebooks } });
+    await updateOrderStatus(refused[2][0].id, "delivered");
+    expect(await copies()).toMatchObject([{ locationId: ebooks, format: null, condition: null }]);
+  });
+
+  it("deaccessions the copy of a returned order", async () => {
+    const id = await work("wanted");
+    const o = await order(id, await place());
+    await updateOrderStatus(o.id, "delivered");
+    await updateOrderStatus(o.id, "returned");
+    const [copy] = await copies();
+    expect(copy).toMatchObject({
+      status: "deaccessioned",
+      dispositionType: "returned",
+      dispositionDate: todayLocal(),
+      dispositionNotes: "Returned to the seller",
+    });
+    expect(
+      (await db.select().from(schema.instanceStatusHistory)).map((h) => [h.fromStatus, h.toStatus, h.notes]),
+    ).toEqual([["available", "deaccessioned", "Returned to the seller"]]);
   });
 
   it("returns a cancelled order's work to the status it had before ordering", async () => {
@@ -160,7 +254,7 @@ describe.skipIf(!url)("order status sync with PostgreSQL (SLN-280)", () => {
 
   it("refuses to delete a received order, and says its status in words", async () => {
     const id = await work("wanted");
-    const o = await order(id);
+    const o = await order(id, await place());
     await updateOrderStatus(o.id, "delivered");
     await expect(deleteOrder(o.id)).rejects.toThrow(
       'Cannot delete a "Delivered" order. Consider updating its status instead.',
@@ -179,13 +273,14 @@ describe.skipIf(!url)("order status sync with PostgreSQL (SLN-280)", () => {
       acquisitionMethod: "online_order",
       orderDate: "2026-09-25",
       venueId: venue.id,
+      destinationLocationId: await place(),
     });
     await db.insert(schema.acquisitionTargets).values({ workId: id });
     await updateOrderStatus(o.id, "delivered");
     const refusal =
       `"Against Nature" has an order marked Delivered (from Shakespeare and Company, 25 September 2026), which is its acquisition record. Record the order's return under Orders on the book's page before deleting the book.`;
 
-    expect(await getWorkDeleteSummary([id])).toMatchObject({ orders: 1, targets: 1, editions: 0, copies: 0, refusal });
+    expect(await getWorkDeleteSummary([id])).toMatchObject({ orders: 1, targets: 1, editions: 1, copies: 1, refusal });
     // The reason reaches the screen as data, not as the generic production error
     expect(await deleteWorkForScreen(id)).toEqual({ ok: false, error: refusal });
     await expect(deleteWork(id)).rejects.toThrow(refusal);
