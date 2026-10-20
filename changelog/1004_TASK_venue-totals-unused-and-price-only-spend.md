@@ -32,3 +32,4 @@ Two tickets on order money, done together:
 - **Tests (DB, private PostgreSQL 16):**
   - `provenance-stats`: a price-only delivered order counts in Total spent, a cancelled one does not, each currency is its own line, and `avgOrderCost` is gone.
   - `venues-retailers`: a venue merge offers none of the three columns and leaves stored values untouched; `getVenue` and `createVenue` return neither.
+- **Rechecked on main after #611:** `pnpm typecheck` and `pnpm lint` clean, `pnpm test:local` 8,765 of 8,765, `pnpm build`; the browser audit passes 18 of 18 page loads on /provenance, /places and /organizations in Chromium, Firefox and WebKit at 1440 and 390; `page-weight.js` passes.
