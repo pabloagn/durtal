@@ -2,6 +2,7 @@
 
 import { Suspense, useState } from "react";
 import dynamic from "next/dynamic";
+import { Pencil, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 /*
@@ -40,6 +41,9 @@ export function GoalDialogButton({
   return (
     <>
       <Button variant={variant} size={size} onClick={() => setOpen(true)} className="pointer-coarse:h-11" data-goal-open="">
+        {/* A ghost button has no box at rest: its icon says it is a command,
+            and which one (SLN-1047). The button sizes it */}
+        {variant === "ghost" && (editing ? <Pencil aria-hidden strokeWidth={1.5} /> : <Plus aria-hidden strokeWidth={1.5} />)}
         {label}
       </Button>
       {open && <GoalDialog onClose={() => setOpen(false)} editing={editing} />}

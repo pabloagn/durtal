@@ -77,4 +77,23 @@ describe("GoalDialogButton", () => {
     expect(actions.setReadingGoal).toHaveBeenCalledWith({ year: 2026, metric: "books", target: 30, countRereads: true, excludedWorkTypeIds: [] });
     expect(actions.removeReadingGoal).not.toHaveBeenCalled();
   });
+
+  it("a ghost button carries its pencil, so it reads as a command at rest (SLN-1047)", async () => {
+    await act(async () => root.render(createElement("main", null,
+      createElement(GoalDialogButton, { editing: true, label: "Edit goals", variant: "ghost", size: "sm" }),
+      createElement(GoalDialogButton, { variant: "ghost", size: "sm" }),
+      createElement(GoalDialogButton))));
+    const [ghost, setGhost, boxed] = [...host.querySelectorAll("[data-goal-open]")];
+    expect(ghost.textContent).toBe("Edit goals");
+    // The icon comes first, hidden from screen readers: the label names the button
+    const icon = ghost.firstElementChild!;
+    expect(icon.tagName.toLowerCase()).toBe("svg");
+    expect(icon.getAttribute("aria-hidden")).toBe("true");
+    expect(icon.getAttribute("class")).toContain("lucide-pencil");
+    // Setting a first goal is not an edit: a plus, not a pencil
+    expect(setGhost.textContent).toBe("Set a reading goal");
+    expect(setGhost.firstElementChild!.getAttribute("class")).toContain("lucide-plus");
+    // A boxed button is a command already
+    expect(boxed.querySelector("svg")).toBeNull();
+  });
 });
