@@ -290,7 +290,7 @@ describe("descriptor-driven catalogue eBook controls", () => {
     // (review of #319: at 320px "Again / st / Natur / e"); from sm they show
     // on the selected row only (pass 5, SLN-849)
     const keys = read.querySelector("kbd")!.closest(".hidden");
-    expect(keys?.className).toContain("sm:group-aria-selected:inline");
+    expect(keys?.className).toContain("sm:any-pointer-fine:group-aria-selected:inline");
     expect(read.textContent).toMatch(/^Read/);
   });
 });

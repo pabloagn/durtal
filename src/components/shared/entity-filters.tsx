@@ -171,7 +171,8 @@ export function EntityFilters({
 
       {/* Sort: chips from sm up, outlined like a segmented control (SLN-693); on
           a phone one menu for the field and one button for the direction, so
-          eight sorts take one row (SLN-639). A list with more than six sorts
+          eight sorts take one row (SLN-639); a phone held sideways too, so its
+          first screen holds records (SLN-1149). A list with more than six sorts
           (Books) keeps the menu at every width, so its toolbar fits one row
           at 1440 as every other list's does (SLN-1025) */}
       <div className="flex items-center gap-1 pointer-coarse:gap-2">
@@ -179,7 +180,7 @@ export function EntityFilters({
           aria-label="Sort by"
           value={currentSort}
           onChange={(e) => pickSort(e.target.value)}
-          className={`h-8 rounded-sm border border-glass-border bg-bg-primary px-2 text-xs text-fg-primary pointer-coarse:h-11 ${sortMenu ? "" : "sm:hidden"}`}
+          className={`h-8 rounded-sm border border-glass-border bg-bg-primary px-2 text-xs text-fg-primary pointer-coarse:h-11 ${sortMenu ? "" : "sm:hidden sideways:inline-block"}`}
         >
           {sortOptions.map((opt) => (
             <option key={opt.value} value={opt.value}>
@@ -192,7 +193,7 @@ export function EntityFilters({
           onClick={() => pickSort(currentSort)}
           aria-label={effectiveOrder === "asc" ? "Ascending, reverse the order" : "Descending, reverse the order"}
           data-tooltip="Reverse the order"
-          className={`flex h-8 w-8 items-center justify-center rounded-sm border border-glass-border text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary pointer-coarse:h-11 pointer-coarse:w-11 ${sortMenu ? "" : "sm:hidden"}`}
+          className={`flex h-8 w-8 items-center justify-center rounded-sm border border-glass-border text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary pointer-coarse:h-11 pointer-coarse:w-11 ${sortMenu ? "" : "sm:hidden sideways:flex"}`}
         >
           {effectiveOrder === "asc" ? (
             <ArrowUp className="h-3.5 w-3.5" strokeWidth={1.5} />
@@ -206,7 +207,7 @@ export function EntityFilters({
             type="button"
             onClick={() => pickSort(opt.value)}
             aria-pressed={currentSort === opt.value}
-            className={`h-8 rounded-sm border px-2.5 text-xs transition-colors pointer-coarse:h-11 max-sm:hidden ${
+            className={`h-8 rounded-sm border px-2.5 text-xs transition-colors pointer-coarse:h-11 max-sm:hidden sideways:hidden ${
               currentSort === opt.value
                 ? "border-accent-primary/40 bg-selection-bg text-fg-primary"
                 : "border-glass-border text-fg-secondary hover:bg-bg-tertiary hover:text-fg-primary"

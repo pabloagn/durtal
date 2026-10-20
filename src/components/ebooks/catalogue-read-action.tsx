@@ -72,8 +72,9 @@ export function PaletteEbookReadAction({
     >
       Read
       {/* The keys act on the selected row only, so only it shows them; a
-          phone has no keys to press, and its title needs the room */}
-      <span className="hidden sm:group-aria-selected:inline"><KeyCombo keys={["mod", "enter"]} /></span>
+          touch screen alone has no keys to press (SLN-1149), and a phone's
+          title needs the room */}
+      <span className="hidden sm:any-pointer-fine:group-aria-selected:inline"><KeyCombo keys={["mod", "enter"]} /></span>
     </ReaderEntryLink>
   );
 }
