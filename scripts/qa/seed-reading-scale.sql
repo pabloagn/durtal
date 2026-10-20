@@ -1,5 +1,5 @@
 -- A long reading history for speed checks (SLN-1309), on top of a scale seed with
--- 3,400 books or more (findings/scale-recheck-records-2026-10-18/seed-scale-valid.sql).
+-- 3,400 books or more (scripts/qa/seed-scale.sql).
 -- Private preview databases only.
 -- 4,000 readings over 3,400 books (600 read twice), 2018 to 2026, with a
 -- mix of formats, statuses, ratings and audiobooks without a page count;
