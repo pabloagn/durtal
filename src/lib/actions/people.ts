@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { and, asc, desc, eq, or, sql, count } from "drizzle-orm";
 import { db } from "@/lib/db";
+import { uniqueConstraint } from "@/lib/db/errors";
 import { atomic } from "@/lib/db/atomic";
 import {
   authors,
@@ -170,28 +171,7 @@ export async function createPerson(input: CreatePersonInput) {
     } catch (error) {
       // Another creator with the same name may have claimed the candidate.
       // Retry only this unique constraint; the whole failed batch rolled back.
-      let cause: unknown = error;
-      let slugConflict = false;
-      for (
-        let depth = 0;
-        depth < 5 && cause && typeof cause === "object";
-        depth++
-      ) {
-        const detail = cause as {
-          code?: string;
-          constraint?: string;
-          constraint_name?: string;
-          cause?: unknown;
-        };
-        if (
-          detail.code === "23505" &&
-          (detail.constraint ?? detail.constraint_name) ===
-            "authors_slug_unique"
-        )
-          slugConflict = true;
-        cause = detail.cause;
-      }
-      if (!slugConflict || attempt === 4) throw error;
+      if (uniqueConstraint(error) !== "authors_slug_unique" || attempt === 4) throw error;
     }
   }
   throw new Error("Could not allocate a person URL");

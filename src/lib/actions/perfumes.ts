@@ -7,7 +7,7 @@ import { z } from "zod";
 import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { atomic } from "@/lib/db/atomic";
-import { readableDatabaseError, withReadableErrors } from "@/lib/db/errors";
+import { readableDatabaseError, uniqueConstraint, withReadableErrors } from "@/lib/db/errors";
 import {
   works,
   perfumeDetails,
@@ -89,7 +89,7 @@ import { alphabeticalWorkIds } from "./utils/alphabetical-works";
 import { getCreditRoles, getWorkCredits } from "./credits";
 import { getPerfumeRetailerLinks } from "./perfume-retailers";
 import { generateWorkSlug } from "@/lib/utils/slugify";
-import { isWorkSlugClash, uniqueSlug } from "@/lib/catalogue/slugs";
+import { uniqueSlug } from "@/lib/catalogue/slugs";
 import { assertSql, resultRows } from "@/lib/harmonization/store";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
 import { wantedTargetQueries } from "@/lib/catalogue/acquisition-receipt";
@@ -573,8 +573,7 @@ async function perfumeSlug(
       )?.name ?? "")
     : "";
   const base = generateWorkSlug(title, houseName, id);
-  // "new" is the Add perfume page, /perfumes/new: a perfume never takes it
-  return attempt < 2 ? uniqueSlug(works, base, { taken: ["new"] }) : `${base}-${id}`;
+  return attempt < 2 ? uniqueSlug(works, base) : `${base}-${id}`;
 }
 
 /**
@@ -614,7 +613,7 @@ export async function createPerfume(input: CreatePerfumeInput) {
       ]);
       break;
     } catch (error) {
-      if (attempt < 2 && isWorkSlugClash(error)) continue;
+      if (attempt < 2 && uniqueConstraint(error) === "works_slug_unique") continue;
       throw readableDatabaseError(error);
     }
   }

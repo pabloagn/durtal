@@ -7,7 +7,8 @@ import { z } from "zod";
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { atomic } from "@/lib/db/atomic";
-import { withReadableErrors } from "@/lib/db/errors";
+import { uniqueConstraint, withReadableErrors } from "@/lib/db/errors";
+import { creditedWorkSlug } from "@/lib/catalogue/slugs";
 import {
   works,
   paintingDetails,
@@ -77,7 +78,6 @@ import { paintingHoldings } from "@/lib/catalogue/holdings";
 import { assertSql, resultRows } from "@/lib/harmonization/store";
 import { alphabeticalWorkIds } from "./utils/alphabetical-works";
 import { getCreditRoles, getWorkCredits } from "./credits";
-import { slugify } from "@/lib/utils/slugify";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
 import { wantedTargetQueries } from "@/lib/catalogue/acquisition-receipt";
 import { deleteUnusedObjects, ownedMediaObjects, workObjects } from "@/lib/s3/cleanup";
@@ -445,24 +445,35 @@ export async function createPainting(input: CreatePaintingInput) {
     throw new ExpectedActionError("A new painting has no existing credits");
   const id = randomUUID();
   const creation = newDate(v.creationDate);
-  await write((d) => [
-    d.insert(works).values({
-      id,
-      kind: "painting",
-      title: v.title,
-      slug: `${slugify(v.title) || "painting"}-${id}`,
-      description: v.description || null,
-      originalLanguage: null,
-    }),
-    ...insertDates(d, [creation]),
-    d.insert(paintingDetails).values({
-      workId: id,
-      creationDateId: creation?.id ?? null,
-    }),
-    ...insertWorkTaxa(d, id, v.classificationItemIds),
-    ...insertArtMovements(d, id, v.artMovementIds),
-    ...insertCredits(d, id, v.credits, []),
-  ]);
+  for (let attempt = 0; ; attempt++) {
+    // The address: `{title}-by-{painter}`, numbered when taken, as every
+    // other work's (SLN-1287); older paintings keep their `{title}-{id}`
+    const slug = await creditedWorkSlug(id, v.title, v.credits, "painting.painter", attempt);
+    try {
+      await write((d) => [
+        d.insert(works).values({
+          id,
+          kind: "painting",
+          title: v.title,
+          slug,
+          description: v.description || null,
+          originalLanguage: null,
+        }),
+        ...insertDates(d, [creation]),
+        d.insert(paintingDetails).values({
+          workId: id,
+          creationDateId: creation?.id ?? null,
+        }),
+        ...insertWorkTaxa(d, id, v.classificationItemIds),
+        ...insertArtMovements(d, id, v.artMovementIds),
+        ...insertCredits(d, id, v.credits, []),
+      ]);
+      break;
+    } catch (error) {
+      if (attempt < 2 && uniqueConstraint(error) === "works_slug_unique") continue;
+      throw error;
+    }
+  }
   changedCatalogue();
   await recordWorkEvents(id, [{ eventKey: "work.created", metadata: { newValue: v.title } }]);
   return (await getPainting(id))!;

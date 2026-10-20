@@ -130,6 +130,14 @@ describe.skipIf(!url)("book saves through the shared adapters", () => {
     expect((await createWork(input)).slug).toBe("doctor-faustus-by-thomas-mann-2");
   });
 
+  it("never gives a book the address of a fixed page beside it: /library/new, import, identify (SLN-1287)", async () => {
+    // An author whose name makes no slug (non-Latin, SLN-1237) leaves the title alone
+    const [{ id: laozi }] = await c`insert into authors(name,slug) values ('老子','laozi') returning id`;
+    for (const title of ["New", "Import", "Identify"]) {
+      expect((await createWork({ title, authorIds: [{ authorId: laozi }] })).slug).toBe(`${title.toLowerCase()}-2`);
+    }
+  });
+
   it("creates nothing when a later part of the book fails", async () => {
     await expect(
       createWork({
