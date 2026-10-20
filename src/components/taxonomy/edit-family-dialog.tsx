@@ -1,8 +1,8 @@
 "use client";
 
 import { useSaveReason } from "@/components/shared/save-reason";
-import { useEffect, useState, type FormEvent } from "react";
-import { Dialog } from "@/components/ui/dialog";
+import { useEffect, useId, useState, type FormEvent } from "react";
+import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { getTaxonomyFamilyUsage } from "@/lib/actions/taxonomy-families";
@@ -42,6 +42,8 @@ export function EditFamilyDialog({
   onClose,
   onSaved,
 }: EditFamilyDialogProps) {
+  // The footer sits outside the form, under the dialog's scrolling body
+  const formId = useId();
   const [value, setValue] = useState<FamilyFormValue>({
     name: family.name,
     description: family.description ?? "",
@@ -109,7 +111,7 @@ export function EditFamilyDialog({
           <Spinner className="h-5 w-5" />
         </div>
       ) : (
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form id={formId} onSubmit={handleSubmit} className="space-y-4">
           <FamilyForm
             value={value}
             onChange={setValue}
@@ -117,18 +119,21 @@ export function EditFamilyDialog({
             usedScopes={used ?? undefined}
             hierarchyLocked={nested}
           />
-          {error && (
-            <p role="alert" className="text-xs text-accent-red-text">
-              {error}
-            </p>
-          )}
-          <div className="flex flex-wrap items-center justify-end gap-2 pt-2">
+          {/* Under the dialog's body and always in view, with the reason a save
+              failed over the buttons (SLN-1056) */}
+          <DialogFooter>
+            {error && (
+              <p role="alert" className="basis-full text-xs text-accent-red-text">
+                {error}
+              </p>
+            )}
             {nameReason.hint}
             <Button data-dismiss="" type="button" variant="ghost" size="sm" onClick={onClose}>
               Cancel
             </Button>
             <Button aria-describedby={nameReason.describedBy}
               type="submit"
+              form={formId}
               variant="primary"
               size="sm"
               disabled={!value.name.trim() || used === null}
@@ -136,7 +141,7 @@ export function EditFamilyDialog({
             >
               Save
             </Button>
-          </div>
+          </DialogFooter>
         </form>
       )}
     </Dialog>

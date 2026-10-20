@@ -1,9 +1,9 @@
 "use client";
 
 import { useSaveReason } from "@/components/shared/save-reason";
-import { useState, useCallback, type FormEvent } from "react";
+import { useCallback, useId, useState, type FormEvent } from "react";
 import { toast } from "@/lib/notifications/toast";
-import { Dialog } from "@/components/ui/dialog";
+import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -33,6 +33,8 @@ export function CreateItemDialog({
   existingItems,
   onCreated,
 }: CreateItemDialogProps) {
+  // The footer sits outside the form, under the dialog's scrolling body
+  const formId = useId();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [color, setColor] = useState<string | null>(null);
@@ -106,7 +108,7 @@ export function CreateItemDialog({
       className="max-w-lg"
       expandable={false}
     >
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form id={formId} onSubmit={handleSubmit} className="space-y-4">
         {/* Name */}
         <Input
           label="Name"
@@ -152,11 +154,10 @@ export function CreateItemDialog({
           />
         )}
 
-        {/* Error */}
-        {error && <p className="text-xs text-accent-red-text">{error}</p>}
-
-        {/* Actions */}
-        <div className="flex flex-wrap items-center justify-end gap-2 pt-2">
+        {/* Under the dialog's body and always in view, with the reason a save
+            failed over the buttons (SLN-1056) */}
+        <DialogFooter>
+          {error && <p role="alert" className="basis-full text-xs text-accent-red-text">{error}</p>}
           {nameReason.hint}
           <Button data-dismiss=""
             type="button"
@@ -168,6 +169,7 @@ export function CreateItemDialog({
           </Button>
           <Button aria-describedby={nameReason.describedBy}
             type="submit"
+            form={formId}
             variant="primary"
             size="sm"
             disabled={!name.trim() || (!!twin && !twin.saveAnyway)}
@@ -175,7 +177,7 @@ export function CreateItemDialog({
           >
             {twin?.saveAnyway ? "Create anyway" : "Create"}
           </Button>
-        </div>
+        </DialogFooter>
       </form>
     </Dialog>
   );

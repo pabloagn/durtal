@@ -112,3 +112,62 @@ describe("the add page forms", () => {
     expect(source("components/publishers/publisher-editor.tsx")).toContain('{publisher ? "Save publisher" : "Add publisher"}');
   });
 });
+
+// The dialogs survey (section 3): about thirty more dialogs kept their button
+// row at the end of the scrolling body, and Add book's steps put theirs after
+// the last section (SLN-1056)
+describe("the dialogs the dialogs survey listed", () => {
+  it.each([
+    "components/films/copy-dialog.tsx",
+    "components/perfumes/bottle-dialog.tsx",
+    "components/catalogue/wanted-section.tsx",
+    "components/catalogue/work-relations.tsx",
+    "components/films/source-lookup.tsx",
+    "components/perfumes/source-lookup.tsx",
+    "components/paintings/source-lookup.tsx",
+    "components/taxonomy/edit-family-dialog.tsx",
+    "components/taxonomy/create-item-dialog.tsx",
+    "components/taxonomy/merge-dialog.tsx",
+    "app/(catalogue)/places/[slug]/venue-institutions.tsx",
+    "app/(catalogue)/taxonomy/taxonomy-actions.tsx",
+  ])("keep Cancel, the main button and the save error in the footer: %s", (file) => {
+    expect(source(file)).not.toMatch(/flex[^"]*justify-(end|between)[^"]*gap-[23][^"]*"/);
+    const [footer] = footers(file);
+    expect(footer).toContain('role="alert"');
+    expect(footer).toMatch(/Cancel|Back/);
+  });
+
+  it.each([
+    "components/catalogue/sources-section.tsx",
+    "components/perfumes/retailers-section.tsx",
+    "components/series/add-series-books-dialog.tsx",
+    "components/collections/add-books-dialog.tsx",
+    "components/books/column-config-dialog.tsx",
+    "components/media/image-adjustment-editor.tsx",
+    "app/(catalogue)/provenance/order-edit-dialog.tsx",
+    "app/(catalogue)/provenance/order-create-dialog.tsx",
+    "app/(catalogue)/locations/actions.tsx",
+    "app/(catalogue)/locations/location-card.tsx",
+    "app/(catalogue)/people/[slug]/author-merge-dialog.tsx",
+  ])("keep Cancel and the main button in the footer: %s", (file) => {
+    const all = footers(file);
+    expect(all.length).toBeGreaterThan(0);
+    for (const footer of all) expect(footer).toMatch(/Cancel|Back|\{children\}/);
+  });
+
+  it.each([
+    "components/series/series-form-dialog.tsx",
+    "components/recommenders/recommender-form-dialog.tsx",
+    "components/taxonomy/edit-family-dialog.tsx",
+    "components/taxonomy/create-item-dialog.tsx",
+    "components/collections/collection-controls.tsx",
+    "components/collections/create-collection-dialog.tsx",
+  ])("name their form from the footer: %s", (file) => {
+    expect(source(file)).toContain("<form id={formId}");
+    expect(footers(file).some((footer) => footer.includes("form={formId}"))).toBe(true);
+  });
+
+  it("pins Add book's step actions to the bottom of the page", () => {
+    expect(source("app/(catalogue)/library/new/step-progress.tsx")).toMatch(/export function StepFooter[\s\S]*className=\{PINNED_PAGE_FOOTER\}/);
+  });
+});

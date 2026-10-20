@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { SlidersHorizontal, Lock, RotateCcw, RotateCw } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "@/lib/notifications/toast";
 import { Button } from "@/components/ui/button";
-import { Dialog } from "@/components/ui/dialog";
+import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { MAX_STRAIGHTEN, nextTurn, rotatedFrame } from "@/lib/media/crop";
 import {
@@ -162,8 +162,11 @@ function LoadedEditor({
   initial,
   onSaved,
   onDraft,
+  pinned,
 }: {
   initial: Presentation;
+  /** In its own dialog: the actions sit under the body */
+  pinned: boolean;
   /** After a save, with the image's new source */
   onSaved?: (source: string) => void;
   onDraft?: (save: DraftSave) => void;
@@ -411,13 +414,14 @@ function LoadedEditor({
       </fieldset>
         {/* Outside the locked fieldset: Save keeps the focus while it saves,
             reading as busy, never disabled (docs/03, busy controls) */}
-        <div className="flex flex-wrap items-center justify-between gap-2">
+        <ActionRow pinned={pinned}>
           <Button
             type="button"
             size="sm"
             variant="ghost"
-            // Its label starts on the sliders' edge (docs/03, Spacing Scale)
-            className="-ml-2.5"
+            // Its label starts on the sliders' edge (docs/03, Spacing Scale),
+            // and Reset all and Save keep to the end
+            className="-ml-2.5 mr-auto"
             disabled={saving}
             aria-pressed={compare}
             onClick={() => setCompare((previous) => !previous)}
@@ -455,18 +459,31 @@ function LoadedEditor({
               Save
             </Button>
           </div>
-        </div>
+        </ActionRow>
       </div>
     </div>
   );
+}
+
+/**
+ * The editor's Compare, Reset all and Save. In the editor's own dialog they
+ * sit under its body, always in view (SLN-1056); in the media manager, which
+ * has more under the editor, they follow the sliders.
+ */
+function ActionRow({ pinned, children }: { pinned: boolean; children: ReactNode }) {
+  if (pinned) return <DialogFooter>{children}</DialogFooter>;
+  return <div className="flex flex-wrap items-center justify-between gap-2">{children}</div>;
 }
 
 export function ImageAdjustmentEditor({
   source,
   onSaved,
   onDraft,
+  pinned = false,
 }: {
   source: string;
+  /** In a dialog of its own, its actions sit under the body, always in view (SLN-1056) */
+  pinned?: boolean;
   onSaved?: () => void;
   /** The editor's unsaved work, for an owner that asks before losing it */
   onDraft?: (save: DraftSave) => void;
@@ -529,6 +546,7 @@ export function ImageAdjustmentEditor({
         onSaved?.();
       }}
       onDraft={onDraft}
+      pinned={pinned}
     />
   );
 }
@@ -574,6 +592,7 @@ export function ImageAdjustButton({
         >
           <ImageAdjustmentEditor
             source={source}
+            pinned
             onSaved={() => {
               onSaved?.();
               setOpen(false);

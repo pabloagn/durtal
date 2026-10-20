@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { Archive, ExternalLink, Plus, Tag, Trash2 } from "lucide-react";
 import { toast } from "@/lib/notifications/toast";
 import { Button } from "@/components/ui/button";
-import { Dialog } from "@/components/ui/dialog";
+import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -227,7 +227,8 @@ function ListingForm({
         maxLength={4000}
         error={url && !validUrl ? "Enter an address that starts with http:// or https://" : undefined}
       />
-      <div className="flex flex-wrap items-center justify-end gap-2">
+      {/* Under the dialog's body and always in view (SLN-1056) */}
+      <DialogFooter>
         {saveReason.hint}
         <Button data-dismiss="" variant="ghost" onClick={onDone} disabled={saving}>
           Cancel
@@ -258,7 +259,7 @@ function ListingForm({
         >
           Note retailer
         </Button>
-      </div>
+      </DialogFooter>
     </div>
   );
 }
@@ -324,7 +325,8 @@ function PriceForm({ linkId, onDone }: { linkId: string; onDone: () => void }) {
       </div>
       <Textarea label="Notes" value={notes} rows={2} maxLength={10000} onChange={(e) => setNotes(e.target.value)} />
       {error && (price || currency || capacity) && <p className="text-xs text-accent-red-text">{error}</p>}
-      <div className="flex justify-end gap-2">
+      {/* Under the dialog's body and always in view (SLN-1056) */}
+      <DialogFooter>
         <Button data-dismiss="" variant="ghost" onClick={onDone} disabled={saving}>
           Cancel
         </Button>
@@ -359,7 +361,7 @@ function PriceForm({ linkId, onDone }: { linkId: string; onDone: () => void }) {
         >
           Record price
         </Button>
-      </div>
+      </DialogFooter>
     </div>
   );
 }

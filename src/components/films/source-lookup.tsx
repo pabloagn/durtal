@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { ExternalLink, Search } from "lucide-react";
 import { toast } from "@/lib/notifications/toast";
 import { Button } from "@/components/ui/button";
-import { Dialog } from "@/components/ui/dialog";
+import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { CapAligned } from "@/components/shared/cap-aligned";
@@ -337,19 +337,21 @@ function Lookup({ film, onDone }: { film: Film; onDone: () => void }) {
           {review.unnamedCredits > 0 && ` It names ${review.unnamedCredits} more ${review.unnamedCredits === 1 ? "person" : "people"} without an English name.`}{" "}
           Credits and releases here that it does not name stay. Saving keeps Wikidata as a source of this film.
         </p>
-        {error && (
-          <p role="alert" className="text-sm text-accent-red-text">
-            {error}
-          </p>
-        )}
-        <div className="flex justify-end gap-2">
+        {/* Under the dialog's body and always in view, with the reason a save
+            failed over the buttons (SLN-1056) */}
+        <DialogFooter>
+          {error && (
+            <p role="alert" className="basis-full text-sm text-accent-red-text">
+              {error}
+            </p>
+          )}
           <Button variant="ghost" disabled={busy} onClick={() => setReview(null)}>
             Back
           </Button>
           <Button variant="primary" data-shortcut="save" busy={busy} disabled={blocked} onClick={save}>
             Save
           </Button>
-        </div>
+        </DialogFooter>
       </div>
     );
   }

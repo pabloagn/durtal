@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "@/lib/notifications/toast";
-import { Dialog } from "@/components/ui/dialog";
+import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -330,12 +330,14 @@ function BottleForm({
         maxLength={10000}
       />
 
-      {error && (
-        <p role="alert" className="text-sm text-accent-red-text">
-          {error}
-        </p>
-      )}
-      <div className="flex flex-wrap items-center justify-end gap-2">
+      {/* Under the dialog's body and always in view, with the reason a save
+          failed over the buttons (SLN-1056) */}
+      <DialogFooter>
+        {error && (
+          <p role="alert" className="basis-full text-sm text-accent-red-text">
+            {error}
+          </p>
+        )}
         {saveReason.hint}
         <Button data-dismiss="" variant="ghost" onClick={onDone} disabled={saving}>
           Cancel
@@ -343,7 +345,7 @@ function BottleForm({
         <Button variant="primary" data-shortcut="save" onClick={save} busy={saving} disabled={blocked} aria-describedby={saveReason.describedBy}>
           {bottle ? "Save" : `Add ${CONTAINER_LABELS[container].one.toLowerCase()}`}
         </Button>
-      </div>
+      </DialogFooter>
     </div>
   );
 }

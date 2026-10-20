@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { ArrowLeft, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { PINNED_PAGE_FOOTER } from "@/components/ui/dialog";
 import { STEPS, type Step } from "./wizard-model";
 
 /** The steps so far: a done step can be opened again */
@@ -104,7 +105,9 @@ export function StepProgress({
 
 /**
  * A step's actions: Back, Cancel, and the step's own on the right. `cancel`
- * takes `mr-auto`, which keeps it beside Back when the row wraps.
+ * takes `mr-auto`, which keeps it beside Back when the row wraps. The row is
+ * pinned to the bottom of the page, so the step's action is always in view,
+ * as on the other add pages (SLN-1056).
  */
 export function StepFooter({
   onBack,
@@ -116,13 +119,15 @@ export function StepFooter({
   children: ReactNode;
 }) {
   return (
-    <div className="flex flex-wrap justify-between gap-2">
-      <Button variant="ghost" onClick={onBack}>
-        <ArrowLeft className="h-3.5 w-3.5" strokeWidth={1.5} />
-        Back
-      </Button>
-      {cancel}
-      <div className="ml-auto flex flex-wrap justify-end gap-2">{children}</div>
+    <div className={PINNED_PAGE_FOOTER}>
+      <div className="flex flex-wrap justify-between gap-2">
+        <Button variant="ghost" onClick={onBack}>
+          <ArrowLeft className="h-3.5 w-3.5" strokeWidth={1.5} />
+          Back
+        </Button>
+        {cancel}
+        <div className="ml-auto flex flex-wrap justify-end gap-2">{children}</div>
+      </div>
     </div>
   );
 }

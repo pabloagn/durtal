@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "@/lib/notifications/toast";
-import { Dialog } from "@/components/ui/dialog";
+import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { searchWorksForSeries } from "@/lib/actions/series";
@@ -185,13 +185,15 @@ export function AddSeriesBooksDialog({
             </p>
           )}
         </div>
-        {moving.length > 0 && (
-          <p className="text-xs text-accent-gold">
-            {moving.length} {moving.length === 1 ? "book moves" : "books move"}{" "}
-            from another series. A book belongs to one series.
-          </p>
-        )}
-        <div className="flex flex-wrap items-center justify-end gap-2">
+        {/* Under the dialog's body and always in view, with what Add will
+            move over the buttons (SLN-1056) */}
+        <DialogFooter>
+          {moving.length > 0 && (
+            <p className="basis-full text-xs text-accent-gold">
+              {moving.length} {moving.length === 1 ? "book moves" : "books move"}{" "}
+              from another series. A book belongs to one series.
+            </p>
+          )}
           {saveReason.hint}
           <Button data-dismiss="" type="button" disabled={saving} onClick={onClose}>
             Cancel
@@ -206,7 +208,7 @@ export function AddSeriesBooksDialog({
           >
             {`Add ${chosen.length || ""}`.trim()}
           </Button>
-        </div>
+        </DialogFooter>
       </div>
     </Dialog>
   );

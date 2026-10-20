@@ -4,12 +4,12 @@ import { useSaveReason } from "@/components/shared/save-reason";
 
 import { NameDuplicateNotice } from "@/components/shared/name-duplicate-notice";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useId, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
 import { toast } from "@/lib/notifications/toast";
 import { Button } from "@/components/ui/button";
-import { Dialog } from "@/components/ui/dialog";
+import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { TitleInput } from "@/components/shared/title-input";
 import { Textarea } from "@/components/ui/textarea";
@@ -38,6 +38,8 @@ export function SeriesFormDialog({
   open?: boolean;
   onClose?: () => void;
 }) {
+  // The footer sits outside the form, under the dialog's scrolling body
+  const formId = useId();
   const router = useRouter();
   const isEdit = !!series;
   const [internalOpen, setInternalOpen] = useState(false);
@@ -129,7 +131,7 @@ export function SeriesFormDialog({
         className="max-w-lg"
         expandable={false}
       >
-        <form onSubmit={submit} noValidate className="space-y-4">
+        <form id={formId} onSubmit={submit} noValidate className="space-y-4">
           <div className="min-w-0 space-y-2"><TitleInput
             ref={titleRef}
             label="Title"
@@ -178,20 +180,22 @@ export function SeriesFormDialog({
               Series is complete
             </label>
           </div>
-          <div className="flex justify-end gap-2">
-        {nameReason.hint}
+          {/* Under the dialog's body and always in view (SLN-1056) */}
+          <DialogFooter>
+            {nameReason.hint}
             <Button data-dismiss="" type="button" disabled={pending} onClick={close}>
               Cancel
             </Button>
             <Button aria-describedby={nameReason.describedBy}
               type="submit"
+              form={formId}
               variant="primary"
               disabled={!title.trim()}
               busy={pending}
             >
               {isEdit ? "Save" : "Add"}
             </Button>
-          </div>
+          </DialogFooter>
         </form>
       </Dialog>
     </>

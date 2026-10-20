@@ -7,7 +7,7 @@ import { toast } from "@/lib/notifications/toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
-import { Dialog } from "@/components/ui/dialog";
+import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { AddressInput, EMPTY_ADDRESS, type AddressFields } from "@/components/locations/address-input";
 import type { CreateLocationInput } from "@/lib/validations/locations";
 import { createLocation } from "@/lib/actions/catalogue-client";
@@ -100,7 +100,8 @@ export function LocationActions() {
               <AddressInput value={address} onChange={setAddress} />
             </div>
           )}
-          <div className="flex items-center justify-end gap-2 border-t border-glass-border pt-4">
+          {/* Under the dialog's body and always in view (SLN-1056) */}
+          <DialogFooter>
             <Button data-dismiss="" variant="secondary" size="sm" onClick={() => setOpen(false)}>
               Cancel
             </Button>
@@ -112,7 +113,7 @@ export function LocationActions() {
             >
               Create
             </Button>
-          </div>
+          </DialogFooter>
         </div>
       </Dialog>
     </>

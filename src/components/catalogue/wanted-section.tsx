@@ -5,7 +5,7 @@ import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, ShoppingBag, Trash2 } from "lucide-react";
 import { toast } from "@/lib/notifications/toast";
-import { Dialog } from "@/components/ui/dialog";
+import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -224,22 +224,20 @@ function FormFooter({ saving, error, blocked, reason, label, onCancel, onSave }:
 }) {
   const saveReason = useSaveReason(reason);
   return (
-    <>
+    <DialogFooter>
       {error && (
-        <p role="alert" className="text-sm text-accent-red-text">
+        <p role="alert" className="basis-full text-sm text-accent-red-text">
           {error}
         </p>
       )}
-      <div className="flex flex-wrap items-center justify-end gap-2">
-        {saveReason.hint}
-        <Button data-dismiss="" variant="ghost" onClick={onCancel} disabled={saving}>
-          Cancel
-        </Button>
-        <Button variant="primary" data-shortcut="save" onClick={onSave} busy={saving} disabled={blocked} aria-describedby={saveReason.describedBy}>
-          {label}
-        </Button>
-      </div>
-    </>
+      {saveReason.hint}
+      <Button data-dismiss="" variant="ghost" onClick={onCancel} disabled={saving}>
+        Cancel
+      </Button>
+      <Button variant="primary" data-shortcut="save" onClick={onSave} busy={saving} disabled={blocked} aria-describedby={saveReason.describedBy}>
+        {label}
+      </Button>
+    </DialogFooter>
   );
 }
 

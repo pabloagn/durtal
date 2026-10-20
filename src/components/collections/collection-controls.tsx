@@ -1,6 +1,6 @@
 "use client";
 import { useSaveReason } from "@/components/shared/save-reason";
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useId, useRef, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowUp,
@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { toast } from "@/lib/notifications/toast";
 import { Button } from "@/components/ui/button";
-import { Dialog } from "@/components/ui/dialog";
+import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { MediaManagerDialog } from "@/components/media/media-manager-dialog";
@@ -69,6 +69,8 @@ export function CollectionControls({
   kinds?: WorkKind[];
   initialAdd?: boolean;
 }) {
+  // The footer sits outside the form, under the dialog's scrolling body
+  const formId = useId();
   // Empty, the page's one Add is its empty state's (SLN-918)
   const empty = !editionIds.length && !workIds.length;
   const router = useRouter();
@@ -232,7 +234,7 @@ export function CollectionControls({
         className="max-w-md"
         expandable={false}
       >
-        <form onSubmit={save} className="space-y-4">
+        <form id={formId} onSubmit={save} className="space-y-4">
           <Input
             label="Name"
             value={name}
@@ -250,7 +252,8 @@ export function CollectionControls({
             maxLength={5000}
             disabled={busy}
           />
-          <div className="flex flex-wrap items-center justify-end gap-2">
+          {/* Under the dialog's body and always in view (SLN-1056) */}
+          <DialogFooter>
             {nameReason.hint}
             <Button data-dismiss=""
               type="button"
@@ -261,13 +264,14 @@ export function CollectionControls({
             </Button>
             <Button aria-describedby={nameReason.describedBy}
               type="submit"
+              form={formId}
               variant="primary"
               disabled={!name.trim()}
               busy={busy}
             >
               Save
             </Button>
-          </div>
+          </DialogFooter>
         </form>
       </Dialog>
       <Dialog

@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
-import { Dialog } from "@/components/ui/dialog";
+import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { DatePicker } from "@/components/ui/date-picker";
 import {
   CURRENCY_SELECT_OPTIONS,
@@ -296,8 +296,9 @@ export function OrderEditDialog({
         />
       </div>
 
-      <div className="mt-5 flex flex-wrap items-center justify-end gap-3 border-t border-glass-border pt-4">
-        {saveReason.hint}
+      {/* Under the dialog's body and always in view (SLN-1056) */}
+      <DialogFooter>
+      {saveReason.hint}
         <Button data-dismiss=""
           variant="ghost"
           size="sm"
@@ -316,7 +317,7 @@ export function OrderEditDialog({
         >
           Save changes
         </Button>
-      </div>
+      </DialogFooter>
     </Dialog>
   );
 }

@@ -1,12 +1,12 @@
 "use client";
 
 import { useSaveReason } from "@/components/shared/save-reason";
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useId, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
 import { toast } from "@/lib/notifications/toast";
 import { Button } from "@/components/ui/button";
-import { Dialog } from "@/components/ui/dialog";
+import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { parseWebsite } from "@/lib/utils/website";
 import { createRecommender, updateRecommender } from "@/lib/actions/catalogue-client";
@@ -32,6 +32,8 @@ export function RecommenderFormDialog({
   open?: boolean;
   onClose?: () => void;
 }) {
+  // The footer sits outside the form, under the dialog's scrolling body
+  const formId = useId();
   const router = useRouter();
   const isEdit = !!recommender;
   const [internalOpen, setInternalOpen] = useState(false);
@@ -121,7 +123,7 @@ export function RecommenderFormDialog({
         expandable={false}
       >
         {/* Our own website check adds https:// — the browser's URL check would block "youtube.com/@…" */}
-        <form onSubmit={submit} noValidate className="space-y-4">
+        <form id={formId} onSubmit={submit} noValidate className="space-y-4">
           <Input
             ref={nameRef}
             label="Name"
@@ -145,20 +147,22 @@ export function RecommenderFormDialog({
             autoComplete="off"
             spellCheck={false}
           />
-          <div className="flex flex-wrap items-center justify-end gap-2">
+          {/* Under the dialog's body and always in view (SLN-1056) */}
+          <DialogFooter>
             {nameReason.hint}
             <Button data-dismiss="" type="button" disabled={pending} onClick={close}>
               Cancel
             </Button>
             <Button aria-describedby={nameReason.describedBy}
               type="submit"
+              form={formId}
               variant="primary"
               disabled={!name.trim()}
               busy={pending}
             >
               {isEdit ? "Save" : "Add"}
             </Button>
-          </div>
+          </DialogFooter>
         </form>
       </Dialog>
     </>

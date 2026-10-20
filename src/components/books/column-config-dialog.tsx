@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { GripVertical, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Dialog } from "@/components/ui/dialog";
+import { Dialog, DialogFooter } from "@/components/ui/dialog";
 
 export interface ColumnDef {
   key: string;
@@ -116,14 +116,15 @@ export function ColumnConfigDialog({
           })}
         </div>
 
-        <div className="flex items-center justify-end gap-2 border-t border-glass-border pt-4">
+        {/* Under the dialog's body and always in view (SLN-1056) */}
+        <DialogFooter>
           <Button data-dismiss="" variant="secondary" size="sm" onClick={onClose}>
             Cancel
           </Button>
           <Button variant="primary" size="sm" onClick={handleSave}>
             Save
           </Button>
-        </div>
+        </DialogFooter>
     </Dialog>
   );
 }
