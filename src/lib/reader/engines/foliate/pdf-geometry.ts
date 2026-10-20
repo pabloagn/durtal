@@ -1,4 +1,5 @@
 import type { DurtalLocator } from "@/lib/reader/engine";
+import { headOf, tailOf } from "./quote-match";
 
 export type PdfRect = [number, number, number, number];
 export interface ClientRect {
@@ -155,10 +156,7 @@ export function pdfLocatorFromGeometry(input: {
   )
     return null;
   const rects = mergePdfRects(input.rects);
-  const highlight = input.text.highlight
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 10000);
+  const highlight = headOf(input.text.highlight.replace(/\s+/g, " ").trim(), 10000);
   if (!rects.length || !highlight) return null;
   const first = input.viewport.convertToViewportRectangle(rects[0]);
   if (first.length !== 4 || !first.every(Number.isFinite)) return null;
@@ -166,8 +164,8 @@ export function pdfLocatorFromGeometry(input: {
     0,
     Math.min(1, Math.min(first[1], first[3]) / input.viewport.height),
   );
-  const before = input.text.before?.replace(/\s+/g, " ").slice(-32);
-  const after = input.text.after?.replace(/\s+/g, " ").slice(0, 32);
+  const before = input.text.before && tailOf(input.text.before.replace(/\s+/g, " "), 32);
+  const after = input.text.after && headOf(input.text.after.replace(/\s+/g, " "), 32);
   return {
     v: 1,
     fileHash: input.fileHash,
@@ -182,9 +180,9 @@ export function pdfLocatorFromGeometry(input: {
       ...(after ? { after } : {}),
     },
     pageLabel:
-      input.pageLabel?.trim().slice(0, 40) || String(input.pageIndex + 1),
+      headOf(input.pageLabel?.trim() ?? "", 40) || String(input.pageIndex + 1),
     ...(input.tocLabel?.trim()
-      ? { tocLabel: input.tocLabel.trim().slice(0, 300) }
+      ? { tocLabel: headOf(input.tocLabel.trim(), 300) }
       : {}),
   };
 }

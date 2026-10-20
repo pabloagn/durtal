@@ -27,6 +27,26 @@ export function normalizeQuoteText(text: string): string {
   return text.replace(/\s+/g, " ");
 }
 
+const isHigh = (unit: number) => unit >= 0xd800 && unit <= 0xdbff;
+const isLow = (unit: number) => unit >= 0xdc00 && unit <= 0xdfff;
+
+/**
+ * At most the first `limit` UTF-16 units of `text`, never half of a surrogate
+ * pair, which the stored locator refuses (SLN-1494). Every other cut is the
+ * one `.slice` made, so a mark matches the same passage saved before.
+ */
+export function headOf(text: string, limit: number): string {
+  if (text.length <= limit) return text;
+  return text.slice(0, isHigh(text.charCodeAt(limit - 1)) ? limit - 1 : limit);
+}
+
+/** At most the last `limit` UTF-16 units of `text`, never half of a surrogate pair */
+export function tailOf(text: string, limit: number): string {
+  if (text.length <= limit) return text;
+  const start = text.length - limit;
+  return text.slice(isLow(text.charCodeAt(start)) ? start + 1 : start);
+}
+
 /** Up to one error in five characters of the passage */
 const ERROR_RATE = 0.2;
 /** Below this, a candidate is not the passage */
