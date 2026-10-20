@@ -2,13 +2,26 @@ import type { ReactNode } from "react";
 import type { RelatedBook } from "@/lib/catalogue/related-books";
 import { HorizontalCarousel } from "@/components/shared/horizontal-carousel";
 import { BookCard } from "@/components/books/book-card";
-import { mediaCrop } from "@/lib/utils/media-style";
+import { editionImage, type EditionImage } from "@/lib/utils/edition-image";
 import { cardReadingOf } from "@/lib/reading/card";
 import { mediaUrl } from "@/lib/s3/media-url";
 import type { WorkEbookDTO } from "@/lib/ebooks/catalogue-dto";
 
 /** A work loaded with `workCardWith` */
 export type WorkCardData = RelatedBook;
+
+/**
+ * A book's card shows its poster first, then its cover edition's cover. An
+ * edition's card (a publisher or translator shelf) shows that edition's own
+ * cover first, then the book's poster, as the edition does on its book page
+ * (SLN-999): an edition that follows the book's cover has none of its own.
+ */
+export function cardImage(work: WorkCardData): EditionImage | null {
+  const edition = work.editions[0];
+  const poster = work.media?.find((m) => m.type === "poster" && m.isActive);
+  if (work.editionCard && edition) return editionImage(edition, poster);
+  return editionImage({ coverS3Key: null, thumbnailS3Key: null }, poster) ?? (edition ? editionImage(edition) : null);
+}
 
 /** Book-only presentation also used inside a mixed related shelf. */
 export function RelatedBookCard({ work, ebook, readerReturnTo }: {
@@ -18,11 +31,7 @@ export function RelatedBookCard({ work, ebook, readerReturnTo }: {
 }) {
   const edition = work.editions[0];
   const poster = work.media?.find((m) => m.type === "poster" && m.isActive);
-  const coverKey =
-    poster?.thumbnailS3Key ??
-    poster?.s3Key ??
-    edition?.thumbnailS3Key ??
-    edition?.coverS3Key;
+  const image = cardImage(work);
   const authorNames = [
     ...new Set(work.workAuthors.map((wa) => wa.author.name)),
   ];
@@ -35,9 +44,9 @@ export function RelatedBookCard({ work, ebook, readerReturnTo }: {
       authorNames={authorNames}
       editionNote={work.editionNote}
       primaryEditionId={edition?.id}
-      coverUrl={coverKey ? mediaUrl(coverKey) : null}
-      coverCrop={poster ? mediaCrop(poster) : null}
-      coverTone={poster?.tone ?? null}
+      coverUrl={image ? mediaUrl(image.key) : null}
+      coverCrop={image?.crop ?? null}
+      coverTone={image?.source === "poster" ? (poster?.tone ?? null) : null}
       publicationYear={edition?.publicationYear ?? work.originalYear}
       language={edition?.language}
       instanceCount={work.copyCount}
