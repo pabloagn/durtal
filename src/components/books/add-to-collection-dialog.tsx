@@ -29,10 +29,6 @@ import { shortcutProps } from "@/lib/shortcuts/shortcuts";
 
 type Data = Awaited<ReturnType<typeof getCollectionSelection>>;
 
-/** One collection name: accents, case and punctuation aside */
-const sameName = (a: string, b: string) =>
-  normalizeSearchText(a) === normalizeSearchText(b);
-
 /** A work joining a collection, with its kind for the row's count line */
 function workKind(data: Data, workId: string) {
   return { kind: data.works.find((w) => w.id === workId)?.kind ?? ("book" as const) };
@@ -110,6 +106,11 @@ export function AddToCollectionDialog({
    */
   const heldEditions = (c: Data["collections"][number]) =>
     selected.filter((id) => c.editionIds.includes(id) || c.workIds.includes(bookOf(id) ?? ""));
+  /** How many of the chosen a collection holds, and whether it holds them all */
+  const holding = (c: Data["collections"][number]) => {
+    const amount = heldEditions(c).length + wholeWorks.filter((id) => c.workIds.includes(id)).length;
+    return { amount, all: chosen > 0 && amount === chosen };
+  };
   async function toggle(id: string, remove: boolean) {
     const c = data?.collections.find((row) => row.id === id);
     if (saving.current || !chosen || !c) return;
@@ -153,27 +154,30 @@ export function AddToCollectionDialog({
       setBusy(false);
     }
   }
-  // Accents and case are ignored, as in every search: "decadents" finds
-  // "Décadents", and adds to it rather than making a second one
+  // Accents, case and punctuation are ignored, as in every search:
+  // "decadents" finds "Décadents", and adds to it rather than making a second one
+  const needle = normalizeSearchText(query);
   const filtered =
-    data?.collections.filter((c) =>
-      normalizeSearchText(c.name).includes(normalizeSearchText(query)),
-    ) ?? [];
+    data?.collections.filter((c) => normalizeSearchText(c.name).includes(needle)) ?? [];
+  const named = needle ? filtered.find((c) => normalizeSearchText(c.name) === needle) : undefined;
   /**
    * The collection Enter adds to: the one with this name, else the only one
-   * the name finds (SLN-1350: "deca" adds to Decadents). With none, or several
-   * and none named exactly, Enter creates the collection typed.
+   * the name finds, lit in the list (SLN-1350: "deca" adds to Decadents).
+   * With none, or several and none by this name, Enter creates the collection
+   * typed. Beside a lone partial match, Create stays offered as its own row.
    */
-  const target = query.trim()
-    ? (filtered.find((c) => sameName(c.name, query)) ?? (filtered.length === 1 ? filtered[0] : undefined))
-    : undefined;
+  const target = named ?? (needle && filtered.length === 1 ? filtered[0] : undefined);
   async function create(event: React.FormEvent) {
     event.preventDefault();
     if (saving.current || !query.trim() || !chosen) return;
-    if (target) {
-      await toggle(target.id, false);
-      return;
-    }
+    if (!target) return createNamed();
+    // Nothing to add: say so rather than report an addition
+    if (holding(target).all) toast.success(`Already in ${target.name}`);
+    else await toggle(target.id, false);
+  }
+  /** Make the collection typed, with the chosen books in it */
+  async function createNamed() {
+    if (saving.current || !query.trim() || !chosen) return;
     saving.current = true;
     setBusy(true);
     try {
@@ -327,16 +331,17 @@ export function AddToCollectionDialog({
                 data-shortcut="save"
                 aria-label={target ? `Add to ${target.name}` : query.trim() ? `Create & add “${query.trim()}”` : undefined}
               >
-                {target ? "Add" : "Create & add"}
+                {/* As wide as its longer label, so the field never jumps while typing */}
+                <span className="grid">
+                  <span aria-hidden className="invisible col-start-1 row-start-1">Create & add</span>
+                  <span className="col-start-1 row-start-1">{target ? "Add" : "Create & add"}</span>
+                </span>
               </Button>
             </form>
             <div className="max-h-64 space-y-1 overflow-y-auto overflow-x-hidden">
               {filtered.length ? (
                 filtered.map((c) => {
-                  const amount =
-                    heldEditions(c).length +
-                    wholeWorks.filter((id) => c.workIds.includes(id)).length;
-                  const all = chosen > 0 && amount === chosen;
+                  const { amount, all } = holding(c);
                   return (
                     <button
                       type="button"
@@ -346,8 +351,8 @@ export function AddToCollectionDialog({
                       aria-label={c.name}
                       disabled={busy || !chosen}
                       onClick={() => toggle(c.id, all)}
-                      // The row Enter adds to is lit, as a highlighted choice
-                      className={`flex w-full items-start gap-3 rounded-sm px-2 py-2 text-left hover:bg-bg-tertiary disabled:opacity-50 pointer-coarse:min-h-11 ${c.id === target?.id ? "bg-bg-tertiary" : ""}`}
+                      // The row Enter adds to is lit as the palette's highlighted choice
+                      className={`flex w-full items-start gap-3 rounded-sm px-2 py-2 text-left hover:bg-bg-tertiary disabled:opacity-50 pointer-coarse:min-h-11 ${c.id === target?.id ? "bg-selection-bg/60" : ""}`}
                     >
                       {/* The box and icon sit on the name's first line, as it may wrap */}
                       <span className="flex h-6 shrink-0 items-center">
@@ -385,6 +390,23 @@ export function AddToCollectionDialog({
                     ? "No matching collections. Create one above."
                     : "Name your first collection above."}
                 </p>
+              )}
+              {/* Enter adds to the one partial match; making a new one by
+                  this name stays a choice of its own (SLN-1350) */}
+              {target && !named && (
+                <button
+                  type="button"
+                  disabled={busy || !chosen}
+                  onClick={createNamed}
+                  className="flex w-full items-start gap-3 rounded-sm px-2 py-2 text-left text-sm hover:bg-bg-tertiary disabled:opacity-50 pointer-coarse:min-h-11"
+                >
+                  {/* In the box's slot, with the icon slot empty, so the words start where names do */}
+                  <span className="flex h-6 w-4 shrink-0 items-center justify-center text-fg-secondary">
+                    <FolderPlus size={14} strokeWidth={1.5} aria-hidden />
+                  </span>
+                  <span className="h-6 w-3.5 shrink-0" />
+                  <span className="min-w-0 flex-1 [overflow-wrap:anywhere]">Create “{query.trim()}” and add</span>
+                </button>
               )}
             </div>
           </>

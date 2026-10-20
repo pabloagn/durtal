@@ -335,10 +335,11 @@ the identify queue and the harmonize workspace (16 files).
    collection name, the image URL) presses that field's Create & add or
    Add (`data-shortcut="save"`), not Done. In the collection name, Add
    adds to the collection with that name, else the only one the name finds,
-   lit in the list ("deca" adds to Decadents); Create & add appears only when
-   the name finds none, or several and none by that name (SLN-1350). Pick one for me presses Start
-   reading. In Match again the selected source filter is the primary, so
-   Enter presses it again and nothing changes.
+   lit in the list ("deca" adds to Decadents); Create & add appears only
+   when the name finds none, or several and none by that name, and a row
+   under a lone partial match still creates "deca" (SLN-1350). Pick one for
+   me presses Start reading. In Match again the selected source filter is
+   the primary, so Enter presses it again and nothing changes.
 3. **Danger confirmations** (Delete, Remove highlight, Undo import, Discard
    timer): plain Enter does nothing by design; ⌘Enter presses Delete in the
    shared delete confirmation and Undo import (section 1). SLN-629 says "Plain Enter invokes
