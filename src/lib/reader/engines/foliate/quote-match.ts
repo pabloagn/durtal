@@ -27,39 +27,23 @@ export function normalizeQuoteText(text: string): string {
   return text.replace(/\s+/g, " ");
 }
 
-const graphemes = typeof Intl !== "undefined" && "Segmenter" in Intl
-  ? new Intl.Segmenter(undefined, { granularity: "grapheme" })
-  : null;
 const isHigh = (unit: number) => unit >= 0xd800 && unit <= 0xdbff;
 const isLow = (unit: number) => unit >= 0xdc00 && unit <= 0xdfff;
 
 /**
- * At most the first `limit` UTF-16 units of `text`, cut between characters
- * as a reader sees them (SLN-1494): an emoji, a flag or a ZWJ family stays
- * whole or goes, and no half of a surrogate pair is left, which the stored
- * locator refuses.
+ * At most the first `limit` UTF-16 units of `text`, never half of a surrogate
+ * pair, which the stored locator refuses (SLN-1494). Every other cut is the
+ * one `.slice` made, so a mark matches the same passage saved before.
  */
 export function headOf(text: string, limit: number): string {
   if (text.length <= limit) return text;
-  if (graphemes) {
-    let end = 0;
-    for (const { segment } of graphemes.segment(text)) {
-      if (end + segment.length > limit) break;
-      end += segment.length;
-    }
-    return text.slice(0, end);
-  }
   return text.slice(0, isHigh(text.charCodeAt(limit - 1)) ? limit - 1 : limit);
 }
 
-/** At most the last `limit` UTF-16 units of `text`, cut between characters as `headOf` cuts */
+/** At most the last `limit` UTF-16 units of `text`, never half of a surrogate pair */
 export function tailOf(text: string, limit: number): string {
   if (text.length <= limit) return text;
   const start = text.length - limit;
-  if (graphemes) {
-    for (const { index } of graphemes.segment(text)) if (index >= start) return text.slice(index);
-    return "";
-  }
   return text.slice(isLow(text.charCodeAt(start)) ? start + 1 : start);
 }
 

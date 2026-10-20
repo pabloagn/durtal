@@ -1331,10 +1331,10 @@ class FoliateEngine implements ReaderEngine {
             highlight: sentence.text,
           },
           ...(progress?.tocItem?.label
-            ? { tocLabel: progress.tocItem.label }
+            ? { tocLabel: headOf(progress.tocItem.label, 300) }
             : {}),
           ...(progress?.pageItem?.label
-            ? { pageLabel: progress.pageItem.label }
+            ? { pageLabel: headOf(progress.pageItem.label, 40) }
             : {}),
         };
         yield {

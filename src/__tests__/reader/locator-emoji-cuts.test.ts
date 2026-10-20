@@ -20,7 +20,7 @@ const hash = "c".repeat(64);
 const padTo = (mark: string, units: number) => "x".repeat(units - 1) + mark;
 
 describe("cutting quote text between characters", () => {
-  it("keeps an emoji, a ZWJ family and a flag whole or leaves them out", () => {
+  it("never leaves half of an emoji, a ZWJ family or a flag", () => {
     for (const mark of ["🌙", family, flag]) {
       const text = padTo(mark, QUOTE_CHARS) + " and more";
       const head = headOf(text, QUOTE_CHARS);

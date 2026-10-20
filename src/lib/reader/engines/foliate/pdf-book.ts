@@ -8,6 +8,7 @@ import { pdfGeometryViewport, pdfTextLayerTransform } from "./pdf-viewport";
 import { cropEnabled, isScannedPage, type ContentBox } from "./pdf-crop";
 import { pdfImageCoverage } from "./pdf-image-coverage";
 import { applyPdfPageTheme } from "./pdf-page-theme";
+import { headOf } from "./quote-match";
 import { attachMarginSelect } from "./pdf-margin-select";
 import type { ReaderPresentation } from "@/lib/validations/reader-preferences";
 
@@ -117,7 +118,7 @@ export async function makePdfBook(
   ): Promise<FoliateTocEntry> => {
     const index = await destinationIndex(item.dest).catch(() => null);
     return {
-      label: item.title?.trim().slice(0, 300) || "Untitled",
+      label: headOf(item.title?.trim() ?? "", 300) || "Untitled",
       href: index === null ? "" : String(index),
       subitems: await Promise.all(item.items.map(outlineItem)),
     };
@@ -141,7 +142,7 @@ export async function makePdfBook(
     },
     toc: outline ? await Promise.all(outline.map(outlineItem)) : [],
     pageList: Array.from({ length: session.pageCount }, (_, index) => ({
-      label: pageLabels?.[index]?.trim().slice(0, 40) || String(index + 1),
+      label: headOf(pageLabels?.[index]?.trim() ?? "", 40) || String(index + 1),
       href: String(index),
     })),
     sections: [],
