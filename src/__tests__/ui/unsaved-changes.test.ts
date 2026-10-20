@@ -167,22 +167,22 @@ describe("a dialog with a draft", () => {
     expect(document.activeElement?.textContent).toBe("Keep editing");
   });
 
-  it("keeps editing on ⌘Enter while the form cannot save, and saves on it when it can (SLN-1054)", () => {
-    const off = renderEdit({ saveDisabled: true });
-    type(off.notes, "Bought in Lisbon");
-    escape(off.notes);
+  it("keeps editing on ⌘Enter while the form cannot save (SLN-1054)", () => {
+    const { onClose, notes } = renderEdit({ saveDisabled: true });
+    type(notes, "Bought in Lisbon");
+    escape(notes);
     expect(answer("Discard").dataset.variant).toBe("secondary");
     expect(shortcutButton(document.activeElement, "save")).toBe(answer("Keep editing"));
     click(shortcutButton(document.activeElement, "save")!);
     expect(prompt()).toBeNull();
-    expect(off.onClose).not.toHaveBeenCalled();
-    expect(off.notes.value).toBe("Bought in Lisbon");
-    act(() => root.unmount());
-    root = createRoot(host);
+    expect(onClose).not.toHaveBeenCalled();
+    expect(notes.value).toBe("Bought in Lisbon");
+  });
 
-    const on = renderEdit();
-    type(on.notes, "Bought in Lisbon");
-    escape(on.notes);
+  it("saves on ⌘Enter when the form can, with Discard never the main button", () => {
+    const { notes } = renderEdit();
+    type(notes, "Bought in Lisbon");
+    escape(notes);
     expect(answer("Discard").dataset.variant).toBe("secondary");
     expect(shortcutButton(document.activeElement, "save")).toBe(answer("Save"));
   });

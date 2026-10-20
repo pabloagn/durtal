@@ -358,9 +358,11 @@ export function UnsavedChangesPrompt({ prompt }: { prompt: UnsavedPrompt }) {
             type="button"
             ref={main}
             variant="ghost"
-            className="mr-auto"
+            // Its label starts on the question's edge
+            className="mr-auto -ml-3"
             onClick={prompt.keepEditing}
-            {...(prompt.canSave ? {} : { "data-shortcut": "save" })}
+            data-shortcut={prompt.canSave ? undefined : "save"}
+            {...(prompt.canSave ? {} : shortcutProps("mod enter"))}
           >
             Keep editing
           </Button>
@@ -368,7 +370,7 @@ export function UnsavedChangesPrompt({ prompt }: { prompt: UnsavedPrompt }) {
             Discard
           </Button>
           {prompt.canSave && (
-            <Button type="button" variant="primary" onClick={prompt.save}>
+            <Button type="button" variant="primary" onClick={prompt.save} {...shortcutProps("mod enter")}>
               Save
             </Button>
           )}
