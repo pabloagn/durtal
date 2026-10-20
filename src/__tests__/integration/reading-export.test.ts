@@ -286,8 +286,7 @@ describe.skipIf(!url)("the reading exports with PostgreSQL", () => {
     const rows = JSON.parse(json.text) as Record<string, unknown>[];
     const open = rows.find((row) => row.reading_id === openId)!;
     expect(Object.keys(open)).toEqual([...READING_EXPORT_COLUMNS]);
-    expect(open).toMatchObject({ current_percent: 44.5, current_page: 133, started_on: "2026-01-02", finished_on: null, rating: null, pages_read: 60 });
-    expect(Object.values(open)).not.toContain("");
+    expect(open).toMatchObject({ current_percent: 44.5, current_page: 133, started_on: { precision: "day", start: { year: 2026, month: 1, day: 2 } }, finished_on: null, rating: null, pages_read: 60 });
     const notes = JSON.parse((await exportFile("reading-notes", { all: true }, "json")).text) as Record<string, unknown>[];
     expect(notes[0]).toMatchObject({ page: 12, end_page: 13, page_roman: false, favourite: false, chapter: null });
     // CSV still says yes or no
@@ -301,6 +300,27 @@ describe.skipIf(!url)("the reading exports with PostgreSQL", () => {
     const cursor = reader.getCursor();
     const first = (await cursor.next()) as Record<string, unknown>;
     expect(first.day).toBeInstanceOf(Date);
+  });
+
+  it("takes signed microseconds directly from PostgreSQL while preserving legacy timestamp cells", async () => {
+    const b = await book("Exact clocks");
+    const r = await reading(b, { status: "finished" });
+    const sessionId = await session(r, { read_on: "1970-01-01", time_zone: "UTC", started_at: "1969-12-31T23:59:59.999999Z", ended_at: "1970-01-01T00:00:00.123456Z" });
+    await q(`insert into reading_notes(work_id, reading_id, kind, body, created_at) values ($1, $2, 'note', 'Exact note', '1969-12-31T23:59:59.999999Z')`, [b.workId, r]);
+    const before = await written();
+    const exact = await q(`select (extract(epoch from started_at)*1000000)::bigint::text as micros, to_json(started_at)#>>'{}' as legacy from reading_sessions where id=$1`, [sessionId]);
+    expect(exact[0].micros).toBe("-1");
+    const raw = await sessionExportRows(null, true);
+    expect(raw.find((row) => row.session_id === sessionId)?.started_at).toBe("-1");
+    const sessions = JSON.parse((await exportFile("reading-sessions", { all: true }, "json")).text);
+    expect(sessions.find((row: { session_id: string }) => row.session_id === sessionId)).toMatchObject({
+      started_at: "1969-12-31T23:59:59.999999Z", ended_at: "1970-01-01T00:00:00.123456Z", day: "1970-01-01", time_zone: "UTC",
+    });
+    const legacy = parseCsv((await exportFile("reading-sessions")).text);
+    expect(legacy[1][legacy[0].indexOf("started_at")]).toBe(exact[0].legacy);
+    const notes = JSON.parse((await exportFile("reading-notes", { all: true }, "json")).text);
+    expect(notes[0].created_at).toBe("1969-12-31T23:59:59.999999Z");
+    expect(await written()).toEqual(before);
   });
 
   it("exports what the journal's and the commonplace book's filters show, and the commonplace book as Markdown", async () => {

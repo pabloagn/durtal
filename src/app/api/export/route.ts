@@ -1,16 +1,9 @@
+import { fetchWorksForExport, fetchAuthorsForExport } from "@/lib/export/catalogue";
+import { NATIVE_EXPORTS, type ExportDefinition, type NativeEntity } from "@/lib/export/schema";
 
-import { PERSON_CREDITS } from "@/lib/catalogue/person-boundary";
-
-import { bookCondition } from "@/lib/catalogue/book-boundary";
 import { NextRequest, NextResponse } from "next/server";
-import { getAcquisitionTargetsForExport } from "@/lib/actions/publishers";
-import { db } from "@/lib/db";
-import { getWorkDigitalAvailability, type WorkDigitalAvailability } from "@/lib/ebooks/work-availability";
-import { ebookExportFormats, workEbookDTO } from "@/lib/ebooks/catalogue-dto";
 import { todayLocal } from "@/lib/utils/date";
 import { isUuid } from "@/lib/utils/uuid";
-import { works, workAuthors, authors } from "@/lib/db/schema";
-import { inArray, asc, and, sql } from "drizzle-orm";
 import {
   toCSV,
   toTSV,
@@ -20,17 +13,12 @@ import {
   FORMAT_EXT,
   type ExportFormat,
 } from "@/lib/utils/export";
-import { resultRows } from "@/lib/harmonization/store";
-import { uuids } from "@/lib/catalogue/work-store";
-import { compareTitles, compareWorks } from "@/lib/utils/title-order";
 import { slugify } from "@/lib/utils/slugify";
 import {
   COLLECTION_EXPORTS,
   collectionExportRows,
   type CollectionExport,
 } from "@/lib/export/collections";
-import { stripHtmlToText } from "@/lib/utils/sanitize";
-import { formatRating } from "@/lib/utils/rating";
 import {
   READING_EXPORT_COLUMNS,
   SESSION_EXPORT_COLUMNS,
@@ -101,8 +89,8 @@ const SINGULAR: Partial<Record<EntityType, string>> = {
 
 /**
  * One export file: CSV and TSV with their header even with no rows, JSON and
- * Parquet typed, a missing value null (SLN-894). `headers` fixes the columns;
- * without, the first row's keys.
+ * Parquet use an explicit native schema. Legacy headers always fix CSV/TSV
+ * columns; native DTO sidecars never enter their output.
  */
 async function exportFile(
   rows: Record<string, unknown>[],
@@ -110,19 +98,26 @@ async function exportFile(
   format: Exclude<ExportFormat, "md">,
   filename: string,
   forImport = false,
+  definition?: ExportDefinition,
 ) {
   const disposition = `attachment; filename="${filename}${FORMAT_EXT[format]}"`;
   let body: string | Uint8Array;
   if (format === "csv") body = toCSV(rows, headers, { forImport });
   else if (format === "tsv") body = toTSV(rows, headers);
-  else if (format === "json") body = toJSON(rows, headers);
+  else if (format === "json") {
+    if (!definition) throw new Error("Missing native export definition");
+    body = toJSON(definition, rows);
+  }
   else {
-    const buf = await toParquet(rows, headers);
+    if (!definition) throw new Error("Missing native export definition");
+    const buf = await toParquet(definition, rows);
     body = new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength);
   }
   return new NextResponse(body as unknown as BodyInit, {
     status: 200,
-    headers: { "Content-Type": FORMAT_MIME[format], "Content-Disposition": disposition },
+    headers: { "Content-Type": FORMAT_MIME[format], "Content-Disposition": disposition,
+      ...((format === "json" || format === "parquet") && definition ? { "X-Durtal-Export-Schema": `${definition.entity}/${definition.version}` } : {}),
+    },
   });
 }
 
@@ -137,162 +132,19 @@ async function readingExport(
   filters: string | null,
 ): Promise<{ rows: Record<string, unknown>[]; headers: readonly string[] } | { markdown: string }> {
   const params = new URLSearchParams(filters ?? "");
+  const native = format === "json" || format === "parquet";
   if (entity === "readings") {
     const ids = filters === null ? null : await journalReadingIds(parseJournalQuery(Object.fromEntries(params.entries())));
-    return { rows: await readingExportRows(ids), headers: READING_EXPORT_COLUMNS };
+    return { rows: await readingExportRows(ids, native), headers: READING_EXPORT_COLUMNS };
   }
-  if (entity === "reading-sessions") return { rows: await sessionExportRows(null), headers: SESSION_EXPORT_COLUMNS };
+  if (entity === "reading-sessions") return { rows: await sessionExportRows(null, native), headers: SESSION_EXPORT_COLUMNS };
   if (entity === "reading-notes") {
     const query = filters === null ? {} : parseNotesQuery(params);
     if (format === "md") return { markdown: commonplaceMarkdown(await commonplaceNotes(query), todayLocal()) };
-    return { rows: await noteExportRows(query), headers: NOTE_EXPORT_COLUMNS };
+    return { rows: await noteExportRows(query, native), headers: NOTE_EXPORT_COLUMNS };
   }
   const rows = (await loadGoodreadsBooks()).flatMap((book) => goodreadsRow(book) ?? []);
   return { rows, headers: GOODREADS_EXPORT_HEADER };
-}
-
-/** The books with these ids, or every book (null), in title order */
-async function fetchWorksForExport(ids: string[] | null) {
-  const results = await db.query.works.findMany({
-    where: ids ? and(bookCondition, inArray(works.id, ids)) : bookCondition,
-    with: {
-      workAuthors: {
-        with: { author: true },
-        orderBy: asc(workAuthors.sortOrder),
-      },
-      editions: {
-        with: {
-          publisherLinks: { with: { publisher: true } },
-          instances: {
-            columns: { id: true },
-          },
-        },
-      },
-    },
-  });
-
-  // The lookup takes at most 500 works a call: a whole-catalogue export asks in batches
-  const found = results.map((w) => w.id);
-  const targets: Awaited<ReturnType<typeof getAcquisitionTargetsForExport>> = [];
-  const digital = new Map<string, WorkDigitalAvailability>();
-  for (let i = 0; i < found.length; i += 500) {
-    targets.push(...(await getAcquisitionTargetsForExport(found.slice(i, i + 500))));
-    for (const [id, value] of await getWorkDigitalAvailability(found.slice(i, i + 500), { includePositions: false })) digital.set(id, value);
-  }
-  return [...results].sort(compareWorks).map((w) => {
-    const rating = formatRating(w.rating);
-    const authorNames = w.workAuthors.map((wa) => wa.author.name).join("; ");
-    const primaryEdition = w.editions[0];
-    const totalInstances = w.editions.reduce(
-      (sum, e) => sum + e.instances.length,
-      0,
-    );
-
-    return {
-      title: w.title,
-      ebook_formats: ebookExportFormats((digital.get(w.id)?.ebooks ?? []).map(workEbookDTO)),
-      authors: authorNames,
-      original_language: w.originalLanguage,
-      original_year: w.originalYear,
-      catalogue_status: w.catalogueStatus,
-      acquisition_priority: w.acquisitionPriority,
-      rating: rating ? Number(rating) : null,
-      is_anthology: w.isAnthology,
-      isbn_13: primaryEdition?.isbn13 ?? null,
-      isbn_10: primaryEdition?.isbn10 ?? null,
-      publisher: primaryEdition?.publisher ?? null,
-      // Nested lists: JSON and Parquet keep them as data, CSV and TSV write them as JSON text
-      acquisition_targets: targets
-        .filter((t) => t.target.workId === w.id)
-        .map((t) => ({
-          ...t.target,
-          state: t.state,
-          fulfilled_instance_id: t.instanceId,
-        })),
-      edition_publishers: w.editions.map((e) => ({
-        edition_id: e.id,
-        isbn_13: e.isbn13,
-        publishers: e.publisherLinks.map((l) => ({
-          id: l.publisher.id,
-          name: l.publisher.name,
-          kind: l.publisher.kind,
-          parent_id: l.publisher.parentId,
-        })),
-      })),
-      imprint: primaryEdition?.imprint ?? null,
-      publication_year: primaryEdition?.publicationYear ?? null,
-      edition_language: primaryEdition?.language ?? null,
-      binding: primaryEdition?.binding ?? null,
-      page_count: primaryEdition?.pageCount ?? null,
-      edition_count: w.editions.length,
-      instance_count: totalInstances,
-      notes: w.notes,
-    };
-  });
-}
-
-/** Where a person's roles stand in the roles column: books first, a book's author first */
-const ROLE_ORDER = sql`case cr.kind when 'book' then 0 when 'film' then 1 when 'perfume' then 2 when 'painting' then 3 else 4 end,
-  cr.level <> 'work', cr.legacy_role is distinct from 'author', cr.label`;
-
-/** Each person's roles across the collections, as their labels ("Author; Translator; Director") */
-async function personRoles(ids: string[] | null) {
-  const rows = resultRows<{ personId: string; label: string }>(
-    await db.execute(sql`select c.person_id as "personId", cr.label
-      from ${PERSON_CREDITS} c join credit_roles cr on cr.id = c.role_id
-      ${ids ? sql`where c.person_id in (${uuids(ids)})` : sql``}
-      group by c.person_id, cr.kind, cr.level, cr.legacy_role, cr.label
-      order by c.person_id, ${ROLE_ORDER}`),
-  );
-  const roles = new Map<string, string[]>();
-  for (const { personId, label } of rows) {
-    const held = roles.get(personId) ?? [];
-    // A film's editor and a book's editor are one "Editor"
-    if (!held.includes(label)) held.push(label);
-    roles.set(personId, held);
-  }
-  return roles;
-}
-
-/** The people with these ids, or every person (null), by sort name */
-async function fetchAuthorsForExport(ids: string[] | null) {
-  const [results, roles] = await Promise.all([
-    db.query.authors.findMany({
-      where: ids ? inArray(authors.id, ids) : undefined,
-      with: {
-        country: true,
-        workAuthors: {
-          columns: { workId: true },
-          with: { work: { columns: { kind: true } } },
-        },
-      },
-    }),
-    personRoles(ids),
-  ]);
-  const sortKey = (a: (typeof results)[number]) => a.sortName || a.name;
-
-  return [...results]
-    .sort((a, b) => compareTitles(sortKey(a), sortKey(b)) || a.id.localeCompare(b.id))
-    .map((a) => ({
-      name: a.name,
-      sort_name: a.sortName,
-      first_name: a.firstName,
-      last_name: a.lastName,
-      real_name: a.realName,
-      roles: (roles.get(a.id) ?? []).join("; "),
-      nationality: a.country?.name ?? null,
-      gender: a.gender,
-      birth_year: a.birthYear,
-      birth_month: a.birthMonth,
-      birth_day: a.birthDay,
-      death_year: a.deathYear,
-      death_month: a.deathMonth,
-      death_day: a.deathDay,
-      bio: a.bio ? stripHtmlToText(a.bio) : null,
-      website: a.website,
-      // Multiple credits on one book still count as one book; other kinds do not.
-      works_count: new Set(a.workAuthors.filter((credit) => credit.work.kind === "book").map((credit) => credit.workId)).size,
-    }));
 }
 
 export async function POST(req: NextRequest) {
@@ -341,7 +193,7 @@ export async function POST(req: NextRequest) {
         });
       // An empty export still has its header, and an empty Parquet file its schema.
       // The Goodreads file is for Goodreads and StoryGraph to import, not for a spreadsheet: as stored, no guard or BOM
-      return exportFile(result.rows, result.headers, fmt as Exclude<ExportFormat, "md">, name, entity === "goodreads");
+      return exportFile(result.rows, result.headers, fmt as Exclude<ExportFormat, "md">, name, entity === "goodreads", entity === "goodreads" ? undefined : NATIVE_EXPORTS[entity as NativeEntity]);
     }
 
     if (all !== true && (!ids || !Array.isArray(ids) || ids.length === 0)) {
@@ -366,13 +218,15 @@ export async function POST(req: NextRequest) {
     const entityType = entity as EntityType;
 
     const selection = all === true ? null : ids!;
+    const native = fmt === "json" || fmt === "parquet";
+    const definition = NATIVE_EXPORTS[entityType as NativeEntity];
     const rows = isCollection(entityType)
-      ? await collectionExportRows(entityType, selection)
+      ? await collectionExportRows(entityType, selection, native)
       : entityType === "works"
-        ? await fetchWorksForExport(selection)
-        : await fetchAuthorsForExport(selection);
+        ? await fetchWorksForExport(selection, native)
+        : await fetchAuthorsForExport(selection, native);
 
-    if (rows.length === 0) {
+    if (rows.length === 0 && !(native && all === true)) {
       return NextResponse.json(
         { error: "No records found for the given IDs." },
         { status: 404 },
@@ -394,7 +248,7 @@ export async function POST(req: NextRequest) {
       // A name in a script slugs drop (Cyrillic, Greek, Japanese) keeps the files apart by the record's id
       slug = own || `${SINGULAR[entityType]}-${ids![0].slice(0, 8)}`;
     }
-    return exportFile(rows, undefined, fmt as Exclude<ExportFormat, "md">, `durtal-${slug}-${todayLocal()}`);
+    return exportFile(rows, definition.legacyHeaders, fmt as Exclude<ExportFormat, "md">, `durtal-${slug}-${todayLocal()}`, false, definition);
   } catch (err) {
     console.error("Export error:", err);
     return NextResponse.json({ error: "Export failed." }, { status: 500 });

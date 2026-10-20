@@ -440,31 +440,64 @@ Download books, people, perfumes, films, paintings, or reading as a file. Used b
 
 **Response** `200`: the file, with `Content-Disposition: attachment; filename="durtal-{kind}[-all]-{date}.{ext}"` (SLN-894): `{kind}` is `books`, `people`, `perfumes`, `films`, `paintings`, `readings`, `reading-sessions`, `reading-notes` or `goodreads`, and `-all` marks a file of every record (`all`, not `filters`). A single record's file takes a slug of its name instead (`durtal-a-rebours-…`), or the singular kind and first eight characters of the record id (such as `book-{id prefix}`) when the name slugs to nothing (`Война и мир`). CSV and TSV are sent with `charset=utf-8`. Books are in title order, people by sort name (else name). A reading export with no rows is still a file in every format that entity supports: CSV with its header (and TSV where offered), Parquet with its schema, JSON `[]`, and the notes Markdown heading and summary. Goodreads remains CSV only.
 
-**Response** `400`: a bad entity, format, id list or `filters`. `404`: no catalogue record matched; empty reading, session, note and Goodreads exports still return `200`. `500`: `{ "error": "Export failed." }`.
+**Response** `400`: a bad entity, format, id list or `filters`. `404`: no selected catalogue record matched, or an empty legacy catalogue CSV/TSV export; whole-entity native exports and empty reading, session, note and Goodreads exports still return `200`. `500`: `{ "error": "Export failed." }`.
 
 The People export's `works_count` counts distinct books, not credit rows: two roles on one book count once, and non-book roles remain visible without increasing that count. People without book credits are included with a count of zero.
 
-**JSON and Parquet** (SLN-894): the same allowlisted rows as CSV, typed. A
-missing value is `null`; numbers are numbers and yes or no is a boolean. In JSON,
-nested data (a book's `acquisition_targets` and `edition_publishers`) stays as arrays
-and objects. Parquet currently stores nested values in logical `JSON` columns,
-not separate typed nested columns.
-Stored text is unchanged, including accents, line breaks and formula-like text.
-Parquet types each column from its values: whole numbers INT64 (rating, percent
-and centimetre columns always DOUBLE), other numbers DOUBLE, booleans BOOLEAN,
-`YYYY-MM-DD` days DATE, ISO instants TIMESTAMP_MILLIS, nested data JSON,
-anything else, an all-null column, or a column of mixed kinds UTF8. Empty
-Parquet exports have their columns, currently all UTF8 because types are inferred
-from each file's values. Timestamp conversion retains milliseconds, not finer
-precision. Fixed schemas, nested columns and timestamp precision remain known
-limitations for follow-up (SLN-1082). No raw ORM records, eBook storage keys or
-delivery URLs are exported.
+**JSON and Parquet, native schema version 2** (SLN-1082): each of the eight
+entities has a fixed ordered definition in `src/lib/export/schema.ts`; no type
+is inferred from values, row order or an empty file. JSON stays an array. Both
+formats return `X-Durtal-Export-Schema: {entity}/2`; Parquet also records
+`durtal.entity` and `durtal.schema_version` in file metadata. A whole-entity native
+export with no records returns JSON `[]` or a schema-only Parquet file. Unknown
+selected IDs still return `404`; legacy empty CSV/TSV behavior is unchanged.
 
-Book CSV, TSV, Parquet and JSON rows include `ebook_formats`, the unique native
-reader formats of active linked eBooks in reader preference order, separated by
-`; ` (for example `EPUB; PDF`). Unavailable or download-only files add no format;
-a book without an eligible eBook has an empty CSV/TSV cell and `null` in JSON
-and Parquet. Goodreads retains its own column contract.
+Text and identifiers (including ISBNs and numeric-looking IDs) remain UTF8.
+Counts/pages/durations are INT64, civil date components INT32, measurements,
+ratings and percentages DOUBLE, and flags BOOLEAN. Missing nullable values are
+`null`; legitimate empty text is preserved. Invalid, undeclared, nonfinite or
+unsafe values fail rather than silently changing type.
+
+Native relationship values are typed lists, including authors, roles, credit
+names and classification names. Books have typed `acquisition_targets` and
+`edition_publishers` list/struct trees, including publisher lists. An empty list
+is different from an absent list. A semicolon inside a name stays inside one
+item. CSV/TSV still use the existing semicolon strings or nested JSON cells.
+Only the declared target fields are exported; storage keys, reader locators and
+delivery URLs are excluded.
+
+Native `released` (films/perfumes), `painted`, people `birth_date`/`death_date`,
+and reading `started_on`/`finished_on` use a CatalogueDate struct:
+`precision`, optional `start`/`end` with civil `year`/`month`/`day`, `approximate`,
+and `label`. Partial dates retain null components; a stored January 1 with year
+precision is not presented as an exact day. BCE civil years, ranges and unknown
+dates are retained. People also expose the stored `birth_year_gregorian` and
+`death_year_gregorian` and raw `birth_year_is_approximate` /
+`death_year_is_approximate` flags separately. Legacy people components that do
+not form a valid CatalogueDate (for example a day without a month) remain intact
+in their scalar columns; their structured birth/death date is null, without
+inventing missing components or failing the whole export. Film `runtime_seconds` is an additional native
+integer; legacy `runtime` retains its formatted text. Native perfume
+`concentrations` contains raw `concentration`/`concentration_label` structs.
+
+Session `day` is DATE32. Session `started_at`/`ended_at`, note `created_at` and
+target `createdAt` are exact signed microseconds from SQL, encoded as
+TIMESTAMP_MICROS in Parquet and UTC ISO strings with six fractional digits in
+JSON. They never pass through JavaScript Date or a floating-point epoch.
+`time_zone` remains separate; an original input offset not stored in the database
+is not reconstructed. Existing text timestamp cells are unchanged.
+
+Parquet uses standard data pages V1 and one page per bounded 2,048-row group.
+Numeric/date/timestamp statistics and indexes remain enabled; UTF8 statistics
+and column indexes are explicitly omitted because the pinned writer's string
+ordering differs from UTF8 byte ordering. Only the writer instance's footer
+receives logical date annotations, after physical signed values and statistics
+have been encoded. No installed package or module-global converter is modified.
+
+Book `ebook_formats` remains the unique eligible reader-format union in reader
+preference order: `EPUB; PDF` in CSV/TSV, `["EPUB", "PDF"]` in native formats.
+A book with none has an empty text cell or native `[]`. Goodreads retains its
+separate CSV contract.
 
 **Every CSV and TSV** (`src/lib/utils/export.ts`): a text cell that begins with `=`, `+`, `-`, `@`, a tab or a carriage return is written with a leading `'`, so a spreadsheet never runs it; numbers are never changed. The reading importer strips that `'` again (`src/lib/reading/import/csv.ts`). A CSV value with a comma, a double quote, a newline or a carriage return is quoted. CSV and TSV start with a UTF-8 byte order mark, so Excel opens accents correctly. A boolean is written yes or no, nested data as JSON text, a missing value as nothing. The Goodreads file is the exception: it is for Goodreads and StoryGraph to import, so its cells go as stored, with no guard and no byte order mark (`toCSV(..., { forImport: true })`).
 

@@ -201,9 +201,9 @@ describe.skipIf(!url)("the write routes SLN-311 left out, with PostgreSQL", () =
       expect(res.headers.get("Content-Disposition")).toMatch(/filename="durtal-people-all-\d{4}-\d{2}-\d{2}\.json"/);
       const people = (await res.json()) as Record<string, unknown>[];
       expect(people.map((p) => [p.name, p.roles, p.works_count])).toEqual([
-        ["Clarice Lispector", "Author", 1],
-        ["Ödön von Horváth", null, 0],
-        ["Andrei Tarkovsky", "Co-author; Director", 1],
+        ["Clarice Lispector", ["Author"], 1],
+        ["Ödön von Horváth", [], 0],
+        ["Andrei Tarkovsky", ["Co-author", "Director"], 1],
       ]);
       expect(people[0]).toMatchObject({ sort_name: null, birth_year: null, bio: null });
       // A selection keeps a person of any collection
@@ -221,12 +221,12 @@ describe.skipIf(!url)("the write routes SLN-311 left out, with PostgreSQL", () =
 
       const all = await (await exportOf({ entity: "authors", format: "json", all: true })).json() as Record<string, unknown>[];
       expect(all.find((person) => person.name === "Clarice Lispector")).toMatchObject({
-        roles: "Author; Co-author; Director",
+        roles: ["Author", "Co-author", "Director"],
         works_count: 1,
       });
       const selected = await (await exportOf({ entity: "authors", format: "json", ids: [authorId] })).json();
       expect(selected).toHaveLength(1);
-      expect(selected[0]).toMatchObject({ roles: "Author; Co-author; Director", works_count: 1 });
+      expect(selected[0]).toMatchObject({ roles: ["Author", "Co-author", "Director"], works_count: 1 });
       expect(await counts()).toEqual(before);
     });
 

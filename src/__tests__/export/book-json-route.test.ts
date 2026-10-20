@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
-const store = vi.hoisted(() => ({ books: vi.fn(), targets: vi.fn(), digital: vi.fn() }));
+const store = vi.hoisted(() => ({ books: vi.fn(), targets: vi.fn(), digital: vi.fn(), sql: vi.fn() }));
 vi.mock("@/lib/ebooks/work-availability", () => ({ getWorkDigitalAvailability: store.digital }));
 vi.mock("@/lib/db", () => ({
-  db: { query: { works: { findMany: store.books } } },
+  db: { query: { works: { findMany: store.books } }, execute: store.sql },
 }));
 vi.mock("@/lib/actions/publishers", () => ({
   getAcquisitionTargetsForExport: store.targets,
@@ -66,6 +66,7 @@ beforeEach(() => {
   store.books.mockResolvedValue([book]);
   store.targets.mockResolvedValue([]);
   store.digital.mockResolvedValue(new Map());
+  store.sql.mockResolvedValue([]);
 });
 
 describe("additive book JSON export", () => {
@@ -93,7 +94,7 @@ describe("additive book JSON export", () => {
       // Nested data stays data, a missing value is null (SLN-894)
       acquisition_targets: [],
       edition_publishers: [],
-      ebook_formats: null,
+      ebook_formats: [],
       isbn_13: null,
       page_count: null,
     });
@@ -102,7 +103,7 @@ describe("additive book JSON export", () => {
     expect(store.targets).toHaveBeenCalledWith([id]);
   });
 
-  it("retains all-book selection and the existing empty-result response", async () => {
+  it("retains all-book selection and distinguishes native empty catalogues from unknown IDs", async () => {
     const response = await POST(
       request({ entity: "works", all: true, format: "json" }),
     );
@@ -113,7 +114,9 @@ describe("additive book JSON export", () => {
     expect(
       (await POST(request({ entity: "works", all: true, format: "json" })))
         .status,
-    ).toBe(404);
+    ).toBe(200);
+    expect((await POST(request({ entity: "works", ids: [id], format: "json" }))).status).toBe(404);
+    expect((await POST(request({ entity: "works", all: true, format: "csv" }))).status).toBe(404);
   });
 
   it("exports the eligible format union from one position-free availability batch", async () => {
@@ -130,7 +133,7 @@ describe("additive book JSON export", () => {
     ], read: null }]]));
     const response = await POST(request({ entity: "works", ids: [id], format: "json" }));
     const [row] = await response.json();
-    expect(row.ebook_formats).toBe("EPUB; PDF");
+    expect(row.ebook_formats).toEqual(["EPUB", "PDF"]);
     expect(store.digital).toHaveBeenCalledExactlyOnceWith([id], { includePositions: false });
     expect(row.acquisition_targets).toEqual([]);
     expect(row.notes).toBe(notes);
@@ -143,6 +146,56 @@ describe("additive book JSON export", () => {
     ]) {
       expect(row).not.toHaveProperty(field);
     }
+  });
+
+  it("allowlists native targets and uses SQL microseconds instead of their legacy Date", async () => {
+    const target = {
+      id: "target", workId: id, editionId: null, publisherId: null, perfumeVariantId: null, perfumeContainer: null,
+      perfumeCapacityValue: null, perfumeVolumeUnit: null, filmVersionId: null, filmReleaseId: null, filmMedium: null,
+      filmFormatLabel: null, artObjectId: null, artReproducesObjectId: null, isCancelled: true,
+      createdAt: new Date(0), hidden_storage_path: "must-not-escape",
+    };
+    store.targets.mockResolvedValue([{ target, state: "cancelled", instanceId: null }]);
+    store.sql.mockResolvedValue([{ id: "target", micros: "-1" }]);
+    const response = await POST(request({ entity: "works", ids: [id], format: "json" }));
+    expect(response.status).toBe(200);
+    expect(response.headers.get("X-Durtal-Export-Schema")).toBe("books/2");
+    const [row] = await response.json();
+    expect(row.acquisition_targets[0]).toMatchObject({ id: "target", isCancelled: true, state: "cancelled", createdAt: "1969-12-31T23:59:59.999999Z" });
+    expect(row.acquisition_targets[0]).not.toHaveProperty("hidden_storage_path");
+    expect(target.createdAt.getTime()).toBe(0);
+  });
+
+  it("does not reorder shared editions or change legacy bytes when making a native projection", async () => {
+    const edition = (editionId: string, isbn: string) => Object.freeze({ id: editionId, isbn13: isbn, isbn10: null,
+      publisher: null, imprint: null, publicationYear: null, language: null, binding: null, pageCount: null,
+      publisherLinks: Object.freeze([]), instances: Object.freeze([]) });
+    const editions = Object.freeze([edition("z-first", "000013"), edition("a-second", "000026")]);
+    const raw = Object.freeze({ ...book, editions, workAuthors: Object.freeze([]) });
+    store.books.mockResolvedValue([raw]);
+    const before = await (await POST(request({ entity: "works", ids: [id], format: "csv" }))).text();
+    const native = await (await POST(request({ entity: "works", ids: [id], format: "json" }))).json();
+    const after = await (await POST(request({ entity: "works", ids: [id], format: "csv" }))).text();
+    expect(after).toBe(before);
+    expect(native[0].isbn_13).toBe("000013");
+    expect(native[0].edition_publishers.map((e: { edition_id: string }) => e.edition_id)).toEqual(["a-second", "z-first"]);
+    expect(editions.map((e) => e.id)).toEqual(["z-first", "a-second"]);
+  });
+
+  it("sorts native author ties by stable IDs without changing legacy credit order", async () => {
+    const credits = Object.freeze([
+      Object.freeze({ id: "credit-b", authorId: "b", sortOrder: 0, author: { name: "Beta" } }),
+      Object.freeze({ id: "credit-a", authorId: "a", sortOrder: 0, author: { name: "Alpha" } }),
+    ]);
+    store.books.mockResolvedValue([{ ...book, workAuthors: credits }]);
+    const legacy = await (await POST(request({ entity: "works", ids: [id], format: "csv" }))).text();
+    const first = await (await POST(request({ entity: "works", ids: [id], format: "json" }))).json();
+    store.books.mockResolvedValue([{ ...book, workAuthors: [...credits].reverse() }]);
+    const second = await (await POST(request({ entity: "works", ids: [id], format: "json" }))).json();
+    expect(first[0].authors).toEqual(["Alpha", "Beta"]);
+    expect(second[0].authors).toEqual(first[0].authors);
+    expect(legacy).toContain("Beta; Alpha");
+    expect(credits.map((c) => c.id)).toEqual(["credit-b", "credit-a"]);
   });
 
   it("offers JSON for every kind but the Goodreads file (SLN-894)", async () => {
