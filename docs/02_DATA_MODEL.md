@@ -2208,7 +2208,7 @@ Tracks the acquisition pipeline for individual works — from intent to receipt.
 
 **Relations**: `work` (N:1), `edition` (N:1), `instance` (N:1), `venue` (N:1), `originPlace` (N:1), `destinationLocation` (N:1), `destinationSubLocation` (N:1), `statusHistory` (1:N → `order_status_history`)
 
-**Film, perfume and painting orders (SLN-374).** A non-book order needs a typed target of its work (`require_order_parent()`; an untyped one keeps the 0038 message) and has no edition or book copy. `orders_received_item_check` allows at most one of `instance_id` and the three links. When the order reaches delivered, purchased or received, the same write (`src/lib/catalogue/acquisition-receipt.ts`, from `createOrder` and `updateOrderStatus`) creates what the target names: a bottle of the formulation and size, a copy of the version, release and medium, a reproduction of the object; or it makes the bought object personal (its custody records in `art_object_whereabouts` stay as they were). The holding takes the order's destination (a physical place, or a digital one for a digital copy; any other is refused with what to change), shop, price with currency (total, else price) and delivery date. The write first asserts the order has brought nothing in, so a replayed or concurrent receipt adds nothing. `validate_target_order()` (0032 definition, book branch unchanged) checks that the link matches the target (another formulation's bottle, another version or medium, another object are refused), that a received typed order has its link, and that only a received or returned order has one. Deleting what a received order brought in is refused until the order is returned. A return marks the holding disposed ("Returned to the seller", dated). `getProvenanceStats({ kind })` totals one collection; amounts stay per currency.
+**Film, perfume and painting orders (SLN-374).** A non-book order needs a typed target of its work (`require_order_parent()`; an untyped one keeps the 0038 message) and has no edition or book copy. `orders_received_item_check` allows at most one of `instance_id` and the three links. When the order reaches delivered, purchased or received, the same write (`src/lib/catalogue/acquisition-receipt.ts`, from `createOrder` and `updateOrderStatus`) creates what the target names: a bottle of the formulation and size, a copy of the version, release and medium, a reproduction of the object; or it makes the bought object personal (its custody records in `art_object_whereabouts` stay as they were). The holding takes the order's destination (a physical place, or a digital one for a digital copy; any other is refused with what to change), shop, price with currency (total, else price) and delivery date. The write first asserts the order has brought nothing in, so a replayed or concurrent receipt adds nothing. `validate_target_order()` (0032 definition, book branch unchanged) checks that the link matches the target (another formulation's bottle, another version or medium, another object are refused), that a received typed order has its link, and that only a received or returned order has one. Deleting what a received order brought in is refused until the order is returned. A return marks the holding disposed ("Returned to the seller", dated). `getProvenanceStats({ kind })` totals one collection; amounts stay per currency, each order counted as its card shows it (total, else price; SLN-1485), cancelled and returned orders left out.
 
 ### `order_status_history`
 
@@ -2463,15 +2463,17 @@ Real-world and online establishments where works are acquired, browsed, seen or 
 | `tags` | TEXT[] | nullable | Free-form tags |
 | `first_visit_date` | DATE | nullable | Date of first visit |
 | `last_visit_date` | DATE | nullable | Date of most recent visit |
-| `total_orders` | INTEGER | NOT NULL, default `0` | Denormalised order count |
-| `total_spent` | NUMERIC(12,2) | NOT NULL, default `0` | Denormalised total spend |
-| `last_order_date` | DATE | nullable | Date of most recent order |
+| `total_orders` | INTEGER | NOT NULL, default `0` | Unused, to be dropped (SLN-1307). Nothing writes or reads it; values are stale |
+| `total_spent` | NUMERIC(12,2) | NOT NULL, default `0` | Unused, to be dropped (SLN-1307). Nothing writes or reads it; values are stale |
+| `last_order_date` | DATE | nullable | Unused, to be dropped (SLN-1307). Nothing writes or reads it; values are stale |
 | `archived_at` | TIMESTAMPTZ | nullable | Set when archived. Archived venues leave default lists and counts but keep their URL and history |
 | `search_text` | TEXT | GENERATED, STORED | `search_normalize(name + formatted_address)`; trigram GIN index `venues_search_idx` |
 | `created_at` | TIMESTAMPTZ | NOT NULL, auto | |
 | `updated_at` | TIMESTAMPTZ | NOT NULL, auto | |
 
 **Relations**: `place` (N:1 → `places`, optional); organizations through `organization_venues`; perfume retailer listings through `perfume_retailer_links.venue_id`.
+
+**Order totals**: a venue's orders are counted and summed live from `orders` (the venue page, /provenance). The three total columns above are kept only so a rollback never meets a schema without them: no Drizzle read names them (`WITHOUT_VENUE_TOTALS`, `src/lib/catalogue/venue-totals.ts`), a Harmonize merge neither offers nor rewrites them, and an export still carries them as stored until the interchange format drops them. Drizzle still names them in a venue insert, so the release that removes them from the schema is the one that drops them.
 
 **Enum `venue_type_enum`**: `bookshop`, `online_store`, `cafe`, `library`, `museum`, `gallery`, `auction_house`, `market`, `fair`, `publisher`, `individual`, `other`, `perfumery`, `cinema`. The TypeScript source is `VENUE_TYPES` in `src/lib/catalogue/venues.ts`.
 

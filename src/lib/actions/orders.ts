@@ -27,7 +27,6 @@ import {
   notInArray,
   count,
   sum,
-  avg,
   gte,
   lte,
   isNotNull,
@@ -376,6 +375,9 @@ export async function getOrderTimeline(
   return { orders: results, total: countResult[0].count };
 }
 
+/** What an order cost, as its card and receipt show it: the total, else the price */
+const orderAmount = sql<string | null>`coalesce(${orders.totalCost}, ${orders.price})`;
+
 export async function getProvenanceStats(dateRange?: {
   from?: string;
   to?: string;
@@ -408,21 +410,19 @@ export async function getProvenanceStats(dateRange?: {
     arrivingThisWeekResult,
   ] = await Promise.all([
     db
-      .select({
-        avgOrderCost: avg(orders.totalCost),
-        orderCount: count(),
-      })
+      .select({ orderCount: count() })
       .from(orders)
       .where(where),
 
     // Amounts in different currencies cannot be added; total each one apart.
+    // Each order counts as its card shows it: the total, else the price (SLN-1485)
     db
-      .select({ currency: orders.currency, total: sum(orders.totalCost) })
+      .select({ currency: orders.currency, total: sum(orderAmount) })
       .from(orders)
       .where(
         and(
           notInArray(orders.status, UNSPENT_STATUSES),
-          isNotNull(orders.totalCost),
+          isNotNull(orderAmount),
           where,
         ),
       )
@@ -472,7 +472,6 @@ export async function getProvenanceStats(dateRange?: {
       })),
       homeCurrency,
     ),
-    avgOrderCost: totalStatsResult[0]?.avgOrderCost ?? "0",
     orderCount: totalStatsResult[0]?.orderCount ?? 0,
     activeOrders: activeCountResult[0]?.count ?? 0,
     inTransit: inTransitCountResult[0]?.count ?? 0,

@@ -17,7 +17,7 @@ vi.mock("@/app/(catalogue)/provenance/order-detail-panel", () => ({ OrderDetailP
 import { ProvenanceShell, type OrderItem, type ProvenanceStats } from "@/app/(catalogue)/provenance/provenance-shell";
 
 const stats = (orderCount: number): ProvenanceStats => ({
-  spentByCurrency: [], avgOrderCost: "0", orderCount, activeOrders: orderCount, inTransit: 0, arrivingThisWeek: 0,
+  spentByCurrency: [], orderCount, activeOrders: orderCount, inTransit: 0, arrivingThisWeek: 0,
 });
 const order = (status: OrderItem["status"]): OrderItem => ({
   id: `o-${status}`, workId: "w", editionId: null, acquisitionTargetId: null,

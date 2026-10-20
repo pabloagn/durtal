@@ -156,8 +156,14 @@ describe.skipIf(!url)("venues and dated retailer observations", () => {
     await recordSourceObservation({ owner: { kind: "venue", id: source.id }, provider: "manual", retrievedAt: new Date(), payload: {} });
     const listing = await addPerfumeRetailerLink({ workId, organizationId, venueId: source.id, url: "https://retailer.example/branch" });
     await recordRetailerObservation({ linkId: listing.id, checkedAt: new Date().toISOString() });
+    // The unused order totals are neither written by a merge nor read (SLN-1307)
+    await c`update venues set total_orders = 7, total_spent = 99, last_order_date = '2020-01-01' where id = ${target.id}`;
+    expect(target).not.toHaveProperty("totalOrders");
     const preview = await previewMerge("venues", source.id, target.id);
+    expect(preview.fields.map((f) => f.key)).not.toContain("total_orders");
     await executeMerge({ entity: "venues", sourceId: source.id, targetId: target.id, fingerprint: preview.fingerprint, choices: { name: "target" } });
+    expect((await c`select total_orders, total_spent::text, last_order_date::text from venues where id = ${target.id}`)[0]).toEqual({ total_orders: 7, total_spent: "99.00", last_order_date: "2020-01-01" });
+    expect(Object.keys((await getVenue(target.id))!)).not.toContain("totalSpent");
     expect((await getVenue(target.id))?.slug).toBe(target.slug);
     expect(await getVenue(source.id)).toBeUndefined();
     expect((await getVenue(target.id))?.posterS3Key).toBe(source.posterS3Key);

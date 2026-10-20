@@ -27,6 +27,7 @@ import { assertSql } from "@/lib/harmonization/store";
 import { executeMerge, previewMerge } from "@/lib/harmonization/merge";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
 import { deleteUnusedObjects, ownedMediaObjects } from "@/lib/s3/cleanup";
+import { WITHOUT_VENUE_TOTALS } from "@/lib/catalogue/venue-totals";
 
 function changed() {
   invalidate(
@@ -118,7 +119,7 @@ export async function getOrganization(idOrSlug: string) {
       roles: true,
       aliases: true,
       countryRef: true,
-      venues: { with: { venue: true } },
+      venues: { with: { venue: { columns: WITHOUT_VENUE_TOTALS } } },
     },
   });
   return row
