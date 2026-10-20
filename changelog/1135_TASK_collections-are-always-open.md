@@ -49,7 +49,10 @@ test-only files and actions, the media route's `workId`, storage keys, and the
 storage migrations held for a deploy) stays on the ticket.
 
 Checks: typecheck clean; lint shows no new warnings in the changed files; the
-753 suites without a database pass. The container's disk is full, so the
+753 suites without a database pass; the build passes, the browser audit
+(alignment, design, overflow) passes 72 of 72 page loads on /, /perfumes, /films,
+/paintings, /taxonomy, /settings/data, /settings/about and /organizations in
+three browsers, and page weight is within budget. The container's disk is full, so the
 database suites (taxonomy applicability, work kind migration, collections) ran
 in CI's "Tests (with database suites)" rather than locally.
 
