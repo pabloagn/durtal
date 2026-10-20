@@ -2,7 +2,6 @@
 
 import { Select } from "@/components/ui/select";
 import { useCallback } from "react";
-import { ArrowDown, ArrowUp, X } from "lucide-react";
 import {
   AddButton,
   CHIP,
@@ -14,7 +13,7 @@ import {
   usePersonSearch,
 } from "@/components/catalogue/record-fields";
 import { SearchPicker, type PickerChoice } from "@/components/catalogue/search-picker";
-import { CapAligned } from "@/components/shared/cap-aligned";
+import { CreditRowControls, moveRow } from "@/components/shared/credit-row-controls";
 import { filterBySearch } from "@/lib/utils/search-text";
 import {
   FILM_CREDIT_ROLES,
@@ -193,8 +192,6 @@ export function creditKey() {
 
 const SMALL_INPUT =
   "h-7 min-w-0 rounded-sm border border-glass-border bg-bg-primary/80 px-2 text-xs text-fg-primary placeholder:text-fg-muted focus:border-accent-primary focus:outline-none pointer-coarse:h-11";
-const ICON_BUTTON =
-  "flex h-6 w-6 items-center justify-center rounded-sm text-fg-muted transition-colors hover:bg-bg-tertiary hover:text-fg-primary disabled:pointer-events-none disabled:opacity-40 focus-visible:-outline-offset-2 pointer-coarse:size-11";
 
 function CreditRow({
   entry,
@@ -220,10 +217,10 @@ function CreditRow({
   });
   const cast = entry.roleId === "film.cast";
   return (
-    <li className="rounded-sm border border-glass-border bg-bg-secondary/40 px-2.5 py-2">
+    <li data-credit-row="" className="rounded-sm border border-glass-border bg-bg-secondary/40 px-2.5 py-2">
       <div className="flex items-start gap-2 text-sm pointer-coarse:flex-wrap pointer-coarse:leading-11 max-sm:flex-wrap">
         <span
-          className={`min-w-0 flex-1 whitespace-normal break-words pointer-coarse:basis-full max-sm:basis-full ${entry.personId ? "text-fg-primary" : "italic text-fg-secondary"}`}
+          className={`min-w-0 flex-1 whitespace-normal break-words pointer-coarse:basis-full pointer-coarse:leading-6 max-sm:basis-full ${entry.personId ? "text-fg-primary" : "italic text-fg-secondary"}`}
         >
           {name}
         </span>
@@ -236,39 +233,7 @@ function CreditRow({
             onChange={(e) => onChange({ ...entry, roleId: e.target.value as FilmCreditRole })}
           />
         )}
-        <CapAligned height={24} coarseHeight={44}>
-          <div className="flex items-center">
-            <button
-              type="button"
-              aria-label={`Move ${name} up`}
-              data-tooltip="Move up"
-              disabled={first}
-              onClick={() => onMove(-1)}
-              className={ICON_BUTTON}
-            >
-              <ArrowUp className="h-3.5 w-3.5" strokeWidth={1.5} />
-            </button>
-            <button
-              type="button"
-              aria-label={`Move ${name} down`}
-              data-tooltip="Move down"
-              disabled={last}
-              onClick={() => onMove(1)}
-              className={ICON_BUTTON}
-            >
-              <ArrowDown className="h-3.5 w-3.5" strokeWidth={1.5} />
-            </button>
-            <button
-              type="button"
-              aria-label={`Remove ${name}`}
-              data-tooltip="Remove"
-              onClick={onRemove}
-              className={ICON_BUTTON}
-            >
-              <X className="h-3.5 w-3.5" strokeWidth={1.5} />
-            </button>
-          </div>
-        </CapAligned>
+        <CreditRowControls name={name} first={first} last={last} onMove={onMove} onRemove={onRemove} />
       </div>
       <div className={`mt-1.5 grid gap-1.5 ${cast ? "sm:grid-cols-2" : ""}`}>
         <input
@@ -320,11 +285,7 @@ function CreditGroup({
     notes: null,
     ...fields,
   });
-  const move = (index: number, step: -1 | 1) => {
-    const next = [...value];
-    [next[index], next[index + step]] = [next[index + step], next[index]];
-    onChange(next);
-  };
+  const move = (index: number, step: -1 | 1) => onChange(moveRow(value, index, step));
   return (
     <fieldset className="space-y-2">
       <legend className="type-label mb-1.5">{title}</legend>

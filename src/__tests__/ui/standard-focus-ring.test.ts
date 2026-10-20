@@ -29,7 +29,7 @@ it("leaves no thin focus ring outside the reader", () => {
 it("insets the outline on small controls, so a cap box or a dialog cannot clip it", () => {
   for (const file of [
     "components/films/version-dialog.tsx",
-    "components/films/film-fields.tsx",
+    "components/shared/credit-row-controls.tsx",
     "components/media/logo-card-upload.tsx",
     "components/catalogue/record-fields.tsx",
     "components/taxonomy/taxonomy-assignments.tsx",

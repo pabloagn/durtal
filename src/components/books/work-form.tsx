@@ -630,6 +630,7 @@ export function WorkForm({
               ) : (
                 <button
                   type="button"
+                  data-credit-add=""
                   onClick={() => setShowAuthorAdd(true)}
                   className="flex pointer-coarse:min-h-11 items-center gap-1.5 rounded-sm border border-dashed border-glass-border px-3 py-2 text-sm text-fg-secondary transition-colors hover:border-bg-secondary hover:text-fg-primary"
                 >

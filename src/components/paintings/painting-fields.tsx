@@ -3,13 +3,13 @@
 import { Select } from "@/components/ui/select";
 import {
   AddButton,
-  ROLE_CHIP,
-  ROLE_CHIP_NAME,
+  CREDIT_CHIP,
+  CREDIT_CHIP_NAME,
   FieldRow,
-  RemoveButton,
   useAddButton,
   usePersonSearch,
 } from "@/components/catalogue/record-fields";
+import { CreditRowControls, moveRow } from "@/components/shared/credit-row-controls";
 import { SearchPicker } from "@/components/catalogue/search-picker";
 import type { Attribution } from "@/lib/catalogue/credits";
 import { painterName, type PainterEntry } from "@/lib/catalogue/painting-labels";
@@ -32,8 +32,8 @@ export function painterKey() {
 }
 
 /**
- * The painters of a work or of one object, in order, each with how sure the
- * attribution is. "Unknown" records an unnamed hand instead of leaving the
+ * The painters of a work or of one object, in order (Move up and down,
+ * SLN-1131), each with how sure the attribution is. "Unknown" records an unnamed hand instead of leaving the
  * list empty.
  */
 export function PaintersField({
@@ -50,13 +50,13 @@ export function PaintersField({
   return (
     <FieldRow label={label}>
       {value.map((entry, index) => (
-        <span key={entry.key} className={ROLE_CHIP}>
+        <span key={entry.key} data-credit-row="" className={CREDIT_CHIP}>
           {entry.personId && (
             <Select
               compact
               ariaLabel={`Attribution of ${painterName(entry)}`}
               value={entry.attribution}
-              options={ATTRIBUTION_CHOICES.map((choice) => ({ value: choice.value, label: choice.label }))}
+              options={ATTRIBUTION_CHOICES}
               onChange={(e) =>
                 onChange(
                   value.map((c, i) =>
@@ -66,12 +66,15 @@ export function PaintersField({
               }
             />
           )}
-          <span className={`${ROLE_CHIP_NAME} ${entry.personId ? "" : "italic"}`}>
+          <span className={`${CREDIT_CHIP_NAME} ${entry.personId ? "" : "italic"}`}>
             {painterName(entry)}
           </span>
-          <RemoveButton
-            label={`Remove ${painterName(entry)}`}
-            onClick={() => onChange(value.filter((_, i) => i !== index))}
+          <CreditRowControls
+            name={painterName(entry)}
+            first={index === 0}
+            last={index === value.length - 1}
+            onMove={(step) => onChange(moveRow(value, index, step))}
+            onRemove={() => onChange(value.filter((_, i) => i !== index))}
           />
         </span>
       ))}

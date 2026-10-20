@@ -24,6 +24,7 @@ import {
   CreditListField,
   NotePyramidEditor,
   OrganizationRolesField,
+  creditEntryKey,
   type CreditEntry,
   type NoteEntry,
   type OrganizationEntry,
@@ -109,7 +110,7 @@ export function PerfumeForm(props: Props) {
     if (people.length)
       setCredits([
         ...credits,
-        ...people.map((p) => ({ personId: p.match!.id, name: p.match!.name, creditedAs: null, attribution: "attributed" as const })),
+        ...people.map((p) => ({ key: creditEntryKey(), personId: p.match!.id, name: p.match!.name, creditedAs: null, attribution: "attributed" as const })),
       ]);
   }
 

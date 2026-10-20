@@ -118,7 +118,7 @@ it("keeps the focus on a row moved down, and gives a removed row's focus to the 
   expect(document.activeElement).toBe(button("Remove Villiers de l'Isle-Adam"));
 });
 
-it("names each Remove after its person, and explains the last author", () => {
+it("names each Remove after its person, and explains the last author", async () => {
   render([HUYSMANS, BLOY]);
   const names = [...host.querySelectorAll("button[aria-label^='Remove ']")].map((b) => b.getAttribute("aria-label"));
   expect(names).toEqual(["Remove Joris-Karl Huysmans", "Remove Léon Bloy"]);
@@ -126,8 +126,12 @@ it("names each Remove after its person, and explains the last author", () => {
   expect(latest.authors.map((a) => a.id)).toEqual(["a1"]);
   const last = button("Remove Joris-Karl Huysmans");
   expect(last.disabled).toBe(false);
+  act(() => last.focus());
   click(last);
   expect(toast.error).toHaveBeenCalledWith("A book needs at least one author");
+  // The author stays, and so does the focus
+  await act(() => new Promise((resolve) => requestAnimationFrame(resolve)));
+  expect(document.activeElement).toBe(last);
   expect(latest.authors).toHaveLength(1);
 });
 
