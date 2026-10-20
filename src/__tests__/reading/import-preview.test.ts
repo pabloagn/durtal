@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { bookVerdicts, defaultDecision, judgeCandidates, matchTitle, importableAnyway, ratingState, sectionOf } from "@/lib/reading/import/match-rules";
-import { addBookHref, cannotCarry, commitWords, fileLine, ratingLine, summaryLine, writeLine } from "@/lib/reading/import/preview-text";
+import { addBookHref, cannotCarry, commitWords, fileLine, ratingLine, summaryLine, writeLine, sessionPreviewLine } from "@/lib/reading/import/preview-text";
 import { rowView } from "@/lib/reading/import/row-view";
 import type { ImportReading } from "@/lib/reading/import/types";
 
@@ -187,6 +187,36 @@ describe("the preview's words", () => {
     expect(cannotCarry("storygraph", { otherShelves: 0, extras: 3 }, [])[1]).toBe(
       "Moods, pace, character questions, content warnings and tags of 3 books are kept but not imported.",
     );
+  });
+});
+
+describe("ID-only commit labels", () => {
+  it("names eligible IDs without promising another reading", () => {
+    expect(commitWords(0, 0, 0, 0, 0, 0, 1)).toEqual({ label: "Record 1 Goodreads ID", note: null });
+    expect(commitWords(0, 2, 0, 0, 0, 0, 2)).toEqual({ label: "Record 2 Goodreads IDs", note: "2 rows not decided yet are left out" });
+    expect(commitWords(1, 0, 0, 0, 0, 0, 1).label).toBe("Import 1 reading and record 1 Goodreads ID");
+    expect(commitWords(0, 0, 0, 0, 0, 0, 0).label).toBe("Nothing to import");
+  });
+});
+
+describe("historical session preview words", () => {
+  const base = { readOn: "1969-12-31", startPage: null, endPage: null, startPercent: 25, endPercent: 50, durationSeconds: null };
+  it.each([[1, "under a minute"], [60, "1 min"], [120, "2 min"], [3600, "1 h"], [3661, "1 h 1 min"]] as const)(
+    "shows %i seconds using the session list's duration words", (seconds, words) => {
+      const input = Object.freeze({ ...base, durationSeconds: seconds });
+      expect(sessionPreviewLine(input)).toBe(`31 Dec 1969 · 25–50% · ${words}`);
+      expect(input).toEqual({ ...base, durationSeconds: seconds });
+    },
+  );
+  it("handles null or absent reading days without deriving them from a timestamp", () => {
+    const { readOn: _day, ...withoutDay } = base;
+    expect(sessionPreviewLine({ ...base, readOn: null })).toBe("Date unknown · 25–50%");
+    expect(sessionPreviewLine(withoutDay)).toBe("Date unknown · 25–50%");
+  });
+  it("keeps page ranges and absent durations readable without inventing values", () => {
+    expect(sessionPreviewLine({ ...base, startPage: 0, endPage: 50 })).toBe("31 Dec 1969 · pages 0–50");
+    expect(sessionPreviewLine({ ...base, startPage: null, endPage: 50 })).toBe("31 Dec 1969 · pages ?–50");
+    expect(sessionPreviewLine({ ...base, startPercent: null, endPercent: null })).toBe("31 Dec 1969");
   });
 });
 

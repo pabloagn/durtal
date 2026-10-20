@@ -7,6 +7,7 @@ import type { ImportReading, ImportRow, ImportSource } from "./types";
 import { readingsCommitted, readingsUncommittedSql } from "./notes";
 import { workCoverSql } from "@/lib/library/filter-conditions";
 import { previewGoodreadsClaimsSql } from "@/lib/catalogue/goodreads-identity";
+import { sessionPreviewLine, type SessionPreviewValues } from "./preview-text";
 
 /*
  * What the import pages read (SLN-450). The preview reads each section's
@@ -196,6 +197,11 @@ export async function getImportPreview(importId: string, limits: Partial<Record<
       where r.import_id = ${importId}::uuid`),
     db.execute(sql`
       select r.row_no as "rowNo", r.section, r.match, r.decision, r.use_file_rating as "useFileRating", r.written,
+        case when r.data->'history'->>'entity' = 'sessions' then jsonb_build_object(
+          'readOn', r.data#>>'{history,values,read_on}',
+          'startPage', r.data#>'{history,values,start_page}', 'endPage', r.data#>'{history,values,end_page}',
+          'startPercent', r.data#>'{history,values,start_percent}', 'endPercent', r.data#>'{history,values,end_percent}',
+          'durationSeconds', r.data#>'{history,values,duration_seconds}') else null end as "sessionPreview",
         (r.data - 'reviewHtml' - 'privateNotes' - 'rawCells' - 'history') || jsonb_build_object(
           'history', case when r.data->'history' is not null then jsonb_build_object('entity',r.data->'history'->>'entity','id',r.data->'history'->>'id','summary',r.data->'history'->>'summary') else null end,
           'hasNotes', r.data->>'privateNotes' is not null,
@@ -223,7 +229,14 @@ export async function getImportPreview(importId: string, limits: Partial<Record<
   const sections = Object.fromEntries(IMPORT_SECTIONS.map((s) => [s, 0])) as Record<ImportSection, number>;
   for (const c of resultRows<{ section: ImportSection; n: number }>(counts)) if (c.section in sections) sections[c.section] = c.n;
   // A row with only its note written shows as not committed: its readings can still be
-  const shown = resultRows<Omit<PreviewRow, "candidates">>(rows).map((r) => (readingsCommitted(r.written) || r.written?.goodreadsClaim ? r : { ...r, written: null }));
+  const shown = resultRows<Omit<PreviewRow, "candidates"> & { sessionPreview: SessionPreviewValues | null }>(rows)
+    .map(({ sessionPreview, ...r }) => ({
+      ...r,
+      data: sessionPreview && r.data.history?.entity === "sessions"
+        ? { ...r.data, history: { ...r.data.history, summary: sessionPreviewLine(sessionPreview) } }
+        : r.data,
+      written: readingsCommitted(r.written) || r.written?.goodreadsClaim ? r.written : null,
+    }));
 
   // The candidates of the "To choose" rows shown, in one query
   const candidateIds = [...new Set(shown.flatMap((r) => (r.section === "choose" ? r.match.candidates.map((c) => c.workId) : [])))];

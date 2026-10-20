@@ -346,6 +346,8 @@ export async function rematch(importId: string) {
 /* ── Commit ─────────────────────────────────────────────────────────────── */
 
 export interface CommitResult {
+  /** New Goodreads IDs returned by the atomic claim, never the advisory preview count. */
+  identifiers?: number;
   sessions?: number;
   sessionsPresent?: number;
   written: number;
@@ -385,8 +387,8 @@ export async function commitImport(importId: string): Promise<CommitResult> {
   const now = new Map(counted.map((r, i) => [r.rowNo, fresh[i]]));
   // The claim and its ownership journal commit first, including when a retry already has reading outcomes.
   // Fresh verdicts refuse impossible readings; the helper revalidates persisted rows after acquiring locks.
-  if (imp.source === "goodreads") await claimImportedGoodreadsIds(importId,
-    all.filter((r) => r.data.kind === "to_read" || now.get(r.rowNo)?.section !== "cannot"));
+  const identifiers = imp.source === "goodreads" ? await claimImportedGoodreadsIds(importId,
+    all.filter((r) => r.data.kind === "to_read" || now.get(r.rowNo)?.section !== "cannot")) : 0;
   const todo = counted.filter((r) => r.decision === "import" && !readingsCommitted(r.written));
   // A book matched by title and author: its only copy or only edition (SLN-1171); Durtal files name their own
   const singles = imp.source === "goodreads" || imp.source === "storygraph"
@@ -469,7 +471,7 @@ export async function commitImport(importId: string): Promise<CommitResult> {
   }
   if (current.length) chunks.push(current);
 
-  const result: CommitResult = { written: 0, present: 0, refused: 0, rows: 0, queued: 0, queuePresent: 0, queueSkipped: 0, notes: 0, notesPresent: 0 };
+  const result: CommitResult = { identifiers, written: 0, present: 0, refused: 0, rows: 0, queued: 0, queuePresent: 0, queueSkipped: 0, notes: 0, notesPresent: 0 };
   try {
     for (const chunk of chunks) {
       const sends = chunk.flatMap((p) => p.items.filter((x) => x.send));

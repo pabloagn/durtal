@@ -20,6 +20,11 @@ export function undoRemoves({ readings, queued = 0, notes = 0, goodreadsIds = 0 
 }
 
 
+/** Commit remains available when accepted rows can record an ID without writing another reading. */
+export function canCommitImport(counts: { readings?: number; queued?: number; notes?: number; sessions?: number; ratings?: number; identifiers?: number }): boolean {
+  return [counts.readings, counts.sessions, counts.queued, counts.notes, counts.ratings, counts.identifiers].some((count) => (count ?? 0) > 0);
+}
+
 /** Both import pages use the same availability rule, including an interrupted first phase. */
 export function canUndoImport(counts: { readings?: number; queued?: number; notes?: number; sessions?: number; ratings?: number; identifiers?: number; pendingClaims?: number }): boolean {
   return [counts.readings, counts.sessions, counts.queued, counts.notes, counts.ratings, counts.identifiers, counts.pendingClaims].some((count) => (count ?? 0) > 0);
@@ -40,11 +45,12 @@ export function undoDescription(counts: { readings: number; queued?: number; not
 }
 
 /** The result names only the entities the action actually changed or found. */
-export function commitResultWords(counts: { written: number; present: number; refused: number; queued: number; notes: number; sessions?: number; sessionsPresent?: number; notesPresent?: number }): string {
+export function commitResultWords(counts: { written: number; present: number; refused: number; queued: number; notes: number; sessions?: number; sessionsPresent?: number; notesPresent?: number; identifiers?: number }): string {
   return [
     counts.written ? `${many(counts.written,"reading")} written` : null,
     counts.sessions ? `${many(counts.sessions,"session")} restored` : null,
     counts.notes ? `${many(counts.notes,"note")} imported` : null,
+    counts.identifiers ? `${many(counts.identifiers,"Goodreads ID")} recorded` : null,
     counts.present ? `${many(counts.present,"reading")} already in Durtal` : null,
     counts.sessionsPresent ? `${many(counts.sessionsPresent,"session")} already in Durtal` : null,
     counts.notesPresent ? `${many(counts.notesPresent,"note")} already in Durtal` : null,

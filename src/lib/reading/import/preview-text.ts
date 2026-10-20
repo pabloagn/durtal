@@ -1,4 +1,5 @@
-import { formatReadingSpan } from "../dates";
+import { formatReadingDate, formatReadingSpan } from "../dates";
+import { durationWords } from "../timer";
 import { ANYWAY_REASONS, type ImportMatch, type ImportSection, type ReadingVerdict } from "./match-rules";
 import type { ImportReading, ImportSource } from "./types";
 
@@ -13,6 +14,26 @@ const plural = (count: number, one: string, many = `${one}s`) => `${n(count)} ${
 const stars = (r: number) => `${r} ${r === 1 ? "star" : "stars"}`;
 
 export const SOURCE_LABELS: Record<ImportSource, string> = { goodreads: "Goodreads", storygraph: "StoryGraph", durtal: "Durtal", ebook_library: "E-book library" };
+
+export interface SessionPreviewValues {
+  readOn?: string | null;
+  startPage: number | null;
+  endPage: number | null;
+  startPercent: number | null;
+  endPercent: number | null;
+  durationSeconds: number | null;
+}
+
+/** Display only: the stored reading day and duration keep their exact original values. */
+export function sessionPreviewLine(s: SessionPreviewValues): string {
+  const position = s.startPage !== null || s.endPage !== null
+    ? `pages ${s.startPage ?? "?"}–${s.endPage ?? "?"}`
+    : s.startPercent !== null || s.endPercent !== null
+      ? `${s.startPercent ?? "?"}–${s.endPercent ?? "?"}%`
+      : null;
+  return [formatReadingDate(s.readOn ?? null, "day"), position, s.durationSeconds ? durationWords(s.durationSeconds) : null]
+    .filter(Boolean).join(" · ");
+}
 
 type Reading = Pick<ImportReading, "status" | "startedOn" | "startedPrecision" | "finishedOn" | "finishedPrecision" | "rating" | "note"> & { hasReview?: boolean };
 
@@ -128,15 +149,15 @@ export function summaryLine(s: SummaryCounts): string {
 }
 
 /** The commit button and the line under it: readings, private notes (SLN-453), books for Up next (SLN-452) */
-export function commitWords(toImport: number, pending: number, toQueue = 0, toNotes = 0, toRate = 0, toSessions = 0): { label: string; note: string | null } {
+export function commitWords(toImport: number, pending: number, toQueue = 0, toNotes = 0, toRate = 0, toSessions = 0, toIdentifiers = 0): { label: string; note: string | null } {
   const imported = [toSessions ? plural(toSessions, "session") : null, toImport ? plural(toImport, "reading") : null, toNotes ? plural(toNotes, "note") : null, toRate ? plural(toRate, "rating") : null].filter(Boolean);
   const queue = toQueue ? `add ${plural(toQueue, "book")} to Up next` : null;
+  const label = imported.length
+    ? `Import ${imported.length > 2 ? `${imported.slice(0, -1).join(", ")} and ${imported[imported.length - 1]}` : imported.join(" and ")}${queue ? `${imported.length > 1 ? "," : ""} and ${queue}` : ""}`
+    : queue ? `Add ${plural(toQueue, "book")} to Up next` : null;
+  const identifiers = toIdentifiers ? `${plural(toIdentifiers, "Goodreads ID")}` : null;
   return {
-    label: imported.length
-      ? `Import ${imported.length > 2 ? `${imported.slice(0, -1).join(", ")} and ${imported[imported.length - 1]}` : imported.join(" and ")}${queue ? `${imported.length > 1 ? "," : ""} and ${queue}` : ""}`
-      : queue
-        ? `Add ${plural(toQueue, "book")} to Up next`
-        : "Nothing to import",
+    label: label ? `${label}${identifiers ? ` and record ${identifiers}` : ""}` : identifiers ? `Record ${identifiers}` : "Nothing to import",
     note: pending ? `${plural(pending, "row")} not decided yet ${pending === 1 ? "is" : "are"} left out` : null,
   };
 }

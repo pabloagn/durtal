@@ -1,6 +1,6 @@
 import { commitResultWords } from "@/lib/reading/import/action-words";
 import { describe, expect, it } from "vitest";
-import { canUndoImport, rowsChanged, undoDescription, undoRemoves } from "@/lib/reading/import/action-words";
+import { canCommitImport, canUndoImport, rowsChanged, undoDescription, undoRemoves } from "@/lib/reading/import/action-words";
 
 /* The import buttons' words (SLN-956) */
 
@@ -49,5 +49,22 @@ describe("commit results",()=>{
     expect(commitResultWords({...empty,sessions:2,sessionsPresent:1})).toBe("2 sessions restored · 1 session already in Durtal");
     expect(commitResultWords({...empty,notes:1,notesPresent:2})).toBe("1 note imported · 2 notes already in Durtal");
     expect(commitResultWords(empty)).toBe("Nothing new to import");
+  });
+});
+
+describe("ID-only commit", () => {
+  it("enables only actionable counts and includes eligible IDs", () => {
+    expect(canCommitImport({})).toBe(false);
+    const empty = { identifiers: 0, readings: 0, notes: 0, queued: 0, sessions: 0, ratings: 0 };
+    expect(canCommitImport(empty)).toBe(false);
+    for (const field of ["identifiers", "readings", "notes", "queued", "sessions", "ratings"] as const)
+      expect(canCommitImport({ ...empty, [field]: 1 })).toBe(true);
+  });
+  it("reports actual inserted IDs and treats absent or reused counts as zero", () => {
+    const empty = { written: 0, present: 0, refused: 0, queued: 0, notes: 0 };
+    expect(commitResultWords({ ...empty, identifiers: 1 })).toBe("1 Goodreads ID recorded");
+    expect(commitResultWords({ ...empty, identifiers: 2 })).toBe("2 Goodreads IDs recorded");
+    expect(commitResultWords({ ...empty, identifiers: 0 })).toBe(commitResultWords(empty));
+    expect(commitResultWords({ ...empty, sessions: 1, identifiers: 1 })).toBe("1 session restored · 1 Goodreads ID recorded");
   });
 });

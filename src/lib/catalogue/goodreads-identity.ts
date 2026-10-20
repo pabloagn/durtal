@@ -90,7 +90,7 @@ function insertSql(claims: SQL, importId?: string) {
     returning id, provider, entity_kind, work_id, edition_id, external_id`;
   if (!importId) return sql`${prefix} ${added}`;
   // Only INSERT RETURNING IDs belong to this import. Duplicate rows journal once; every row records reuse.
-  return sql`${prefix}, added as (${added})
+  return sql`${prefix}, added as (${added}), journaled as (
     update reading_import_rows r set written = coalesce(r.written, '{"readings":[],"bookRating":null,"identifiers":[]}'::jsonb)
       || jsonb_build_object('goodreadsClaim', jsonb_build_object('externalId', x.gid, 'key', x.key, 'workId', x.work_id),
         'identifiers', coalesce(r.written->'identifiers', '[]'::jsonb) ||
@@ -101,15 +101,17 @@ function insertSql(claims: SQL, importId?: string) {
             'workId', a.work_id, 'editionId', a.edition_id, 'externalId', a.external_id, 'effectiveWorkId', c.work_id)) else '[]'::jsonb end)
     from claims x join choices c on c.key = x.key
     left join added a on ${goodreadsKeySql(sql`a.external_id`)} = c.key
-    where r.import_id = ${importId}::uuid and r.row_no = x.row_no`;
+    where r.import_id = ${importId}::uuid and r.row_no = x.row_no
+    returning r.row_no)
+    select count(*)::int as identifiers from added`;
 }
 
 /** Current accepted rows only. Claim+journal is atomic, independently of later reading/queue writes. */
-export async function claimImportedGoodreadsIds(importId: string, rows: StoredRow[]): Promise<void> {
+export async function claimImportedGoodreadsIds(importId: string, rows: StoredRow[]): Promise<number> {
   const candidates = rows.filter((r) => r.decision === "import" && r.workId && !r.data.error &&
     goodreadsBookId(r.data.sourceBookId) && !["cannot", "not_imported"].includes(r.match.section) &&
     (r.data.kind === "readings" ? r.data.readings.length > 0 : !!r.data.queueKey));
-  if (!candidates.length) return;
+  if (!candidates.length) return 0;
   const input = candidates.map((r) => ({ row_no: r.rowNo, work_id: r.workId, data: r.data, match: r.match }));
   const isbn = (value: SQL) => sql`regexp_replace(upper(coalesce(${value}, '')), '[^0-9X]', '', 'g')`;
   const claims = sql`select r.row_no, r.work_id, r.data->>'sourceBookId' as gid,
@@ -133,11 +135,15 @@ export async function claimImportedGoodreadsIds(importId: string, rows: StoredRo
       and r.match->>'section' not in ('cannot','not_imported')
       and ((r.data->>'kind' = 'readings' and jsonb_array_length(r.data->'readings') > 0)
         or (r.data->>'kind' = 'to_read' and nullif(r.data->>'queueKey', '') is not null))`;
-  await withReadableErrors(() => atomic((d) => [
+  const result = await withReadableErrors(() => atomic((d) => [
     ...claimLocks(candidates.map((r) => r.data.sourceBookId!), ["imports", "reading_import_rows"]).map((q) => d.execute(q)),
     ...claimChecks(claims, candidates.length).map((q) => d.execute(q)),
     d.execute(insertSql(claims, importId)),
   ]));
+  const inserted = resultRows<{ identifiers: number }>(result[result.length - 1]);
+  if (inserted.length !== 1 || !Number.isSafeInteger(inserted[0].identifiers) || inserted[0].identifiers < 0)
+    throw new Error("Invalid Goodreads insertion count");
+  return inserted[0].identifiers;
 }
 
 /** Restricted to Goodreads book identity; person/author and all other registries retain their existing path. */

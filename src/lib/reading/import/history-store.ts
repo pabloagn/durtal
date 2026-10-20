@@ -108,7 +108,7 @@ const locks = (d: typeof db) => [
 ];
 
 export async function commitRestores(importId:string, rows:StoredRow[], epoch:string):Promise<CommitResult> {
-  const result:CommitResult={written:0,present:0,refused:0,rows:0,queued:0,queuePresent:0,queueSkipped:0,notes:0,notesPresent:0,sessions:0,sessionsPresent:0};
+  const result:CommitResult={identifiers:0,written:0,present:0,refused:0,rows:0,queued:0,queuePresent:0,queueSkipped:0,notes:0,notesPresent:0,sessions:0,sessionsPresent:0};
   const unchanged=sql`exists(select 1 from imports where id=${importId}::uuid
     and source='durtal' and error_log->>'restoreEpoch'=${epoch})`;
   const errors:{rowNo:number;reason:string}[]=[];
