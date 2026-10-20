@@ -86,7 +86,9 @@ read from the source and covered by unit tests at most.
   dialog; a dialog closes before the page draft.
 - A layer with unsaved work asks first: **Save** (when the form has one;
   Enter), **Discard**, **Keep editing** (Esc). Keep editing restores focus
-  and the draft unchanged. The same question guards Close, Cancel
+  and the draft unchanged. While the form cannot save, Keep editing is also
+  ⌘Enter, and Discard is never the main button, so ⌘Enter never throws the
+  draft away (SLN-1054). The same question guards Close, Cancel
   (`data-dismiss`), the backdrop, a link that leaves the page, the G and N
   menus, A then a key, and the palette (`leavePage`).
 - **Unsaved** means the fields differ from what the form opened with

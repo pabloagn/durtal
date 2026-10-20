@@ -352,14 +352,19 @@ export function UnsavedChangesPrompt({ prompt }: { prompt: UnsavedPrompt }) {
         expandable={false}
       >
         <div className="flex flex-wrap justify-end gap-2">
-          <Button type="button" ref={main} variant="ghost" className="mr-auto" onClick={prompt.keepEditing}>
-            Keep editing
-          </Button>
+          {/* While the form cannot save, ⌘Enter keeps editing: it pressed
+              Discard, the only main button, and threw the draft away (SLN-1054) */}
           <Button
             type="button"
-            variant={prompt.canSave ? "secondary" : "primary"}
-            onClick={prompt.discard}
+            ref={main}
+            variant="ghost"
+            className="mr-auto"
+            onClick={prompt.keepEditing}
+            {...(prompt.canSave ? {} : { "data-shortcut": "save" })}
           >
+            Keep editing
+          </Button>
+          <Button type="button" variant="secondary" onClick={prompt.discard}>
             Discard
           </Button>
           {prompt.canSave && (
