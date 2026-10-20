@@ -7,6 +7,7 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { useEscapeToCancel } from "@/components/shared/escape-to-cancel";
 import { draftState } from "@/lib/ui/draft-tracker";
 import { hasOpenSurface } from "@/lib/ui/surface-state";
+import { shortcutButton } from "@/lib/shortcuts/shortcuts";
 
 // Esc cancels; unsaved work asks Save, Discard or Keep editing first (SLN-631).
 
@@ -164,6 +165,26 @@ describe("a dialog with a draft", () => {
     const saves = [...prompt()!.querySelectorAll("button")].filter((b) => b.textContent === "Save");
     expect(saves).toHaveLength(0);
     expect(document.activeElement?.textContent).toBe("Keep editing");
+  });
+
+  it("keeps editing on ⌘Enter while the form cannot save (SLN-1054)", () => {
+    const { onClose, notes } = renderEdit({ saveDisabled: true });
+    type(notes, "Bought in Lisbon");
+    escape(notes);
+    expect(answer("Discard").dataset.variant).toBe("secondary");
+    expect(shortcutButton(document.activeElement, "save")).toBe(answer("Keep editing"));
+    click(shortcutButton(document.activeElement, "save")!);
+    expect(prompt()).toBeNull();
+    expect(onClose).not.toHaveBeenCalled();
+    expect(notes.value).toBe("Bought in Lisbon");
+  });
+
+  it("saves on ⌘Enter when the form can, with Discard never the main button", () => {
+    const { notes } = renderEdit();
+    type(notes, "Bought in Lisbon");
+    escape(notes);
+    expect(answer("Discard").dataset.variant).toBe("secondary");
+    expect(shortcutButton(document.activeElement, "save")).toBe(answer("Save"));
   });
 
   it("asks the same way from Cancel, Close and the backdrop", () => {

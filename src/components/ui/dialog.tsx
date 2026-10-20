@@ -19,6 +19,7 @@ import { DialogFocusScope, useDialogFocusScope } from "./dialog-focus-scope";
 import { Button } from "./button";
 import { useUnsavedGuard, type UnsavedPrompt } from "./unsaved-guard";
 import { shortcutProps } from "@/lib/shortcuts/shortcuts";
+import { useIsMac } from "@/components/shortcuts/kbd";
 
 interface DialogProps {
   open: boolean;
@@ -332,6 +333,7 @@ export function Dialog({
  */
 export function UnsavedChangesPrompt({ prompt }: { prompt: UnsavedPrompt }) {
   const main = useRef<HTMLButtonElement>(null);
+  const mac = useIsMac();
   useEffect(() => {
     main.current?.focus();
   }, []);
@@ -352,18 +354,25 @@ export function UnsavedChangesPrompt({ prompt }: { prompt: UnsavedPrompt }) {
         expandable={false}
       >
         <div className="flex flex-wrap justify-end gap-2">
-          <Button type="button" ref={main} variant="ghost" className="mr-auto" onClick={prompt.keepEditing}>
-            Keep editing
-          </Button>
+          {/* While the form cannot save, ⌘Enter keeps editing: it pressed
+              Discard, the only main button, and threw the draft away (SLN-1054) */}
           <Button
             type="button"
-            variant={prompt.canSave ? "secondary" : "primary"}
-            onClick={prompt.discard}
+            ref={main}
+            variant="ghost"
+            // Its label starts on the question's edge
+            className="mr-auto -ml-3"
+            onClick={prompt.keepEditing}
+            data-shortcut={prompt.canSave ? undefined : "save"}
+            {...(prompt.canSave ? {} : shortcutProps("mod enter", mac))}
           >
+            Keep editing
+          </Button>
+          <Button type="button" variant="secondary" onClick={prompt.discard}>
             Discard
           </Button>
           {prompt.canSave && (
-            <Button type="button" variant="primary" onClick={prompt.save}>
+            <Button type="button" variant="primary" onClick={prompt.save} {...shortcutProps("mod enter", mac)}>
               Save
             </Button>
           )}
