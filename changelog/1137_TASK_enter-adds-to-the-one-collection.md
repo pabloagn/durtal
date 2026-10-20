@@ -54,5 +54,10 @@ looked like hover, and a button whose width changed while typing; all fixed.
 
 The list has no arrow-key highlight of its own; a highlight that moves with
 ↑ and ↓, as the search pickers have, belongs with SLN-1294 (pickers silent to
-a screen reader). Typecheck and lint clean; the related dialog tests pass. The
-database suites run in CI (the container's disk is full).
+a screen reader). Typecheck and lint clean; the 224 UI test files pass; the build
+passes; the browser audit and page weight pass on a book page. With the dialog
+open and part of a name typed, in Chrome, Firefox and WebKit at 1440, 390 and
+320 px: the match is lit, the Create row's words start on the names' edge (0 px
+apart), the button keeps its width (116 px in Chrome, 110.45 px in Firefox and
+WebKit, with either label), and the alignment and contrast audits find
+nothing. The database suites run in CI (the container's disk is full).
