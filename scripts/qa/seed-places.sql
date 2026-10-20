@@ -14,7 +14,7 @@ do $$ begin
 end $$;
 
 insert into ebook_positions (ebook_id, file_id, device_id, device_label, locator, progression, furthest_progression, chapter, client_updated_at)
-select b.ebook_id, b.file_id, md5('seed-device-' || d)::uuid::text, 'Seed device ' || (d % 40 + 1),
+select b.ebook_id, b.file_id, gen_random_uuid()::text, 'Seed device ' || (d % 40 + 1),
   jsonb_build_object('v', 1, 'fileHash', b.sha256, 'href', 'chapter-1.xhtml', 'sectionIndex', 0,
     'progression', (d % 100) / 100.0, 'totalProgression', (d % 100) / 100.0),
   (d % 100) / 100.0, (d % 100) / 100.0, 'Chapter ' || (d % 40 + 1), now() - (d || ' minutes')::interval
