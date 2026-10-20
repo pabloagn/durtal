@@ -9,7 +9,8 @@ const ICON_BUTTON =
 
 /**
  * Move up, Move down and Remove for one row of a credit list (SLN-1131): a
- * book's authors, an edition's contributors, as a film's credits have them.
+ * book's authors, an edition's contributors, a film's credits, a painting's
+ * painters and a perfume's people. The row is `data-credit-row`.
  * Each is named after its person; the row's order is what the form saves.
  */
 export function CreditRowControls({
@@ -42,12 +43,13 @@ export function CreditRowControls({
     onMove(step);
   };
   // A removed row hands the focus to the next row's Remove, else the one
-  // before, else the list's name search
+  // before, else the form's name search, else the list's Add
   const remove = (button: HTMLElement) => {
     const row = button.closest("[data-credit-row]");
     const next =
       (row?.nextElementSibling ?? row?.previousElementSibling)?.querySelector<HTMLElement>("[data-credit-remove]") ??
-      button.closest("form")?.querySelector<HTMLElement>("[data-credit-search]");
+      button.closest("form")?.querySelector<HTMLElement>("[data-credit-search]") ??
+      row?.parentElement?.parentElement?.querySelector<HTMLElement>("button[aria-label^='Add']");
     onRemove();
     if (next) requestAnimationFrame(() => next.focus());
   };

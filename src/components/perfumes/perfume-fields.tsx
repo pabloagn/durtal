@@ -15,6 +15,12 @@ import {
   type TermEntry,
 } from "@/components/catalogue/record-fields";
 import { SearchPicker } from "@/components/catalogue/search-picker";
+import {
+  CREDIT_ROW,
+  CREDIT_ROW_NAME,
+  CreditRowControls,
+  moveRow,
+} from "@/components/shared/credit-row-controls";
 import { TaxonomyItemSearch } from "@/components/taxonomy/taxonomy-assignments";
 import type { Attribution } from "@/lib/catalogue/credits";
 import { PERFUME_ORGANIZATION_ROLES } from "@/lib/catalogue/perfumes";
@@ -118,10 +124,13 @@ export const PERFUME_CREDIT_ROLE_LABELS = {
   "perfume.creative_director": "Creative director",
 } as const;
 export type PerfumeCreditRole = keyof typeof PERFUME_CREDIT_ROLE_LABELS;
+const CREDIT_ROLE_OPTIONS = Object.entries(PERFUME_CREDIT_ROLE_LABELS).map(([role, label]) => ({ value: role, label }));
 
 export interface CreditEntry {
   /** The stored credit, kept across edits */
   id?: string;
+  /** A credit added in the form: its row's key while the form is open, so a moved row keeps its focus */
+  key?: string;
   personId: string | null;
   name: string | null;
   creditedAs: string | null;
@@ -130,6 +139,13 @@ export interface CreditEntry {
   roleId?: PerfumeCreditRole;
   sourceRecordId?: string | null;
   notes?: string | null;
+}
+
+let nextCreditKey = 0;
+/** A key for a credit added in the form */
+export function creditEntryKey() {
+  nextCreditKey += 1;
+  return `new-${nextCreditKey}`;
 }
 
 /** What a credit shows: the person, the name it was credited as, or why none */
@@ -142,7 +158,8 @@ export function creditName(entry: CreditEntry) {
 }
 
 /**
- * The people of a fragrance or a formulation, in order. With `roles`, each
+ * The people of a fragrance or a formulation, in order (Move up and down,
+ * SLN-1131). With `roles`, each
  * is a perfumer or a creative director. "Unknown" records that a perfumer
  * exists without a name, instead of leaving the list empty.
  */
@@ -161,34 +178,39 @@ export function CreditListField({
   const { search, create } = usePersonSearch("perfume");
   return (
     <FieldRow label={label}>
-      {value.map((entry, index) => (
-        <span key={entry.id ?? `${entry.personId ?? "unknown"}:${index}`} className={ROLE_CHIP}>
-          <span
-            className={`${ROLE_CHIP_NAME} ${entry.personId ? "" : "italic"}`}
-          >
-            {creditName(entry)}
-          </span>
-          {roles && (
-            <Select
-              compact
-              ariaLabel={`Role of ${creditName(entry)}`}
-              value={entry.roleId ?? "perfume.perfumer"}
-              options={Object.entries(PERFUME_CREDIT_ROLE_LABELS).map(([role, roleLabel]) => ({ value: role, label: roleLabel }))}
-              onChange={(e) =>
-                onChange(
-                  value.map((c, i) =>
-                    i === index ? { ...c, roleId: e.target.value as PerfumeCreditRole } : c,
-                  ),
-                )
-              }
-            />
-          )}
-          <RemoveButton
-            label={`Remove ${creditName(entry)}`}
-            onClick={() => onChange(value.filter((_, i) => i !== index))}
-          />
-        </span>
-      ))}
+      {value.length > 0 && (
+        <div className="w-full space-y-1.5">
+          {value.map((entry, index) => (
+            <div key={entry.id ?? entry.key ?? index} data-credit-row="" className={CREDIT_ROW}>
+              <span className={`${CREDIT_ROW_NAME} ${entry.personId ? "" : "italic"}`}>
+                {creditName(entry)}
+              </span>
+              {roles && (
+                <Select
+                  compact
+                  ariaLabel={`Role of ${creditName(entry)}`}
+                  value={entry.roleId ?? "perfume.perfumer"}
+                  options={CREDIT_ROLE_OPTIONS}
+                  onChange={(e) =>
+                    onChange(
+                      value.map((c, i) =>
+                        i === index ? { ...c, roleId: e.target.value as PerfumeCreditRole } : c,
+                      ),
+                    )
+                  }
+                />
+              )}
+              <CreditRowControls
+                name={creditName(entry)}
+                first={index === 0}
+                last={index === value.length - 1}
+                onMove={(step) => onChange(moveRow(value, index, step))}
+                onRemove={() => onChange(value.filter((_, i) => i !== index))}
+              />
+            </div>
+          ))}
+        </div>
+      )}
       {add.open ? (
         <SearchPicker
           label="Search people"
@@ -201,6 +223,7 @@ export function CreditListField({
             onChange([
               ...value,
               {
+                key: creditEntryKey(),
                 personId: choice.id,
                 name: choice.label,
                 creditedAs: null,
@@ -226,6 +249,7 @@ export function CreditListField({
                 onChange([
                   ...value,
                   {
+                    key: creditEntryKey(),
                     personId: null,
                     name: null,
                     creditedAs: null,
