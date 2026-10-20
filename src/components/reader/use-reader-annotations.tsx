@@ -22,6 +22,7 @@ import type { ReaderSelection } from "@/lib/reader/events";
 import { markOnPassage } from "@/lib/reader/same-mark";
 import { MARK_ACTION } from "./selection-toolbar";
 import { shortcutProps } from "@/lib/shortcuts/shortcuts";
+import { markFailureMessage } from "@/lib/reader/mark-failure";
 
 /** A selection taken for a mark, with the reader generation it belongs to */
 interface Captured {
@@ -124,7 +125,7 @@ export function useReaderAnnotations(input: {
         || !await latest.current.onJump(result.locator)) latest.current.onNotice(unplaced);
     }).catch(() => latest.current.onNotice(unplaced));
   }, [input.openAt, ready, controllersReady, engine, snapshot.annotations, snapshot.cursor]);
-  const perform = (work: Promise<unknown>) => { void work.catch(error => input.onNotice(error instanceof Error ? error.message : "That mark could not be saved.")); };
+  const perform = (work: Promise<unknown>) => { void work.catch(error => input.onNotice(markFailureMessage(error))); };
   /** The selection, with the reader generation it was made in, or null when it cannot be marked */
   const capture = (origin?: Document): Captured | null => {
     const controller = owner.current;

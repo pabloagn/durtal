@@ -1,4 +1,4 @@
-# Task 1138: Preserve Goodreads book identities
+# Task 1143: Preserve Goodreads book identities
 
 **Status**: In Progress
 **Created**: 2026-10-20

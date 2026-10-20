@@ -1,4 +1,4 @@
-# Task 1137: Goodreads author name components
+# Task 1142: Goodreads author name components
 
 **Status**: Complete (name formatting only)
 **Created**: 2026-10-20
