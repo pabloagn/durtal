@@ -103,9 +103,7 @@ export async function relatedGroupsFrom(selected: RelatedBookRow[]): Promise<Rel
       ? {
           ...original,
           editions: [edition],
-          // The edition's own cover, else the book's (SLN-999): an edition
-          // that follows the book's cover has none of its own
-          media: edition.coverS3Key || edition.thumbnailS3Key ? [] : original.media,
+          editionCard: true,
           editionNote: [
             edition.title,
             edition.publicationYear != null
