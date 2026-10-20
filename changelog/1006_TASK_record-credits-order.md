@@ -25,3 +25,4 @@ SLN-1131's addition of 19 Oct (`findings/credits-and-roles.md`, finding 4). A pa
   - `ui/record-credit-order` (new): painters and a perfume's people move, are saved in their new order, and keep the focus. The role stays with its person. Removing the last painter puts the focus on Add.
   - `ui/work-form-authors`: the last author's refused Remove keeps the focus.
   - `ui/chip-touch-targets` and `ui/standard-focus-ring` follow the rows.
+- **Checks on main after #615:** `pnpm typecheck` and `pnpm lint` clean, `pnpm test:local` and `pnpm build` pass. The browser audit passes 27 of 27 page loads on Add painting, Add perfume and Add film. With two painters added on Add painting, in Chromium, Firefox and WebKit with a mouse at 1440 and touch at 390, the alignment audit finds nothing, and at 1440 the first painter's name sits on the Painters label's center (0px off). `page-weight.js` passes.
