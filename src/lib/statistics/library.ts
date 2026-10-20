@@ -8,7 +8,7 @@ import { workCoverSql } from "@/lib/library/filter-conditions";
  * Library statistics (SLN-742): the books he owns, counted the way the
  * library counts them. A book is owned when it is accessioned and one of its
  * editions has a copy that is not deaccessioned (`ownedWorkCondition`,
- * SLN-886); copies count the same way. Aggregate queries only, never one per book, every number cast to
+ * SLN-886); copies count the same way. Aggregate queries only, never one per book, every count cast to
  * float8. Computed per request, never cached. Reading numbers stay on
  * /reading/stats (`src/lib/reading/stats.ts`).
  *
@@ -359,13 +359,15 @@ const PARTS: { [P in StatisticsPart]: (options: { busiest: number }) => { sql: S
  * to show.
  */
 export async function libraryStatistics<P extends StatisticsPart>(parts: readonly P[], options: { busiest?: number } = {}): Promise<Pick<LibraryStatistics, P>> {
+  if (!parts.length) return {} as Pick<LibraryStatistics, P>;
   const chosen = parts.map((part) => [part, PARTS[part]({ busiest: options.busiest ?? 3 })] as const);
-  // Its own request, not one of a batch (`batchedRows`), whose other reads would wait for it
-  const [row] = resultRows<Json>(
-    await db.execute(sql`with ${OWNED} select ${sql.join(
-      chosen.map(([part, read]) => sql`${read.sql} as ${sql.identifier(part)}`),
-      sql`, `,
-    )}`),
-  );
+  const query = sql`with ${OWNED} select ${sql.join(
+    chosen.map(([part, read]) => sql`${read.sql} as ${sql.identifier(part)}`),
+    sql`, `,
+  )}`;
+  // Its own request, not one of a batch (`batchedRows`), whose other reads
+  // would wait for it. Planned at 5,650 on 5,000 books, far under
+  // jit_above_cost (100,000), so it runs with JIT as Neon sets it
+  const [row] = resultRows<Json>(await db.execute(query));
   return Object.fromEntries(chosen.map(([part, read]) => [part, (read.read as (value: unknown) => unknown)(row[part])])) as Pick<LibraryStatistics, P>;
 }

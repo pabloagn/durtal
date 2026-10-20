@@ -31,9 +31,11 @@ Measured on private previews of the production build with the 5,000-book scale s
 
 - /statistics loses its second round trip. The dashboard's wall time is set by its other reads, which take two round trips either way (task 0896).
 - Database time, every statement the request sends: /statistics 239-274 ms in 15 statistics statements → 93-106 ms in one; the dashboard 136-176 ms with 4 → 105-141 ms with one.
+- The one statement's planned cost on that seed is 5,650 (`auto_explain`), far under `jit_above_cost` (100,000), so it runs with JIT as Neon sets it. A part list with nothing in it returns nothing without a query.
 - **Same numbers:** main and this change give the same text on /statistics (2,663 characters) and the dashboard (3,679), the same 205 links on the dashboard and the same 83 on /statistics, except the two location ids, which each preview seeds afresh.
 - **Tests:**
   - `library-statistics` (DB) reads each part as the pages do, with its old expectations.
   - `library-filters` (DB): stored palettes write the same buckets in one statement per 500 rows.
   - `dashboard-reads`: the dashboard sends one read with the busiest year in it, before it waits on anything.
   - The page tests mock the one read.
+- **Checks:** `pnpm typecheck` and `pnpm lint` clean, `pnpm test:local` and `pnpm build` pass. The browser audit passes 18 of 18 page loads on /statistics and the dashboard (Chromium, Firefox and WebKit at 1440 and 390). `page-weight.js` passes.
