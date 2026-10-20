@@ -129,6 +129,26 @@ describe.skipIf(!url)("typed provenance and uncertain dates", () => {
       ),
     ).toContain(first.id);
   });
+  it("returns only the requested Goodreads owner association and refuses a sibling edition namespace collision", async () => {
+    const bookId = await registerCatalogueIdentifier({ owner: owners.book, provider: "goodreads", externalId: "82001" });
+    const editionId = await registerCatalogueIdentifier({ owner: owners.edition, provider: "goodreads", externalId: "82001" });
+    expect(bookId).toMatchObject({ entityKind: "book", workId: owners.book.id, editionId: null });
+    expect(editionId).toMatchObject({ entityKind: "edition", workId: null, editionId: owners.edition.id });
+    expect(editionId.id).not.toBe(bookId.id);
+    expect((await registerCatalogueIdentifier({ owner: owners.book, provider: "goodreads", externalId: "82001" })).id).toBe(bookId.id);
+    expect((await registerCatalogueIdentifier({ owner: owners.edition, provider: "goodreads", externalId: "82001" })).id).toBe(editionId.id);
+    await recordSourceObservation({ ...source(owners.book), provider: "goodreads", identifierId: bookId.id });
+    await recordSourceObservation({ ...source(owners.edition), provider: "goodreads", identifierId: editionId.id });
+    await expect(recordSourceObservation({ ...source(owners.edition), provider: "goodreads", identifierId: bookId.id })).rejects.toThrow();
+    const [sibling] = await c`insert into editions(work_id,title) values (${owners.book.id},'Sibling edition') returning id`;
+    await expect(registerCatalogueIdentifier({ owner: { kind: "edition", id: sibling.id }, provider: "goodreads", externalId: "82001" })).rejects.toThrow("requested namespace");
+    // The inverse creation order must also produce the exact association, not return the earlier edition ID.
+    const firstEdition = await registerCatalogueIdentifier({ owner: owners.edition, provider: "goodreads", externalId: "82002" });
+    const laterBook = await registerCatalogueIdentifier({ owner: owners.book, provider: "goodreads", externalId: "82002" });
+    expect(laterBook).toMatchObject({ entityKind: "book", workId: owners.book.id, editionId: null });
+    expect(laterBook.id).not.toBe(firstEdition.id);
+    await recordSourceObservation({ ...source(owners.book), provider: "goodreads", identifierId: laterBook.id });
+  });
   it("serializes concurrent identifier claims and rejects wrong or absent owners", async () => {
     const [other] =
       await c`insert into works(title) values ('Other') returning id`;

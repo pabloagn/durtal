@@ -90,11 +90,16 @@ export function exportActionItems(entity: ExportEntity, ids: string[]): EntityAc
     onClick: () => {
       const progress = toast.pending(`Exporting as ${exportFormatName(format)}`);
       triggerExport(entity, ids, format).then(
-        () => progress.success(exportedMessage(entity, ids, format)),
+        (result) => result.unresolvedIds ? progress.warning(goodreadsWarning(result.unresolvedIds)) : progress.success(exportedMessage(entity, ids, format)),
         (err) => progress.error(err instanceof Error ? err.message : "Export failed"),
       );
     },
   }));
+}
+
+/** The authoritative response reports blanks even when a courtesy preflight failed. */
+export function goodreadsWarning(count: number): string {
+  return `Exported with ${count} unresolved Goodreads IDs left blank.`;
 }
 
 /** Download an export: these records, every one ("all"), or what a page's filters show. */
@@ -134,6 +139,8 @@ export async function triggerExport(
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
+  const count = Number(res.headers.get("X-Durtal-Goodreads-Unresolved"));
+  return { unresolvedIds: entity === "goodreads" && Number.isSafeInteger(count) && count > 0 ? count : 0 };
 }
 
 export function ExportMenu({
@@ -152,8 +159,9 @@ export function ExportMenu({
     setIsExporting(true);
     const progress = toast.pending(`Exporting as ${exportFormatName(format)}`);
     try {
-      await triggerExport(entity, selection, format);
-      progress.success(exportedMessage(entity, selection, format));
+      const result = await triggerExport(entity, selection, format);
+      if (result.unresolvedIds) progress.warning(goodreadsWarning(result.unresolvedIds));
+      else progress.success(exportedMessage(entity, selection, format));
     } catch (err) {
       progress.error(err instanceof Error ? err.message : "Export failed");
     } finally {

@@ -14,6 +14,7 @@ import { rowView } from "@/lib/reading/import/row-view";
 import { formatReadingDate } from "@/lib/reading/dates";
 import { readingToday } from "@/lib/reading/day";
 import { appTimeZone, calendarDate } from "@/lib/utils/date";
+import { canUndoImport } from "@/lib/reading/import/action-words";
 import { isUuid } from "@/lib/utils/uuid";
 
 export const metadata = { title: "Import preview" };
@@ -86,8 +87,8 @@ export default async function ImportPreviewPage({ params, searchParams }: { para
           <div className="mt-4 flex flex-wrap items-center gap-3">
             <CommitImport importId={id} label={commit.label} disabled={summary.toImport === 0 && summary.toQueue === 0 && notes.toImport === 0 && summary.toRate === 0} />
             <MatchAgain importId={id} show={summary.noBook > 0} />
-            {(header.readings > 0 || header.queued > 0 || header.notes > 0 || header.ratings > 0) && (
-              <UndoImport importId={id} readings={header.readings} queued={header.queued} notes={header.notes} goodreadsIds={header.identifiers} />
+            {canUndoImport(header) && (
+              <UndoImport importId={id} readings={header.readings} queued={header.queued} notes={header.notes} goodreadsIds={header.identifiers} pendingClaims={header.pendingClaims} ratings={header.ratings} />
             )}
             <Link href="/reading/import" className="text-sm text-fg-secondary transition-colors hover:text-fg-primary touch-hit">
               All imports

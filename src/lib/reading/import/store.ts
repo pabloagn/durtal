@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { atomic } from "@/lib/db/atomic";
+import { claimImportedGoodreadsIds, undoGoodreadsIdentityQueries, type GoodreadsIdentitySnapshot } from "@/lib/catalogue/goodreads-identity";
 import { withReadableErrors } from "@/lib/db/errors";
 import { imports, readingImportRows } from "@/lib/db/schema";
 import { resultRows } from "@/lib/harmonization/store";
@@ -35,6 +36,10 @@ export interface Written {
   bookRating: { workId: string; before: number | null; after: number | null } | null;
   /** Goodreads identifiers the commit recorded */
   identifiers: string[];
+  /** Only identities inserted by this import; exact snapshots protect Undo. */
+  identifierSnapshots?: GoodreadsIdentitySnapshot[];
+  /** A durable claim (including reuse), independent of the reading/queue outcome. */
+  goodreadsClaim?: { externalId: string; key: string; workId: string };
   /** A to-read row (SLN-452): the Up next item the commit wrote, or why it wrote none */
   queueItem?: { id: string; workId: string; position: number; editionId: string | null; note: string | null } | null;
   queueOutcome?: "written" | "already_present" | "skipped";
@@ -214,14 +219,15 @@ async function refreshRows(importId: string, source: ImportSource, workIds: stri
 const writtenMessage = "This row was imported; undo the import to change it";
 /** A partially committed row can be retried, but must keep its book and decisions for undo. */
 function hasReadingWrites(written: Written | null) {
-  return readingsCommitted(written) || !!written?.bookRating || !!written?.identifiers?.length;
+  return readingsCommitted(written) || !!written?.bookRating || !!written?.identifiers?.length || !!written?.goodreadsClaim;
 }
 
 function editableRowSql(alias: string) {
   const written = sql.raw(`${alias}.written`);
   return sql`${readingsUncommittedSql(alias)}
     and coalesce(${written}->'bookRating', 'null'::jsonb) = 'null'::jsonb
-    and jsonb_array_length(coalesce(${written}->'identifiers', '[]'::jsonb)) = 0`;
+    and jsonb_array_length(coalesce(${written}->'identifiers', '[]'::jsonb)) = 0
+    and coalesce(${written}->'goodreadsClaim', 'null'::jsonb) = 'null'::jsonb`;
 }
 
 /** Notes have separate decisions (SLN-453); reading writes freeze these controls. */
@@ -362,6 +368,10 @@ export async function commitImport(importId: string): Promise<CommitResult> {
   const counted = all.filter((r) => r.workId && !r.data.error && r.data.kind === "readings");
   const fresh = await withVerdicts(imp.source, counted.map(asMatched));
   const now = new Map(counted.map((r, i) => [r.rowNo, fresh[i]]));
+  // The claim and its ownership journal commit first, including when a retry already has reading outcomes.
+  // Fresh verdicts refuse impossible readings; the helper revalidates persisted rows after acquiring locks.
+  if (imp.source === "goodreads") await claimImportedGoodreadsIds(importId,
+    all.filter((r) => r.data.kind === "to_read" || now.get(r.rowNo)?.section !== "cannot"));
   const todo = counted.filter((r) => r.decision === "import" && !readingsCommitted(r.written));
   // A book matched by title and author: its only copy or only edition (SLN-1171); Durtal files name their own
   const singles = imp.source === "goodreads" || imp.source === "storygraph"
@@ -451,32 +461,6 @@ export async function commitImport(importId: string): Promise<CommitResult> {
       const importRowNumbers = chunk.flatMap((p) => p.items.filter((x) => x.send).map(() => p.row.rowNo));
       const outcomes = sends.length ? await writeReadings(sends.map((x) => x.send!), { source: "import", importId, importRowNumbers }) : [];
       const outcomeOf = new Map(sends.map((x, k) => [x, outcomes[k]]));
-      // The Goodreads id of an edition matched by ISBN, so the next import matches it exactly
-      const ids = chunk
-        .filter((p) => p.row.match.reason === "Same ISBN" && p.row.match.editionId && p.row.data.sourceBookId)
-        .map((p) => ({ row_no: p.row.rowNo, edition_id: p.row.match.editionId, gid: p.row.data.sourceBookId }));
-      if (ids.length) {
-        // Identifiers and their undo ids also commit together: retry cannot
-        // reconstruct which pre-existing identifier belonged to this import.
-        await db.execute(sql`
-          with added as (
-            insert into catalogue_identifiers (entity_kind, edition_id, provider, external_id)
-            select distinct 'edition', x.edition_id, 'goodreads', x.gid
-            from jsonb_to_recordset(${json(ids)}::jsonb) as x(row_no int, edition_id uuid, gid text)
-            join editions e on e.id = x.edition_id and e.goodreads_id is null
-            on conflict on constraint catalogue_identifier_namespace_unique do nothing
-            returning id, edition_id, external_id
-          ), journal as (
-            select x.row_no, jsonb_agg(a.id) as identifiers from added a
-            join jsonb_to_recordset(${json(ids)}::jsonb) as x(row_no int, edition_id uuid, gid text)
-              on a.edition_id = x.edition_id and a.external_id = x.gid
-            group by x.row_no
-          )
-          update reading_import_rows r set written =
-            coalesce(r.written, '{"readings":[],"bookRating":null,"identifiers":[]}'::jsonb) ||
-            jsonb_build_object('identifiers', coalesce(r.written->'identifiers', '[]'::jsonb) || j.identifiers)
-          from journal j where r.import_id = ${importId}::uuid and r.row_no = j.row_no`);
-      }
       const written = chunk.map((p) => {
         const readings: Written["readings"] = p.items.map((item) => {
           const n = item.reading.n;
@@ -656,11 +640,10 @@ async function commitQueueItems(importId: string, all: StoredRow[]) {
         written: {
           readings: [],
           bookRating: null,
-          identifiers: [],
           queueItem: item ? { id: item.id, workId: item.workId, position: item.position, editionId: item.editionId, note: null } : null,
           queueOutcome: outcome,
           queueReason: why?.reason ?? (item ? null : "Already in Up next"),
-        } satisfies Written,
+        },
       };
     });
     await db.execute(sql`
@@ -684,6 +667,8 @@ export interface UndoResult {
   /** Notes removed, and kept because they were edited after the import (SLN-453) */
   notesRemoved: number;
   notesKept: number;
+  /** IDs moved, edited, reused or lacking a safe ownership snapshot are retained. */
+  identifiersKept: number;
 }
 
 /**
@@ -731,7 +716,9 @@ export async function undoImport(importId: string): Promise<UndoResult> {
   );
   // Book ratings, the last change first, only while the book still has the import's rating
   const ratings = [...rows].reverse().flatMap((r) => (r.written?.bookRating ? [r.written.bookRating] : []));
-  const identifiers = rows.flatMap((r) => r.written?.identifiers ?? []);
+  const identifiers = new Set(rows.flatMap((r) => r.written?.identifiers ?? []));
+  const snapshots = rows.flatMap((r) => r.written?.identifierSnapshots ?? []);
+  const identityQueries = snapshots.length ? undoGoodreadsIdentityQueries(importId, snapshots) : [];
   const left = new Set(
     resultRows<{ id: string }>(await db.execute(sql`select id::text as id from readings where import_id = ${importId}::uuid`)).map((r) => r.id),
   );
@@ -742,17 +729,15 @@ export async function undoImport(importId: string): Promise<UndoResult> {
       row_no: r.rowNo,
       written:
         kept.length || item
-          ? ({ readings: kept, bookRating: null, identifiers: [], ...(item ? { queueItem: item, queueOutcome: "written" as const } : {}) } satisfies Written)
+          ? ({ readings: kept, bookRating: null, identifiers: [], ...(r.written?.goodreadsClaim ? { goodreadsClaim: r.written.goodreadsClaim } : {}), ...(item ? { queueItem: item, queueOutcome: "written" as const } : {}) } satisfies Written)
           : null,
     };
   });
-  await atomic((d) => [
+  const undoResults = await atomic((d) => [
+    ...identityQueries.map((q) => d.execute(q)),
     ...ratings.map((b) =>
       d.execute(sql`update works set rating = ${b.before}, updated_at = now() where id = ${b.workId}::uuid and rating is not distinct from ${b.after}::numeric`),
     ),
-    ...(identifiers.length
-      ? [d.execute(sql`delete from catalogue_identifiers where id in (select value::uuid from jsonb_array_elements_text(${json(identifiers)}::jsonb))`)]
-      : []),
     ...(rewritten.length
       ? [
           d.execute(sql`
@@ -771,5 +756,6 @@ export async function undoImport(importId: string): Promise<UndoResult> {
     queueKept: keptItems.size,
     notesRemoved: notes.removed,
     notesKept: notes.kept,
+    identifiersKept: identifiers.size - (identityQueries.length ? resultRows<{ id: string }>(undoResults[2]).length : 0),
   };
 }

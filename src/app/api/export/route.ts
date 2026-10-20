@@ -29,7 +29,7 @@ import {
   readingExportRows,
   sessionExportRows,
 } from "@/lib/export/reading";
-import { goodreadsRow } from "@/lib/export/goodreads";
+import { goodreadsRow, unresolvedGoodreadsIds } from "@/lib/export/goodreads";
 import { commonplaceMarkdown } from "@/lib/export/commonplace";
 import { GOODREADS_EXPORT_HEADER } from "@/lib/reading/import/formats";
 import { parseJournalQuery } from "@/lib/reading/journal-params";
@@ -130,7 +130,7 @@ async function readingExport(
   entity: ReadingEntity,
   format: ExportFormat,
   filters: string | null,
-): Promise<{ rows: Record<string, unknown>[]; headers: readonly string[] } | { markdown: string }> {
+): Promise<{ rows: Record<string, unknown>[]; headers: readonly string[]; unresolvedIds?: number } | { markdown: string }> {
   const params = new URLSearchParams(filters ?? "");
   const native = format === "json" || format === "parquet";
   if (entity === "readings") {
@@ -143,8 +143,9 @@ async function readingExport(
     if (format === "md") return { markdown: commonplaceMarkdown(await commonplaceNotes(query), todayLocal()) };
     return { rows: await noteExportRows(query, native), headers: NOTE_EXPORT_COLUMNS };
   }
-  const rows = (await loadGoodreadsBooks()).flatMap((book) => goodreadsRow(book) ?? []);
-  return { rows, headers: GOODREADS_EXPORT_HEADER };
+  const books = await loadGoodreadsBooks();
+  const rows = books.flatMap((book) => goodreadsRow(book) ?? []);
+  return { rows, headers: GOODREADS_EXPORT_HEADER, unresolvedIds: unresolvedGoodreadsIds(books) };
 }
 
 export async function POST(req: NextRequest) {
@@ -193,7 +194,9 @@ export async function POST(req: NextRequest) {
         });
       // An empty export still has its header, and an empty Parquet file its schema.
       // The Goodreads file is for Goodreads and StoryGraph to import, not for a spreadsheet: as stored, no guard or BOM
-      return exportFile(result.rows, result.headers, fmt as Exclude<ExportFormat, "md">, name, entity === "goodreads", entity === "goodreads" ? undefined : NATIVE_EXPORTS[entity as NativeEntity]);
+      const response = await exportFile(result.rows, result.headers, fmt as Exclude<ExportFormat, "md">, name, entity === "goodreads", entity === "goodreads" ? undefined : NATIVE_EXPORTS[entity as NativeEntity]);
+      if (entity === "goodreads") response.headers.set("X-Durtal-Goodreads-Unresolved", String(result.unresolvedIds ?? 0));
+      return response;
     }
 
     if (all !== true && (!ids || !Array.isArray(ids) || ids.length === 0)) {

@@ -243,10 +243,15 @@ describe("a row as the page sends it", () => {
         ["reason", "Same ISBN"],
         ["writes", "Finished 14 Apr 2019 · 4 stars"],
         ["rating", "Book rating 3 kept (the file says 4)"],
-        ["note", "Records Goodreads id 77 on this edition"],
+        ["note", "Checks and preserves Goodreads Book Id 77 for this book on commit"],
       ],
       actions: { decision: "import", canImport: true, canChoose: true, ratingChoice: false },
     });
+  });
+  it("shows an ID-only journal as pending remaining import, without losing its ownership", () => {
+    const view = rowView({ ...base, written: { readings: [], bookRating: null, identifiers: ["id"], goodreadsClaim: { externalId: "77", key: "77", workId: "w" } } }, today);
+    expect(view.lines).toContainEqual(["outcome", "Goodreads ID recorded; remaining import pending"]);
+    expect(view.actions).toBeNull();
   });
   it("shows a written row's outcome and no buttons", () => {
     const view = rowView({ ...base, written: { readings: [{ n: 1, outcome: "written", readingId: "r", reason: null }], bookRating: null, identifiers: [] } }, today);
