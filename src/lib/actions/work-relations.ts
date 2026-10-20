@@ -9,7 +9,7 @@ import { withReadableErrors } from "@/lib/db/errors";
 import { sourceRecords, workRelations, works } from "@/lib/db/schema";
 import { resultRows } from "@/lib/harmonization/store";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
-import { getEnabledWorkKinds, WORK_DOMAINS } from "@/lib/catalogue/domains";
+import { WORK_DOMAINS } from "@/lib/catalogue/domains";
 import { WORK_KINDS, type WorkKind } from "@/lib/catalogue/kinds";
 import {
   WORK_RELATION_PAIRS,
@@ -87,17 +87,15 @@ export async function getWorkRelations(workId: string): Promise<WorkRelationView
       where r.from_work_id = ${workId}::uuid or r.to_work_id = ${workId}::uuid
       order by r.type, direction desc, lower(o.title), o.id`),
   );
-  const enabled = new Set(getEnabledWorkKinds());
-  const shown = rows.filter((row) => enabled.has(row.otherKind));
   // A work linked twice (two types, or both ways) is loaded once
   const ids = (books: boolean) => [
-    ...new Set(shown.filter((row) => (row.otherKind === "book") === books).map((row) => row.otherId)),
+    ...new Set(rows.filter((row) => (row.otherKind === "book") === books).map((row) => row.otherId)),
   ];
   const [{ books }, tiles] = await Promise.all([
     loadRelatedBooks(ids(true).map((id) => ({ workId: id }))),
     loadRelatedTiles(ids(false)),
   ]);
-  const cardOf = (row: (typeof shown)[number]): SimilarWork | null => {
+  const cardOf = (row: (typeof rows)[number]): SimilarWork | null => {
     if (row.otherKind === "book") {
       const book = books.get(row.otherId);
       return book ? { id: book.id, title: book.title, kind: "book", book } : null;
@@ -105,7 +103,7 @@ export async function getWorkRelations(workId: string): Promise<WorkRelationView
     const tile = tiles.get(row.otherId);
     return tile ? { id: tile.id, title: tile.title, kind: row.otherKind, tile } : null;
   };
-  return shown.flatMap((row) => {
+  return rows.flatMap((row) => {
     const card = cardOf(row);
     // Both reads see every work the join found; a work deleted in between has lost its links too
     if (!card) return [];
@@ -144,14 +142,12 @@ export async function searchWorksForRelation(input: {
       excludeId: z.uuid(),
     })
     .parse(input);
-  const open = kinds.filter((kind) => getEnabledWorkKinds().includes(kind));
-  if (!open.length) return [];
   const match = query ? textSearchCondition(sql`search_normalize(w.title)`, query) : undefined;
   const rows = resultRows<{ id: string; kind: WorkKind; title: string; creators: string | null }>(
     await db.execute(sql`select w.id, w.kind, w.title, ${creators(sql`w.id`)} as creators
       from works w
       where w.kind in (${sql.join(
-        open.map((kind) => sql`${kind}`),
+        kinds.map((kind) => sql`${kind}`),
         sql`, `,
       )}) and w.id <> ${excludeId}::uuid ${match ? sql`and ${match}` : sql``}
       order by lower(w.title), w.id limit 8`),

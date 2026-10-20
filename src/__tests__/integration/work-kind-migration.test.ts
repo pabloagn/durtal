@@ -14,7 +14,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
-import { getEnabledWorkKinds } from "@/lib/catalogue/domains";
+import { DOMAIN_ORDER } from "@/lib/catalogue/domains";
 import { WORK_KINDS } from "@/lib/catalogue/kinds";
 import { DOMAIN_TAXONOMIES } from "@/lib/catalogue/taxonomies";
 
@@ -603,7 +603,7 @@ describe.skipIf(!url)("work-kind migration on a populated catalogue", () => {
       }
     }
     // The same kinds; the enum and the menus list them in different orders
-    expect([...accepted].sort()).toEqual([...getEnabledWorkKinds()].sort());
+    expect([...accepted].sort()).toEqual([...DOMAIN_ORDER].sort());
   });
 
   it("rejects unknown and null identities at the database boundary", async () => {

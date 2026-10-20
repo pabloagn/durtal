@@ -8,15 +8,15 @@
  */
 
 import type { KeyboardEvent as ReactKeyboardEvent } from "react";
-import { WORK_DOMAINS, getEnabledWorkKinds } from "@/lib/catalogue/domains";
+import { DOMAIN_ORDER, WORK_DOMAINS } from "@/lib/catalogue/domains";
 
 export type Keys = string[];
 
 /** G opens the "Go to" menu; then one of these keys */
 export const GO_TO: { key: string; label: string; href: string }[] = [
   { key: "d", label: "Dashboard", href: "/" },
-  // Each open collection's home: Books (B), and the others when they open
-  ...getEnabledWorkKinds().map((kind) => ({
+  // Each collection's home
+  ...DOMAIN_ORDER.map((kind) => ({
     key: WORK_DOMAINS[kind].keys.go,
     label: WORK_DOMAINS[kind].pluralLabel,
     href: WORK_DOMAINS[kind].basePath,
@@ -45,7 +45,7 @@ export const ADD: ({ key: string; label: string; section: string } & (
   | { href: string }
   | { dialog: AddDialog }
 ))[] = [
-  ...getEnabledWorkKinds().map((kind) => ({
+  ...DOMAIN_ORDER.map((kind) => ({
     key: WORK_DOMAINS[kind].keys.add,
     label: WORK_DOMAINS[kind].label,
     section: WORK_DOMAINS[kind].basePath,

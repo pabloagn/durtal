@@ -5,7 +5,7 @@ import { db } from "@/lib/db";
 import { resultRows } from "@/lib/harmonization/store";
 import { textSearchCondition, textSearchRank } from "@/lib/actions/utils/text-search";
 import { isSearchableQuery } from "@/lib/utils/search-text";
-import { WORK_DOMAINS, getEnabledWorkKinds } from "@/lib/catalogue/domains";
+import { DOMAIN_ORDER, WORK_DOMAINS } from "@/lib/catalogue/domains";
 import type { WorkKind } from "@/lib/catalogue/kinds";
 import { VENUE_TYPE_LABELS, type VenueType } from "@/lib/catalogue/venues";
 import type { WorkEbookDTO } from "@/lib/ebooks/catalogue-dto";
@@ -338,13 +338,13 @@ export async function quickSearch(query: string): Promise<QuickSearchResult> {
   const q = query.replaceAll("\0", "").trim().slice(0, 200);
   // One Chinese, Japanese or Korean character is enough; symbols alone are not
   if (!isSearchableQuery(q)) return EMPTY;
-  const kinds = getEnabledWorkKinds();
+  const kinds = [...DOMAIN_ORDER];
   const [works, people, organizations, venues, ebooks, series, collections, recommenders, taxonomy] = await Promise.all([
     searchWorks(q, kinds),
     searchPeople(q, kinds),
     searchOrganizations(q, kinds),
     searchVenues(q),
-    kinds.includes("book") ? paletteEbooks(q) : Promise.resolve([]),
+    paletteEbooks(q),
     searchNamed(sql`series x`, sql`x.title`, q, (id) => `/series/${id}`, sql`x.original_title`),
     searchNamed(sql`collections x`, sql`x.name`, q, (id) => `/collections/${id}`),
     searchNamed(sql`recommenders x`, sql`x.name`, q, (id) => `/recommenders/${id}`),
@@ -359,5 +359,5 @@ export async function quickSearch(query: string): Promise<QuickSearchResult> {
 
 /** Open-time fetch only; this adds no catalogue page payload. */
 export async function getPaletteContinueReading(): Promise<WorkEbookDTO | null> {
-  return getEnabledWorkKinds().includes("book") ? paletteContinueReading() : null;
+  return paletteContinueReading();
 }

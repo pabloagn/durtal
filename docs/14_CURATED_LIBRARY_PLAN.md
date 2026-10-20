@@ -383,7 +383,7 @@ remake (a new film) from a cut (a version). Films get readable slugs
 role they need. The record parts shared with perfumes moved to
 `src/components/catalogue/`. Films open with this task: migration
 `0054_film_kind_enabled` widens `works_kind_enabled_check` to `book`,
-`perfume` and `film`, in step with `WORK_DOMAINS.film.enabled`.
+`perfume` and `film`.
 
 Links between works (SLN-363, task 0268): adaptations, remakes, flankers and
 sourced inspirations are directed rows in `work_relations` with kind-tied keys,

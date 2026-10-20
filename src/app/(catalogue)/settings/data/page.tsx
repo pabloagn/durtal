@@ -15,7 +15,6 @@ import {
   seriesSuggestionCounts,
 } from "@/lib/settings/data";
 import { ExportRow, RefreshCacheRow } from "./data-actions";
-import { WORK_DOMAINS } from "@/lib/catalogue/domains";
 
 export const metadata = { title: "Data settings" };
 
@@ -169,27 +168,21 @@ export default async function DataSettingsPage() {
           label="Goodreads file"
           description="Your shelves and reads in Goodreads’ own export format, which Goodreads and StoryGraph import. Half stars round up, and only exact dates go out."
         />
-        {WORK_DOMAINS.perfume.enabled && (
-          <ExportRow
-            entity="perfumes"
-            label="Perfumes"
-            description="Every perfume: houses, perfumers, release, concentrations, families, accords, notes, the bottles and samples you keep, rating and notes."
-          />
-        )}
-        {WORK_DOMAINS.film.enabled && (
-          <ExportRow
-            entity="films"
-            label="Films"
-            description="Every film: directors, writers, cast, release, runtime, countries, languages, genres, the copies you keep, rating and notes."
-          />
-        )}
-        {WORK_DOMAINS.painting.enabled && (
-          <ExportRow
-            entity="paintings"
-            label="Paintings"
-            description="Every painting: painters, date, movements, genres, techniques, media, supports, the original's owner and size, what you own, rating and notes."
-          />
-        )}
+        <ExportRow
+          entity="perfumes"
+          label="Perfumes"
+          description="Every perfume: houses, perfumers, release, concentrations, families, accords, notes, the bottles and samples you keep, rating and notes."
+        />
+        <ExportRow
+          entity="films"
+          label="Films"
+          description="Every film: directors, writers, cast, release, runtime, countries, languages, genres, the copies you keep, rating and notes."
+        />
+        <ExportRow
+          entity="paintings"
+          label="Paintings"
+          description="Every painting: painters, date, movements, genres, techniques, media, supports, the original's owner and size, what you own, rating and notes."
+        />
       </SettingsGroup>
 
       <SettingsGroup title="Enrichment">

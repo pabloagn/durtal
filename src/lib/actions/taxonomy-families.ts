@@ -46,7 +46,7 @@ import {
 import { slugify } from "@/lib/utils/slugify";
 import { uniqueSlug } from "@/lib/catalogue/slugs";
 import { withReadableErrors } from "@/lib/db/errors";
-import { getEnabledWorkKinds } from "@/lib/catalogue/domains";
+import { DOMAIN_ORDER } from "@/lib/catalogue/domains";
 import { assertSql, resultRows, lockSql } from "@/lib/harmonization/store";
 import { executeMerge, previewMerge } from "@/lib/harmonization/merge";
 
@@ -101,20 +101,16 @@ export async function getApplicableTaxonomyFamilies(
 }
 
 /**
- * Families that apply to at least one enabled domain, with every scope they
- * have. Scopes of domains that are not enabled yet are kept, never shown.
+ * Families that apply to at least one collection, with every scope they
+ * have.
  */
 export const getTaxonomyFamilies = cached(
   async () => {
-    const enabled = getEnabledWorkKinds();
     const families = await db
       .select()
       .from(taxonomyFamilies)
       .where(
-        sql`exists(select 1 from taxonomy_applicability a where a.family_id=${taxonomyFamilies.id} and a.kind in (${sql.join(
-          enabled.map((kind) => sql`${kind}`),
-          sql`,`,
-        )}))`,
+        sql`exists(select 1 from taxonomy_applicability a where a.family_id=${taxonomyFamilies.id})`,
       )
       .orderBy(asc(taxonomyFamilies.sortOrder), asc(taxonomyFamilies.name));
     const scopes = families.length
@@ -132,7 +128,7 @@ export const getTaxonomyFamilies = cached(
       families.map(async (family) => {
         const storage = taxonomyStorage(family);
         const linked = sql.join(
-          enabled.map(
+          DOMAIN_ORDER.map(
             (kind) => sql`select id,level from (${linkedEntities(storage, family.id, kind)}) l`,
           ),
           sql` union all `,
@@ -362,8 +358,8 @@ export async function deleteTaxonomyFamily(id: string) {
 }
 /**
  * The listed families take positions 0..n-1 in the given order. Families that
- * are not listed (for example those of collections that are not open yet)
- * follow them, keeping their relative order.
+ * are not listed (a family that applies to nothing) follow them, keeping their
+ * relative order.
  */
 export async function reorderFamilies(ids: string[]) {
   z.array(z.uuid()).min(1).max(500).parse(ids);
@@ -400,13 +396,13 @@ export async function reorderFamilies(ids: string[]) {
 }
 
 /**
- * The kinds an item's count and page cover: every open collection the family
+ * The kinds an item's count and page cover: every collection the family
  * applies to, so a perfume note counts its perfumes (SLN-886) and a theme its
  * films as well as its books (SLN-1157)
  */
 function itemKinds(family: { applicability?: { kind: WorkKind }[] }): WorkKind[] {
   const applies = new Set((family.applicability ?? []).map((scope) => scope.kind));
-  const kinds = getEnabledWorkKinds().filter((kind) => applies.has(kind));
+  const kinds = DOMAIN_ORDER.filter((kind) => applies.has(kind));
   return kinds.length ? kinds : ["book"];
 }
 

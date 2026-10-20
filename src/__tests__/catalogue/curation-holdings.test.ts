@@ -52,14 +52,13 @@ describe("curation independent of ownership", () => {
     ])
       expect(curationPatchSchema.safeParse(fields).success).toBe(false);
   });
-  it("centralizes domain controls independently of whether the domain is enabled", () => {
+  it("centralizes domain controls", () => {
     expect(kindsWithCapability("bookLifecycle")).toEqual(["book"]);
     expect(kindsWithCapability("bookEditions")).toEqual(["book"]);
     expect(kindsWithCapability("originalWhereabouts")).toEqual(["painting"]);
     expect(kindsWithCapability("curation")).toEqual([...WORK_KINDS]);
     expect(WORK_DOMAINS.painting.capabilities.reading).toBe(false);
-    // A capability is usable only while its domain is open
-    expect(canUseWorkCapability("painting", "artObjects")).toBe(WORK_DOMAINS.painting.enabled);
+    expect(canUseWorkCapability("painting", "artObjects")).toBe(true);
     expect(canUseWorkCapability("painting", "reading")).toBe(false);
     expect(canUseWorkCapability("book", "reading")).toBe(true);
   });

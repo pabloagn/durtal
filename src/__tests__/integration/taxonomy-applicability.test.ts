@@ -17,7 +17,6 @@ import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
 import * as schema from "@/lib/db/schema";
 import { DOMAIN_TAXONOMIES } from "@/lib/catalogue/taxonomies";
-import { WORK_DOMAINS } from "@/lib/catalogue/domains";
 const url = process.env.DURTAL_TAXONOMY_TEST_DATABASE_URL;
 if (url) requireDisposableDatabaseUrl(url, "sln352_test");
 if (url) {
@@ -522,24 +521,18 @@ describe.skipIf(!url)("domain and level-aware taxonomy", () => {
     expect(renamed).toMatchObject({ name: "Atmosphere", slug: "mood", color: "#5a6b7c" });
     await expect(updateTaxonomyFamily(film.id, { color: "red" })).rejects.toThrow();
   });
-  it("lists only families of enabled domains, with all their scopes", async () => {
+  it("lists every collection's families, with all their scopes", async () => {
     const paintingOnly = await createTaxonomyFamily({ name: "Painting only", scopes: [{ kind: "painting", level: "work" }] });
     const shared = await createTaxonomyFamily({
       name: "Shared",
       scopes: [{ kind: "book", level: "work" }, { kind: "painting", level: "work" }],
     });
-    // Every collection is open: close paintings for this one read
-    const painting = WORK_DOMAINS.painting as unknown as { enabled: boolean };
-    painting.enabled = false;
-    const listed = await getTaxonomyFamilies().finally(() => {
-      painting.enabled = true;
-    });
-    expect(listed.some((f) => f.id === paintingOnly.id)).toBe(false);
+    const listed = await getTaxonomyFamilies();
+    expect(listed.some((f) => f.id === paintingOnly.id)).toBe(true);
     expect(listed.find((f) => f.id === shared.id)?.scopes).toEqual(
       expect.arrayContaining([{ kind: "book", level: "work" }, { kind: "painting", level: "work" }]),
     );
-    expect(listed.some((f) => f.slug === "painting-genres")).toBe(false);
-    // Films are open, so their own family is listed
+    expect(listed.some((f) => f.slug === "painting-genres")).toBe(true);
     expect(listed.some((f) => f.slug === "film-genres")).toBe(true);
   });
   it("shares one family across two domains and explains used scopes before changes", async () => {

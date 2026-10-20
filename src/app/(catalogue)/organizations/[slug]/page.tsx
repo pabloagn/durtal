@@ -15,7 +15,6 @@ import { OrganizationActions } from "@/components/organizations/organization-act
 import { FavouriteToggle } from "@/components/shared/favourite-toggle";
 import { getOrganization } from "@/lib/actions/organizations";
 import { getOrganizationContributions } from "@/lib/actions/organization-directory";
-import { getEnabledWorkKinds } from "@/lib/catalogue/domains";
 import {
   NON_PUBLISHING_ROLES,
   ORGANIZATION_ROLE_LABELS,
@@ -124,17 +123,16 @@ export default async function OrganizationPage({ params }: { params: Promise<{ s
   const { publishing, perfumes, films, paintings } = await getOrganizationContributions(
     organization.id,
   );
-  const open = new Set<string>(getEnabledWorkKinds());
   const kind = organization.kind as DirectoryRole | null;
   const id = organization.id;
 
   const houseRoles = perfumes.roles.filter((r) => r.total > 0);
   const hasPerfumes =
-    open.has("perfume") && (houseRoles.length > 0 || perfumes.listings > 0 || perfumes.bottles > 0);
+    (houseRoles.length > 0 || perfumes.listings > 0 || perfumes.bottles > 0);
   const hasFilms =
-    open.has("film") && (films.produced.total > 0 || films.distributed.total > 0 || films.copies > 0);
+    (films.produced.total > 0 || films.distributed.total > 0 || films.copies > 0);
   const hasPaintings =
-    open.has("painting") && (paintings.owned.objects > 0 || paintings.shown.total > 0);
+    (paintings.owned.objects > 0 || paintings.shown.total > 0);
   const venues = organization.venues;
   // A venue it both runs and owns is one venue
   const venueCount = new Set(venues.map((v) => v.venueId)).size;

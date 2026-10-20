@@ -9,7 +9,7 @@ import { cache } from "react";
 import { sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { resultRows } from "@/lib/harmonization/store";
-import { WORK_DOMAINS, getEnabledWorkKinds } from "./domains";
+import { DOMAIN_ORDER, WORK_DOMAINS } from "./domains";
 import type { WorkKind } from "./kinds";
 import { mediaUrl } from "@/lib/s3/media-url";
 
@@ -147,7 +147,7 @@ export async function loadDomainCounts(kind: HomeKind) {
  * shared by the header's Add and the page's body.
  */
 export const catalogueIsEmpty = cache(async () => {
-  const kinds = getEnabledWorkKinds();
+  const kinds = DOMAIN_ORDER;
   const [row] = resultRows<{ empty: boolean }>(
     await db.execute(sql`select not exists (select 1 from works where kind in (${sql.join(
       kinds.map((kind) => sql`${kind}`),

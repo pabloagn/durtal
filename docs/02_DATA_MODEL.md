@@ -148,8 +148,7 @@ read-time hint (default 30 days); an old observation stays visibly dated.
 
 Migration `0046_film_model` adds a film profile, versions (cuts), releases and
 optional personal copies. Films open with their screens (SLN-367):
-`works_kind_enabled_check` allows them since migration `0054_film_kind_enabled`,
-in step with `WORK_DOMAINS.film.enabled`.
+`works_kind_enabled_check` allows them since migration `0054_film_kind_enabled`.
 
 | Table | Key and relationships | Purpose |
 | --- | --- | --- |

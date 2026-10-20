@@ -25,7 +25,6 @@ vi.mock("@/lib/statistics/library", () => ({
   }),
 }));
 vi.mock("@/lib/reading/stats", () => ({ yearNumbers: async () => ({ books: 0, pages: 0, hours: 0, readingDays: 0 }) }));
-vi.mock("@/lib/catalogue/domains", async (original) => ({ ...(await original<object>()), getEnabledWorkKinds: () => ["book"] }));
 vi.mock("@/lib/catalogue/domain-homes", () => ({ loadDomainCounts: async () => ({ records: 0, creators: 0 }) }));
 vi.mock("@/components/layout/page-header", () => ({ PageHeader: () => null }));
 

@@ -1,4 +1,4 @@
-import { WORK_DOMAINS, getEnabledWorkKinds } from "@/lib/catalogue/domains";
+import { DOMAIN_ORDER, WORK_DOMAINS } from "@/lib/catalogue/domains";
 import type { WorkKind } from "@/lib/catalogue/kinds";
 
 /**
@@ -128,6 +128,6 @@ export function collectionDeletedMessage(kinds: readonly WorkKind[]) {
 
 /** What a collection can hold: "books, perfumes, films and paintings" */
 export function collectableNouns() {
-  const nouns = getEnabledWorkKinds().map((kind) => WORK_DOMAINS[kind].pluralLabel.toLowerCase());
+  const nouns = DOMAIN_ORDER.map((kind) => WORK_DOMAINS[kind].pluralLabel.toLowerCase());
   return nouns.length > 1 ? `${nouns.slice(0, -1).join(", ")} and ${nouns.at(-1)}` : (nouns[0] ?? "");
 }

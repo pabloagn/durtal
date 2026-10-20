@@ -22,7 +22,7 @@ A release takes these steps in this order (SLN-382). A step that fails stops the
 12. **Data steps.** The steps the release names, on the new release, each checked first without writing (for example a reading import's preview at `/reading/import/<id>` before its commit). Catalogue changes go through the REST API, never through SQL.
 13. **Verify.** The changed pages on 127.0.0.1:3110, `node scripts/qa/page-weight.js http://127.0.0.1:3110`, and the release's own checks.
 
-A collection (perfumes, films, paintings, a new one) opens only when its gates pass: its switch in `src/lib/catalogue/domains.ts` (`enabled`) and, for a new kind, the activation migration that widens `works_kind_enabled_check` ship together. Closing one again is a code change only (Rolling back a collection, below).
+A new collection opens only when its gates pass: its entry in `WORK_DOMAINS` (`src/lib/catalogue/domains.ts`) and the activation migration that widens `works_kind_enabled_check` ship together (Rolling back a collection, below).
 
 ---
 
@@ -388,15 +388,7 @@ Tailscale change, cloud write or infrastructure-journal acknowledgement.
 
 **When the service stops.** The launcher restarts a server that exits after 30 s, but a start that never becomes ready, or three exits within five minutes, stops the service for good (`runtime_launcher.py`). The plist has `KeepAlive: false`, so launchd does not start it again: someone recovers it by hand, by loading a plist as above.
 
-**Rolling back a collection.** Perfumes, films and paintings can be closed again without losing what was entered:
-
-1. In `src/lib/catalogue/domains.ts`, set `enabled: false` for the collection.
-2. Keep the database as it is: never roll back `0053_open_perfumes`, `0054_film_kind_enabled` or `0055_open_paintings`, and never drop the collection's tables. The database keeps accepting the kind, so its rows stay valid.
-3. Build and serve that code. Every page of the collection answers 404, no menu, switch or dashboard section names it, and the book pages, lists and searches leave its records out.
-
-To roll forward, set `enabled: true` again. The records come back as they were. An older build from before a collection existed is not a safe rollback once that collection has rows: use the current code with the switch off instead.
-
-The drill of 2026-10-04 (task 0267) ran this on disposable restores of `live-before-0053-0056-20261004-113735.dump`: main's build added a perfume, a film and a painting; the recovery build (all three switches off) restored a dump of that database strictly, kept every table's row count, answered 404 on every collection page and 200 on the book pages; main's build on the same dump showed the three records again.
+**Rolling back a collection.** Perfumes, films and paintings are permanent: the code has no switch to close one (SLN-1229 removed the `enabled` flag, which was on for all four). Never roll back `0053_open_perfumes`, `0054_film_kind_enabled` or `0055_open_paintings`, and never drop a collection's tables. An older build from before a collection existed is not a safe rollback once that collection has rows. The drill of 2026-10-04 (task 0267) ran the old switch on disposable restores of `live-before-0053-0056-20261004-113735.dump`; a build from before this change (`git log` for SLN-1229) still has it, if a collection ever has to be closed.
 
 ---
 

@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { createElement, type ReactElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { readFileSync } from "fs";
@@ -9,12 +9,6 @@ import path from "path";
 // dashboard is one state with a purpose sentence, one Add book and quiet links
 // to the other collections, not ten zeros; Statistics says what it counts.
 
-const kinds = vi.hoisted(() => ({ enabled: ["book", "film", "perfume", "painting"] as string[] }));
-vi.mock("@/lib/catalogue/domains", async (original) => ({
-  ...(await original<object>()),
-  getEnabledWorkKinds: () => kinds.enabled,
-}));
-
 import { EmptyCatalogue } from "@/components/domains/empty-catalogue";
 import { NoOwnedBooks } from "@/components/statistics/no-owned-books";
 import { NO_OWNED_BOOKS, libraryTile } from "@/lib/statistics/tiles";
@@ -23,28 +17,18 @@ const render = (node: ReactElement) => new DOMParser().parseFromString(renderToS
 const source = (file: string) => readFileSync(path.resolve(__dirname, "../..", file), "utf8");
 
 describe("the empty dashboard", () => {
-  it("says what the library is for, with one Add book and a link to add each other open collection", () => {
-    kinds.enabled = ["book", "film", "perfume", "painting"];
+  it("says what the library is for, with one Add book and a link to add each other collection", () => {
     const page = render(createElement(EmptyCatalogue));
     expect(page.querySelector("h2")?.textContent).toBe("Nothing catalogued yet");
     expect(page.body.textContent).toContain("Durtal keeps one record of every book you own, read or want");
     const links = [...page.querySelectorAll("a")].map((a) => [a.textContent, a.getAttribute("href")]);
     expect(links).toEqual([
       ["Add book", "/library/new"],
-      ["film", "/films/new"],
       ["perfume", "/perfumes/new"],
+      ["film", "/films/new"],
       ["painting", "/paintings/new"],
     ]);
-    expect(page.querySelector("p:last-child")?.textContent).toBe("Or add a film, a perfume or a painting.");
-  });
-
-  it("names only the collections that are open", () => {
-    kinds.enabled = ["book", "film"];
-    expect(render(createElement(EmptyCatalogue)).body.textContent).toContain("Or add a film.");
-    kinds.enabled = ["book"];
-    const page = render(createElement(EmptyCatalogue));
-    expect(page.querySelectorAll("a")).toHaveLength(1);
-    expect(page.body.textContent).not.toContain("Or add");
+    expect(page.querySelector("p:last-child")?.textContent).toBe("Or add a perfume, a film or a painting.");
   });
 
   it("replaces the index and the sections, and the header's Add gives way to its own", () => {

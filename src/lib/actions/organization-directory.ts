@@ -14,7 +14,6 @@ import {
 import { countryLookup, resolveCountry } from "@/lib/utils/countries";
 import { resultRows, assertSql } from "@/lib/harmonization/store";
 import { withReadableErrors } from "@/lib/db/errors";
-import { getEnabledWorkKinds } from "@/lib/catalogue/domains";
 import {
   COUNT_CAP,
   DIRECTORY_ROLES,
@@ -227,8 +226,7 @@ export async function getOrganizationContributions(id: string) {
         ),
     ]);
 
-  const open = new Set<string>(getEnabledWorkKinds());
-  const ids = (rows: Listed[]) => rows.filter((w) => open.has(w.kind)).map((w) => w.id);
+  const ids = (rows: Listed[]) => rows.map((w) => w.id);
   const roles = (["perfume_house", "brand", "manufacturer"] as const).map((role) => {
     const rows = perfumeRoles.filter((r) => r.role === role);
     return { role, ids: ids(rows), total: rows[0]?.total ?? 0 };

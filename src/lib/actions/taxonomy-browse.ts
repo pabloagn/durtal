@@ -12,7 +12,7 @@ import {
   taxonomyStorage,
   type TaxonomyItem,
 } from "@/lib/catalogue/taxonomy-storage";
-import { getEnabledWorkKinds } from "@/lib/catalogue/domains";
+import { DOMAIN_ORDER } from "@/lib/catalogue/domains";
 import { WORK_KINDS, type WorkKind } from "@/lib/catalogue/kinds";
 import { resultRows } from "@/lib/harmonization/store";
 import { parsePagination, type ListSearchParams } from "@/lib/utils/pagination";
@@ -21,10 +21,10 @@ import { workCardExtras, posterTone } from "./utils/work-card-query";
 import { z } from "zod";
 
 const SMALL_TREE = 192;
-/** Every open collection the family applies to: a theme counts its films as well as its books (SLN-1157) */
+/** Every collection the family applies to: a theme counts its films as well as its books (SLN-1157) */
 function visibleKinds(family: { applicability: { kind: WorkKind }[] }): WorkKind[] {
   const applies = new Set(family.applicability.map((s) => s.kind));
-  const kinds = getEnabledWorkKinds().filter((k) => applies.has(k));
+  const kinds = DOMAIN_ORDER.filter((k) => applies.has(k));
   return kinds.length ? kinds : ["book"];
 }
 

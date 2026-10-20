@@ -1,7 +1,6 @@
 import { sql, type SQL } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { resultRows } from "@/lib/harmonization/store";
-import { WORK_DOMAINS } from "@/lib/catalogue/domains";
 import { WORK_KINDS, type WorkKind } from "@/lib/catalogue/kinds";
 import { fileRow, rowKey, type Row } from "./columns";
 import {
@@ -124,7 +123,7 @@ export interface ExportSelection {
 
 /** The works chosen, by collection and title */
 async function chosenWorks(selection: ExportSelection) {
-  const domains = (selection.domains?.length ? selection.domains : WORK_KINDS).filter((d) => WORK_DOMAINS[d].enabled);
+  const domains = selection.domains?.length ? selection.domains : WORK_KINDS;
   if (!domains.length) return [];
   return resultRows<{ id: string; kind: WorkKind; title: string }>(
     await db.execute(sql`select id, kind::text as kind, title from works

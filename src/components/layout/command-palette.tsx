@@ -34,7 +34,7 @@ import { ADD, COPY_KEYS, GO_TO, SHORTCUTS, type Keys } from "@/lib/shortcuts/sho
 import { SECTION_ICONS } from "@/components/shortcuts/section-icons";
 import { filterBySearch, isSearchableQuery } from "@/lib/utils/search-text";
 import { DOMAIN_SECTIONS, NAV_SECTIONS } from "@/lib/navigation";
-import { WORK_DOMAINS, getEnabledWorkKinds } from "@/lib/catalogue/domains";
+import { DOMAIN_ORDER, WORK_DOMAINS } from "@/lib/catalogue/domains";
 import { SETTINGS_SECTIONS } from "@/components/settings/sections";
 import { monogramTint } from "@/components/shared/no-photo";
 import { useReadingDialogs } from "@/components/reading/reading-dialogs-provider";
@@ -101,8 +101,8 @@ const ACTION_ITEMS: PaletteItem[] = [
 
 const NO_RESULTS: QuickSearchResult = { works: [], people: [], organizations: [], venues: [] };
 
-/** The open collections, in navigation order: one group of results each */
-const RESULT_KINDS = getEnabledWorkKinds();
+/** The collections, in navigation order: one group of results each */
+const RESULT_KINDS = DOMAIN_ORDER;
 
 /**
  * A result's picture: the work's cover or poster, 24x36 like a small card, or

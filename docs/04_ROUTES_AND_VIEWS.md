@@ -75,11 +75,8 @@
 /paintings/[slug]           Painting detail (slug format: {title}-{id})
 ```
 
-A collection opens when `WORK_DOMAINS[kind].enabled` is true
-(`src/lib/catalogue/domains.ts`). Each of its route folders has a `layout.tsx`
-that calls `requireEnabledDomain(kind)`, so every page below it (home, and later
-detail and new) answers 404 while the collection is unready. Books stay at
-`/library`; no book URL changes.
+All four collections are open (`WORK_DOMAINS`, `src/lib/catalogue/domains.ts`).
+Books stay at `/library`; no book URL changes.
 
 All catalogue pages use `force-dynamic` rendering (set in `src/app/(catalogue)/layout.tsx`, and again in `publishers/layout.tsx`; the reader has its own layout) — no static generation, no ISR. Every request fetches fresh data from Neon.
 
@@ -272,7 +269,7 @@ The Filter button opens one panel with a rail of six sections (`FilterDropdown` 
 
 ### Perfumes (`/perfumes`)
 
-Reachable once perfumes open (see Route Map). `src/app/(catalogue)/perfumes/(list)/page.tsx` shows
+See Route Map. `src/app/(catalogue)/perfumes/(list)/page.tsx` shows
 the title, "Add perfume", the collection switch, search (titles and houses), the
 sorts (title, release, added, rating), grid and list views (saved:
 `durtal-perfumes-view-mode`, `durtal-perfumes-grid-columns`), paging, and the

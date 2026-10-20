@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { getEnabledWorkKinds } from "@/lib/catalogue/domains";
+import { DOMAIN_ORDER } from "@/lib/catalogue/domains";
 import { resultRows } from "@/lib/harmonization/store";
 import { loadRelatedBooks } from "@/lib/catalogue/related-books";
 import {
@@ -27,7 +27,7 @@ export async function rankSimilarWorks(workId: string, limit = 12): Promise<Simi
   z.uuid().parse(workId);
   z.number().int().min(1).max(50).parse(limit);
   const enabled = sql.join(
-    getEnabledWorkKinds().map((kind) => sql`${kind}`),
+    DOMAIN_ORDER.map((kind) => sql`${kind}`),
     sql`, `,
   );
   return resultRows<SimilarRank>(

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { WORK_DOMAINS, getEnabledWorkKinds } from "@/lib/catalogue/domains";
+import { DOMAIN_ORDER, WORK_DOMAINS } from "@/lib/catalogue/domains";
 import { domainSwitchHref } from "@/lib/catalogue/domain-switch";
 import type { WorkKind } from "@/lib/catalogue/kinds";
 import { DOMAIN_ICONS } from "@/components/shortcuts/section-icons";
@@ -18,8 +18,7 @@ export function DomainSwitch({
   current: WorkKind;
   searchParams: SearchParams;
 }) {
-  const kinds = getEnabledWorkKinds();
-  if (kinds.length < 2) return null;
+  const kinds = DOMAIN_ORDER;
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries(searchParams)) {
     const first = Array.isArray(value) ? value[0] : value;

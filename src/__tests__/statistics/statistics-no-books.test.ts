@@ -19,7 +19,6 @@ vi.mock("@/lib/statistics/library", () => ({
   }),
 }));
 vi.mock("@/lib/reading/stats", () => ({ yearNumbers: async () => ({ books: 4, pages: 900, hours: 12, readingDays: 9 }) }));
-vi.mock("@/lib/catalogue/domains", async (original) => ({ ...(await original<object>()), getEnabledWorkKinds: () => ["book", "film", "perfume"] }));
 vi.mock("@/lib/catalogue/domain-homes", () => ({
   loadDomainCounts: async (kind: string) => (kind === "film" ? { records: 5, creators: 3 } : { records: 0, creators: 0 }),
 }));

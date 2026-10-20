@@ -20,7 +20,6 @@ interface WorkDomain {
   readonly basePath: string;
   /** Keys after G (go to its home) and after A (add one); unique per menu */
   readonly keys: { readonly go: string; readonly add: string };
-  readonly enabled: boolean;
   readonly capabilities: Readonly<Record<WorkCapability, boolean>>;
   readonly creatorRoles: readonly string[];
   readonly image: {
@@ -31,10 +30,8 @@ interface WorkDomain {
 }
 
 /**
- * A domain opens once its data model, book isolation and complete workflows
- * pass their release gates (SLN-347, SLN-382). All four are open. Keep the
- * database works_kind_enabled_check in sync through a reviewed activation
- * migration.
+ * The four collections, all open since migration 0055 (SLN-347, SLN-382). A
+ * new kind needs its own reviewed migration of works_kind_enabled_check.
  */
 export const WORK_DOMAINS = {
   book: {
@@ -42,7 +39,6 @@ export const WORK_DOMAINS = {
     pluralLabel: "Books",
     basePath: "/library",
     keys: { go: "b", add: "b" },
-    enabled: true,
     capabilities: {
       curation: true,
       personalHoldings: true,
@@ -62,7 +58,6 @@ export const WORK_DOMAINS = {
     pluralLabel: "Films",
     basePath: "/films",
     keys: { go: "f", add: "f" },
-    enabled: true,
     capabilities: {
       curation: true,
       personalHoldings: true,
@@ -82,7 +77,6 @@ export const WORK_DOMAINS = {
     pluralLabel: "Perfumes",
     basePath: "/perfumes",
     keys: { go: "e", add: "p" },
-    enabled: true,
     capabilities: {
       curation: true,
       personalHoldings: true,
@@ -102,7 +96,6 @@ export const WORK_DOMAINS = {
     pluralLabel: "Paintings",
     basePath: "/paintings",
     keys: { go: "i", add: "i" },
-    enabled: true,
     capabilities: {
       curation: true,
       personalHoldings: true,
@@ -127,11 +120,6 @@ export const DOMAIN_ORDER = [
   "painting",
 ] as const satisfies readonly WorkKind[];
 
-/** Safe for navigation: never advertise an unfinished domain. */
-export function getEnabledWorkKinds(): WorkKind[] {
-  return DOMAIN_ORDER.filter((kind) => WORK_DOMAINS[kind].enabled);
-}
-
 /** Structural support is distinct from rollout readiness. */
 export function kindsWithCapability(capability: WorkCapability): WorkKind[] {
   return WORK_KINDS.filter(
@@ -142,7 +130,5 @@ export function canUseWorkCapability(
   kind: WorkKind,
   capability: WorkCapability,
 ) {
-  return (
-    WORK_DOMAINS[kind].enabled && WORK_DOMAINS[kind].capabilities[capability]
-  );
+  return WORK_DOMAINS[kind].capabilities[capability];
 }
