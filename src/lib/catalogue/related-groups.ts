@@ -103,7 +103,7 @@ export async function relatedGroupsFrom(selected: RelatedBookRow[]): Promise<Rel
       ? {
           ...original,
           editions: [edition],
-          media: [],
+          editionCard: true,
           editionNote: [
             edition.title,
             edition.publicationYear != null

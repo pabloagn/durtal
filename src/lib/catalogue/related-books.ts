@@ -54,5 +54,9 @@ export type RelatedBook =
     string,
     infer Book
   >
-    ? Book & { editionNote?: string }
+    ? Book & {
+        editionNote?: string;
+        /** One edition's card: it shows that edition's image first (SLN-999) */
+        editionCard?: boolean;
+      }
     : never;
