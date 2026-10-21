@@ -2,6 +2,10 @@
 
 Durtal's book catalogue uses a three-tier data model drawn from FRBR (Functional Requirements for Bibliographic Records). The separation between intellectual creation, physical publication, and individual copy is fundamental to books. The curated-library expansion preserves that model and introduces explicit work kinds; see [the architecture and delivery plan](14_CURATED_LIBRARY_PLAN.md).
 
+## Edition cover history
+
+`0092_edition_cover_history` adds `edition_cover_history`: UUID identity, edition FK (cascade on edition deletion), cover/thumbnail/source URL, optional uncropped base key and applied crop, and publication timestamp. At least one image key is required. A null-safe unique constraint on edition + cover + thumbnail makes each committed choice idempotent. The migration preserves every existing edition row and asset; it seeds only current nonempty own-cover references. Custom SQL maintains the publication trigger because Drizzle snapshots do not represent triggers. Restore choices and their base files are references for storage cleanup.
+
 ## Work domains (foundation)
 
 Migration `0037_work_kinds` adds `works.kind` using `work_kind_enum`:

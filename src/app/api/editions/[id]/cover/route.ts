@@ -8,22 +8,41 @@ import {
 } from "@/lib/catalogue/edition-cover";
 import { imageFileRefusal } from "@/lib/validations/media-security";
 import { isUuid } from "@/lib/utils/uuid";
+import { crossOriginRefusal } from "@/lib/api/same-origin";
 
-const urlBody = z.object({ imageUrl: z.string().url().max(2048) }).strict();
+const revisionSchema = z
+  .string()
+  .regex(/^[a-f0-9]{64}$/)
+  .optional();
+const urlBody = z
+  .object({ imageUrl: z.string().url().max(2048), revision: revisionSchema })
+  .strict();
 
 /** The image the request carries: a multipart `file`, or JSON `imageUrl` */
-async function coverInput(req: NextRequest): Promise<CoverInput | string> {
+async function coverInput(
+  req: NextRequest,
+): Promise<{ input: CoverInput; revision?: string } | string> {
   if (req.headers.get("content-type")?.includes("application/json")) {
     const parsed = urlBody.safeParse(await req.json().catch(() => null));
-    return parsed.success ? { kind: "url", url: parsed.data.imageUrl } : "Give an image address.";
+    return parsed.success
+      ? {
+          input: { kind: "url", url: parsed.data.imageUrl },
+          revision: parsed.data.revision,
+        }
+      : "Give an image address.";
   }
   const form = await req.formData().catch(() => null);
   const file = form?.get("file");
-  if (!(file instanceof File)) return "The image did not arrive intact. Please choose it again.";
+  const revision = revisionSchema.safeParse(form?.get("revision") ?? undefined);
+  if (!revision.success) return "Reload the edition cover editor.";
+  if (!(file instanceof File))
+    return "The image did not arrive intact. Please choose it again.";
   const refused = imageFileRefusal(file);
   if (refused) return refused;
   const bytes = Buffer.from(await file.arrayBuffer());
-  return bytes.length ? { kind: "file", bytes } : "File is empty";
+  return bytes.length
+    ? { input: { kind: "file", bytes }, revision: revision.data }
+    : "File is empty";
 }
 
 /**
@@ -36,12 +55,16 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const refused = crossOriginRefusal(req);
+  if (refused) return refused;
   const { id } = await params;
-  if (!isUuid(id)) return NextResponse.json({ error: "Invalid edition id" }, { status: 400 });
+  if (!isUuid(id))
+    return NextResponse.json({ error: "Invalid edition id" }, { status: 400 });
   const input = await coverInput(req);
-  if (typeof input === "string") return NextResponse.json({ error: input }, { status: 400 });
+  if (typeof input === "string")
+    return NextResponse.json({ error: input }, { status: 400 });
   try {
-    await replaceEditionCover(id, input);
+    await replaceEditionCover(id, input.input, input.revision);
     return NextResponse.json({ ok: true });
   } catch (error) {
     const message = (error as Error)?.message;
@@ -52,6 +75,9 @@ export async function POST(
     if (message === COVER_UNREADABLE)
       return NextResponse.json({ error: message }, { status: 422 });
     console.error("Edition cover upload failed:", error);
-    return NextResponse.json({ error: "The cover could not be saved." }, { status: 500 });
+    return NextResponse.json(
+      { error: "The cover could not be saved." },
+      { status: 500 },
+    );
   }
 }

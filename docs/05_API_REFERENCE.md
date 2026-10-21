@@ -245,6 +245,12 @@ A new own cover for the edition, as the Edition cover dialog sends it (SLN-638).
 
 **Response** `200`: `{ "ok": true }`. **Error** `400`: bad id, no file, too large, type not allowed, empty file, or a body other than `{ imageUrl }`. `404`: the edition does not exist. `409`: the edition changed while the image was stored (nothing is written). `422`: the image could not be read or fetched, or a file is not a JPEG, PNG, WebP or GIF by its bytes (an SVG named `.png`, say).
 
+Both cover request forms also accept an optional 64-character hexadecimal `revision`, obtained from the cover-choice action. A stale revision is refused before staging; the transaction also guards against changes made during staging. Cross-origin browser requests are refused.
+
+### `POST /api/editions/form`
+
+Same-origin multipart save used by Add/Edit edition when a draft local image is selected. Fields: `values` (JSON using the existing edition create/update schema), `file` (JPEG/PNG/WebP/GIF, up to 50 MB), optional `id` (existing edition UUID). Image bytes are verified and staged immutably; metadata, links, image references and cover history commit together. A rejected transaction retains the old edition and its image bytes. `200` returns the edition; invalid input is `400`/`422`, stale writes `409`, cross-origin requests `403`. This endpoint does not apply migrations.
+
 ---
 
 ## Orders

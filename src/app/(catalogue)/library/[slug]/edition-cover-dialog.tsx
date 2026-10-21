@@ -1,9 +1,9 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { CapAligned } from "@/components/shared/cap-aligned";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronRight, ImageIcon } from "lucide-react";
+import { CapAligned } from "@/components/shared/cap-aligned";
 import { toast } from "@/lib/notifications/toast";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -13,89 +13,116 @@ import { ImageAdjustButton } from "@/components/media/image-adjustment-editor";
 import { EditionImageBox } from "@/components/books/edition-cover";
 import { editionImage, type PosterImage } from "@/lib/utils/edition-image";
 import { mediaResponseError } from "@/lib/utils/media-upload";
-import { isOwnEditionCoverKey } from "@/lib/s3/keys";
 import { mediaUrl } from "@/lib/s3/media-url";
 import { useFocusThroughBusy } from "@/hooks/use-focus-through-busy";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
-import { showBookCover, restoreOwnCover } from "@/lib/actions/edition-cover";
+import { getEditionCoverChoices } from "@/lib/actions/edition-cover";
+import { showBookCover, restoreSavedCover } from "@/lib/actions/catalogue-client";
 import type { OwnCover } from "@/lib/catalogue/edition-cover";
 
-interface EditionCoverDialogProps {
+type Choices = Awaited<ReturnType<typeof getEditionCoverChoices>>;
+export function EditionCoverDialog({
+  edition,
+  poster,
+}: {
   edition: OwnCover & { id: string; title: string };
-  /** The book's active poster: what the edition shows without its own cover */
   poster?: PosterImage | null;
-}
-
-/**
- * The edition's cover in one place (SLN-638): choose or drop an image, use
- * the book's cover, adjust the edition's own cover, or put back the own
- * cover it used before.
- */
-export function EditionCoverDialog({ edition, poster }: EditionCoverDialogProps) {
+}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
-  // The own cover replaced by the book's, while it can still be put back
-  const [replaced, setReplaced] = useState<OwnCover | null>(null);
-  // Asked before an own cover that cannot be put back is replaced
-  const [confirming, setConfirming] = useState(false);
-  // An image address typed in, as the book's media dialog takes one
+  const [choices, setChoices] = useState<Choices | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [attempt, retry] = useState(0);
   const [showUrl, setShowUrl] = useState(false);
   const [url, setUrl] = useState("");
   const [urlBusy, setUrlBusy] = useState(false);
   const urlField = useRef<HTMLInputElement>(null);
   useFocusThroughBusy(urlBusy, urlField);
-  // The button that takes the place of the one just pressed gets the focus,
-  // once the refreshed edition shows it, so focus never falls to the page
-  const focusNext = useRef<"put-back" | "use-book" | null>(null);
-  const takeFocus = (name: "put-back" | "use-book") => (el: HTMLButtonElement | null) => {
-    if (el && focusNext.current === name) {
-      focusNext.current = null;
-      el.focus();
+  const historyHeading = useRef<HTMLHeadingElement>(null);
+  const focusHistory = useRef(false);
+  useEffect(() => {
+    if (!open) return;
+    let active = true;
+    getEditionCoverChoices(edition.id)
+      .then((next) => {
+        if (active) {
+          setChoices(next);
+          setFailed(false);
+        }
+      })
+      .catch(() => {
+        if (active) setFailed(true);
+      });
+    return () => {
+      active = false;
+    };
+  }, [open, edition.id, attempt]);
+  useEffect(() => {
+    if (choices && focusHistory.current) {
+      focusHistory.current = false;
+      historyHeading.current?.focus();
     }
-  };
+  }, [choices]);
 
-  const ownKey = edition.thumbnailS3Key ?? edition.coverS3Key;
-  const image = editionImage(edition, poster);
-  const bookCover = poster ? editionImage({ coverS3Key: null, thumbnailS3Key: null }, poster) : null;
-  const restorable =
-    !!ownKey &&
-    [edition.coverS3Key, edition.thumbnailS3Key].every(
-      (key) => !key || isOwnEditionCoverKey(edition.id, key),
-    );
+  const shown = choices?.current ?? edition;
+  const ownKey = shown.coverS3Key ?? shown.thumbnailS3Key;
+  const image = editionImage(shown, poster);
+  const bookCover = poster
+    ? editionImage({ coverS3Key: null, thumbnailS3Key: null }, poster)
+    : null;
+  const unavailable = busy || !choices || failed;
+  const previous =
+    choices?.history.filter(
+      (cover) =>
+        cover.coverS3Key !== shown.coverS3Key ||
+        cover.thumbnailS3Key !== shown.thumbnailS3Key,
+    ) ?? [];
 
-  function changed() {
+  async function changed() {
     router.refresh();
     triggerActivityRefresh();
+    try {
+      setChoices(await getEditionCoverChoices(edition.id));
+      setFailed(false);
+    } catch {
+      setFailed(true);
+    }
   }
-
   async function send(init: RequestInit) {
-    const response = await fetch(`/api/editions/${edition.id}/cover`, { method: "POST", ...init });
-    if (!response.ok) throw await mediaResponseError(response);
-    setReplaced(null);
-    toast.success("Cover saved");
-    changed();
+    if (!choices || unavailable)
+      throw new Error("Wait for the edition cover editor to load.");
+    setBusy(true);
+    try {
+      const response = await fetch(`/api/editions/${edition.id}/cover`, {
+        method: "POST",
+        ...init,
+      });
+      if (!response.ok) throw await mediaResponseError(response);
+      toast.success("Cover saved");
+      await changed();
+    } finally {
+      setBusy(false);
+    }
   }
-
   const target: UploadTarget = {
     file: (file) => {
       const body = new FormData();
-      body.append("file", file);
+      body.set("file", file);
+      if (choices) body.set("revision", choices.revision);
       return send({ body });
     },
     url: (imageUrl) =>
       send({
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ imageUrl }),
+        body: JSON.stringify({ imageUrl, revision: choices?.revision }),
       }),
   };
-
   async function addFromUrl() {
-    const imageUrl = url.trim();
-    if (!imageUrl || urlBusy) return;
+    if (!url.trim() || urlBusy || unavailable) return;
     setUrlBusy(true);
     try {
-      await target.url(imageUrl);
+      await target.url(url.trim());
       setUrl("");
     } catch (error) {
       toast.error((error as Error).message || "The cover could not be saved.");
@@ -103,59 +130,75 @@ export function EditionCoverDialog({ edition, poster }: EditionCoverDialogProps)
       setUrlBusy(false);
     }
   }
-
-  async function putBack(cover: OwnCover) {
+  async function useBookCover() {
+    if (!choices || unavailable) return;
     setBusy(true);
     try {
-      await restoreOwnCover(edition.id, cover);
-      setReplaced(null);
-      focusNext.current = "use-book";
-      toast.success("The edition's own cover is back");
-      changed();
-    } catch (error) {
-      toast.error((error as Error).message || "The cover could not be put back.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function chooseBookCover() {
-    setConfirming(false);
-    setBusy(true);
-    try {
-      const { previous, restorable: canRestore } = await showBookCover(edition.id);
-      const undo = previous && canRestore ? previous : null;
-      setReplaced(undo);
-      if (undo) focusNext.current = "put-back";
-      // No Undo on the toast: the modal dialog makes it inert. "Put back this
-      // edition's cover" takes this button's place in the dialog instead.
+      await showBookCover(edition.id, choices.revision);
+      focusHistory.current = true;
       toast.success("Now using the book's cover");
-      changed();
+      await changed();
     } catch (error) {
-      toast.error((error as Error).message || "The cover could not be changed.");
+      toast.error(
+        (error as Error).message || "The cover could not be changed.",
+      );
     } finally {
       setBusy(false);
     }
   }
-
+  async function restore(historyId: string) {
+    if (!choices || unavailable) return;
+    setBusy(true);
+    try {
+      await restoreSavedCover(edition.id, historyId, choices.revision);
+      focusHistory.current = true;
+      toast.success("The edition's earlier cover is back");
+      await changed();
+    } catch (error) {
+      toast.error(
+        (error as Error).message || "The cover could not be restored.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function more() {
+    if (!choices || unavailable) return;
+    setBusy(true);
+    try {
+      const next = await getEditionCoverChoices(
+        edition.id,
+        choices.history.length,
+      );
+      setChoices(
+        next.revision === choices.revision
+          ? { ...next, history: [...choices.history, ...next.history] }
+          : await getEditionCoverChoices(edition.id),
+      );
+    } catch {
+      setFailed(true);
+    } finally {
+      setBusy(false);
+    }
+  }
   return (
     <>
       <Button
         variant="ghost"
         size="sm"
-        onClick={() => setOpen(true)}
+        onClick={() => {
+          setChoices(null);
+          setFailed(false);
+          setOpen(true);
+        }}
         data-tooltip="Choose this edition's cover"
       >
         <ImageIcon className="h-4 w-4" strokeWidth={1.5} />
         Cover
       </Button>
-
       <Dialog
         open={open}
-        onClose={() => {
-          setOpen(false);
-          setConfirming(false);
-        }}
+        onClose={() => setOpen(false)}
         title="Edition cover"
         description={edition.title}
         className="max-w-lg"
@@ -170,7 +213,9 @@ export function EditionCoverDialog({ edition, poster }: EditionCoverDialogProps)
             {ownKey && bookCover && (
               <figure className="shrink-0 space-y-1">
                 <EditionImageBox image={bookCover} title={edition.title} />
-                <figcaption className="text-xs text-fg-secondary">The book&apos;s</figcaption>
+                <figcaption className="text-xs text-fg-secondary">
+                  The book&apos;s
+                </figcaption>
               </figure>
             )}
             <div className="min-w-0 space-y-1 text-xs">
@@ -190,99 +235,136 @@ export function EditionCoverDialog({ edition, poster }: EditionCoverDialogProps)
               </p>
             </div>
           </div>
-
-          <div>
-            <UploadZone send={target} noun="cover" onUploadComplete={() => setConfirming(false)} />
-            <button
-              type="button"
-              onClick={() => setShowUrl((v) => !v)}
-              aria-expanded={showUrl}
-              className="mt-3 flex items-center gap-1 text-xs text-fg-secondary cursor-pointer hover:text-fg-primary transition-colors pointer-coarse:min-h-11"
-            >
-              {/* On the label's cap height, not its line box */}
-              <CapAligned height={12}>
-                <ChevronRight
-                  className={`h-3 w-3 transition-transform ${showUrl ? "rotate-90" : ""}`}
-                  strokeWidth={1.5}
-                />
-              </CapAligned>
-              Or paste image URL
-            </button>
-            {showUrl && (
-              <form
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  void addFromUrl();
-                }}
-                className="mt-2 flex items-center gap-2"
-              >
-                <Input
-                  ref={urlField}
-                  type="url"
-                  aria-label="Image URL"
-                  placeholder="Paste image URL..."
-                  value={url}
-                  onChange={(event) => setUrl(event.target.value)}
-                  disabled={urlBusy}
-                  className="flex-1"
-                />
-                <Button type="submit" size="sm" variant="secondary" busy={urlBusy} disabled={!url.trim()} data-shortcut="save">
-                  Add
-                </Button>
-              </form>
-            )}
-          </div>
-
-          {confirming ? (
-            <div role="alert" className="space-y-3 rounded-sm bg-bg-tertiary p-3 text-xs">
-              <p className="text-fg-primary">
-                This edition&apos;s own cover cannot be put back afterwards.
-              </p>
-              <div className="flex flex-wrap gap-2">
-                <Button size="sm" variant="primary" onClick={chooseBookCover} disabled={busy}>
-                  Use the book&apos;s cover
-                </Button>
-                <Button size="sm" variant="ghost" onClick={() => setConfirming(false)}>
-                  Keep this cover
-                </Button>
-              </div>
+          {failed ? (
+            <div role="alert" className="space-y-2 text-sm">
+              <p>Could not load the saved covers.</p>
+              <Button onClick={() => retry((n) => n + 1)}>Retry</Button>
             </div>
+          ) : !choices ? (
+            <p role="status" className="text-sm text-fg-secondary">
+              Loading saved covers…
+            </p>
           ) : (
-            <div className="flex flex-wrap items-center gap-2">
-              {ownKey && (
-                <Button
-                  ref={takeFocus("use-book")}
-                  size="sm"
-                  variant="secondary"
-                  disabled={busy || !bookCover}
-                  onClick={() => (restorable ? chooseBookCover() : setConfirming(true))}
+            <>
+              <fieldset disabled={unavailable} className="space-y-3">
+                <UploadZone send={target} noun="cover" multiple={false} />
+                <button
+                  type="button"
+                  onClick={() => setShowUrl((v) => !v)}
+                  aria-expanded={showUrl}
+                  className="flex items-center gap-1 text-xs text-fg-secondary cursor-pointer hover:text-fg-primary pointer-coarse:min-h-11"
                 >
-                  Use the book&apos;s cover
-                </Button>
-              )}
-              {!ownKey && replaced && (
-                <Button
-                  ref={takeFocus("put-back")}
-                  size="sm"
-                  variant="secondary"
-                  disabled={busy}
-                  onClick={() => putBack(replaced)}
+                  <CapAligned height={12}>
+                    <ChevronRight
+                      className={`h-3 w-3 transition-transform ${showUrl ? "rotate-90" : ""}`}
+                      strokeWidth={1.5}
+                    />
+                  </CapAligned>
+                  Or paste image URL
+                </button>
+                {showUrl && (
+                  <form
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      void addFromUrl();
+                    }}
+                    className="flex items-center gap-2"
+                  >
+                    <Input
+                      ref={urlField}
+                      type="url"
+                      aria-label="Image URL"
+                      placeholder="Paste image URL..."
+                      value={url}
+                      onChange={(event) => setUrl(event.target.value)}
+                      disabled={urlBusy}
+                      className="flex-1"
+                    />
+                    <Button type="submit"
+                      size="sm"
+                      variant="secondary"
+                      busy={urlBusy}
+                      disabled={!url.trim()}
+                      data-shortcut="save"
+                    >
+                      Add
+                    </Button>
+                  </form>
+                )}
+              </fieldset>
+              <div className="flex flex-wrap items-center gap-2">
+                {ownKey && (
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    disabled={unavailable || !bookCover}
+                    onClick={() => void useBookCover()}
+                  >
+                    Use the book&apos;s cover
+                  </Button>
+                )}
+                {(ownKey || poster) && (
+                  <ImageAdjustButton
+                    source={mediaUrl(ownKey ?? poster!.s3Key)}
+                    editionId={edition.id}
+                    disabled={unavailable}
+                    label="Adjust edition cover"
+                    appearance="ghost"
+                    onSaved={() => void changed()}
+                  />
+                )}
+                {ownKey && !bookCover && (
+                  <span className="text-xs text-fg-secondary">
+                    The book has no cover to use.
+                  </span>
+                )}
+              </div>
+              <section className="space-y-2">
+                <h3
+                  ref={historyHeading}
+                  tabIndex={-1}
+                  className="text-sm font-medium text-fg-primary"
                 >
-                  Put back this edition&apos;s cover
-                </Button>
-              )}
-              {ownKey && (
-                <ImageAdjustButton
-                  source={mediaUrl(edition.coverS3Key ?? ownKey)}
-                  label="Adjust edition cover"
-                  appearance="ghost"
-                  onSaved={changed}
-                />
-              )}
-              {ownKey && !bookCover && (
-                <span className="text-xs text-fg-secondary">The book has no cover to use.</span>
-              )}
-            </div>
+                  Earlier covers
+                </h3>
+                {previous.length ? (
+                  <div className="space-y-2">
+                    {previous.map((cover) => (
+                      <Button
+                        key={cover.id}
+                        variant="ghost"
+                        disabled={unavailable}
+                        onClick={() => void restore(cover.id)}
+                        className="h-auto w-full justify-start gap-3 whitespace-normal py-2 text-left"
+                      >
+                        <EditionImageBox
+                          image={editionImage(cover)}
+                          title={edition.title}
+                          size="sm"
+                        />
+                        <span>
+                          Use cover from{" "}
+                          {new Date(cover.createdAt).toLocaleDateString()}
+                        </span>
+                      </Button>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-fg-secondary">
+                    No earlier covers yet.
+                  </p>
+                )}
+                {choices.hasMore && (
+                  <Button
+                    variant="secondary"
+                    disabled={unavailable}
+                    onClick={() => void more()}
+                  >
+                    More covers
+                  </Button>
+                )}
+              </section>
+            </>
           )}
         </div>
       </Dialog>

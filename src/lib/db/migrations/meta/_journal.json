@@ -645,6 +645,13 @@
       "when": 1792570387036,
       "tag": "0091_order_groups",
       "breakpoints": true
+    },
+    {
+      "idx": 92,
+      "version": "7",
+      "when": 1792588396695,
+      "tag": "0092_edition_cover_history",
+      "breakpoints": true
     }
   ]
 }

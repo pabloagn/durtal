@@ -19,6 +19,7 @@ import { preloadEditOptions, useEditOptions } from "@/hooks/use-edit-options";
 import { EDITION_GROUPS } from "@/lib/catalogue/edit-options";
 import { createEdition } from "@/lib/actions/catalogue-client";
 import { refusalAction, refusalMessage } from "@/lib/actions/refusal";
+import { saveEditionFileForm } from "@/lib/utils/edition-file-form";
 
 interface EditionAddDialogProps {
   workId: string;
@@ -63,10 +64,13 @@ export function EditionAddDialog({
   async function handleSubmit(values: EditionFormValues) {
     setIsPending(true);
     try {
-      const edition = await createEdition({
+      const input = {
         workId,
         ...editionPayload(values, newBookLanguage),
-      });
+      };
+      const edition = values.coverFile
+        ? await saveEditionFileForm(input, values.coverFile)
+        : await createEdition(input);
 
       toast.success("Edition created");
       if (edition.coverUnavailable)
@@ -120,8 +124,20 @@ export function EditionAddDialog({
             onCancel={() => setOpen(false)}
             submitLabel="Create edition"
             isPending={isPending}
-            notice={<OptionsNotice loading={lists.loading} failed={lists.failed} onRetry={lists.retry} />}
-            listsNote={lists.failed ? "Not loaded" : lists.loading ? "Loading…" : undefined}
+            notice={
+              <OptionsNotice
+                loading={lists.loading}
+                failed={lists.failed}
+                onRetry={lists.retry}
+              />
+            }
+            listsNote={
+              lists.failed
+                ? "Not loaded"
+                : lists.loading
+                  ? "Loading…"
+                  : undefined
+            }
             work={{ title: workTitle, language: workLanguage ?? null }}
           />
         </div>

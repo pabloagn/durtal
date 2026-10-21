@@ -163,6 +163,14 @@ External URL (Google Books, Open Library)
 
 Implementation: `processAndUploadCover()` in `src/lib/s3/covers.ts`. Uses Sharp with dynamic import (native module compatibility). It returns the palette with the keys; the three callers (new book, edition edit, metadata match) write both.
 
+### Edition cover history and adjustments
+
+Migration `0092_edition_cover_history` seeds each edition's currently committed own cover into `edition_cover_history`. An edition trigger records old/new nonempty references in the same publishing transaction, including normal metadata edits and imports. Failed/stale writes create no restore choice. Selecting the book's cover clears only the edition reference; it creates no image copy. Restore accepts a history UUID scoped to the edition, checks that its files remain stored, and guards the edition revision. A committed legacy shared reference can be restored without pretending the edition owns its storage folder.
+
+Adjusting inherited artwork creates a verified, immutable edition-owned display pair and a separate uncropped base pair. Own-cover adjustments retain their existing uncropped base. The history row stores `original_s3_key` and `applied_crop`; tone settings belong to the newly published cover/thumbnail keys. Parent media and sibling settings never change. The same transaction guards parent media and source tone settings against concurrent changes. Previews use bounded 800px reads; history thumbnails use the shared 240px edition-image resolver. Stored reads stop at 20 MB, and Sharp refuses inputs above 100 megapixels.
+
+History cover, thumbnail and base keys participate in storage reference checks. Referenced prior choices remain recoverable; ordinary cleanup must not delete them. Unpublished/uncertain immutable attempts follow the existing retained-attempt reconciliation policy. Deleting an edition cascades its history, without granting permission to delete a shared parent asset.
+
 ### Cover colours
 
 Every palette is stored with the named colour of its dominant tone (SLN-405): `media.color_bucket` beside a poster's `color_palette`, `editions.cover_color_bucket` beside a cover's `cover_palette`. The library filters by it. Covers and posters stored before migration `0071_cover_colors` get theirs from the backfill, which reads each image once (the thumbnail) and gives stored palettes their colour without a download:

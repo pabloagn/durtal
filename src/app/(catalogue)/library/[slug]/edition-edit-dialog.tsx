@@ -19,6 +19,7 @@ import { EDITION_GROUPS, withChosen } from "@/lib/catalogue/edit-options";
 import { mediaUrl } from "@/lib/s3/media-url";
 import { updateEdition } from "@/lib/actions/catalogue-client";
 import { refusalAction, refusalMessage } from "@/lib/actions/refusal";
+import { saveEditionFileForm } from "@/lib/utils/edition-file-form";
 
 interface EditionEditDialogProps {
   edition: EditionWithRelations;
@@ -95,7 +96,10 @@ export function EditionEditDialog({ edition }: EditionEditDialogProps) {
   async function handleSubmit(values: EditionFormValues) {
     setIsPending(true);
     try {
-      await updateEdition(edition.id, editionPayload(values, "en"));
+      const input = editionPayload(values, "en");
+      if (values.coverFile)
+        await saveEditionFileForm(input, values.coverFile, edition.id);
+      else await updateEdition(edition.id, input);
 
       toast.success("Edition updated");
       setOpen(false);
@@ -141,15 +145,33 @@ export function EditionEditDialog({ edition }: EditionEditDialogProps) {
         <div>
           <EditionForm
             initialValues={editionToFormValues(edition)}
-            availableGenres={withChosen(lists.options.genres, edition.editionGenres.map((eg) => eg.genre))}
-            availableTags={withChosen(lists.options.tags, edition.editionTags.map((et) => et.tag))}
+            availableGenres={withChosen(
+              lists.options.genres,
+              edition.editionGenres.map((eg) => eg.genre),
+            )}
+            availableTags={withChosen(
+              lists.options.tags,
+              edition.editionTags.map((et) => et.tag),
+            )}
             onSubmit={handleSubmit}
             onCancel={() => setOpen(false)}
             submitLabel="Save changes"
             isPending={isPending}
             existingCoverUrl={existingCoverUrl}
-            notice={<OptionsNotice loading={lists.loading} failed={lists.failed} onRetry={lists.retry} />}
-            listsNote={lists.failed ? "Not loaded" : lists.loading ? "Loading…" : undefined}
+            notice={
+              <OptionsNotice
+                loading={lists.loading}
+                failed={lists.failed}
+                onRetry={lists.retry}
+              />
+            }
+            listsNote={
+              lists.failed
+                ? "Not loaded"
+                : lists.loading
+                  ? "Loading…"
+                  : undefined
+            }
           />
         </div>
       </Dialog>

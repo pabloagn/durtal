@@ -10,7 +10,8 @@ export type CoverSource =
   | Readonly<{ kind: "url"; url: string }>
   | Readonly<{ kind: "ebook"; ebookId: string; key: string; sha256: string | null; size: number | null }>
   // A file chosen or dropped in the edition's cover editor (SLN-638)
-  | Readonly<{ kind: "upload"; sha256: string; size: number }>;
+  | Readonly<{ kind: "upload"; sha256: string; size: number }>
+  | Readonly<{ kind: "adjustment"; key: string; sha256: string; size: number }>;
 
 /** Allocation is safe before storage writes, for reservation/recovery receipts. */
 export interface AllocatedCoverStage {
@@ -51,7 +52,8 @@ export function allocateCoverStage(input: {
     throw new Error("Missing cover operation/target identity");
   const source = input.source;
   if (source.kind === "url" ? !source.url
-    : source.kind === "upload" ? !/^[0-9a-f]{64}$/.test(source.sha256) || !(source.size > 0)
+    : source.kind === "upload" || source.kind === "adjustment"
+      ? !/^[0-9a-f]{64}$/.test(source.sha256) || !(source.size > 0) || (source.kind === "adjustment" && !source.key)
     : !source.ebookId || !source.key)
     throw new Error("Missing cover source identity");
   const stage = Object.freeze({
