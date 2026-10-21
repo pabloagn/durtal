@@ -518,6 +518,10 @@ export async function createOrder(
   return value(actions.createOrder(...args));
 }
 
+export async function createOrderGroup(...args: Parameters<typeof actions.createOrderGroup>) {
+  return value(actions.createOrderGroup(...args));
+}
+
 export async function createOrderForNewBook(
   ...args: Parameters<typeof actions.createOrderForNewBook>
 ) {

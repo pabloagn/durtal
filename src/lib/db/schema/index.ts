@@ -154,7 +154,7 @@ export {
 export { venues, venuesRelations } from "./venues";
 
 // ── Orders ───────────────────────────────────────────────────────────────────
-export { orders, ordersRelations } from "./orders";
+export { orders, ordersRelations, orderGroups, orderGroupsRelations } from "./orders";
 export {
   orderStatusHistory,
   orderStatusHistoryRelations,

@@ -42,7 +42,6 @@ async function HighlightResults({ search }: { search: ListSearchParams }) {
       <EmptyState
         icon={Highlighter}
         title="No highlights yet"
-        description="Highlights, notes and bookmarks made in the reader appear here, from every eBook."
       />
     );
   // Filtered to one book, pages count its marks; otherwise books. A page past

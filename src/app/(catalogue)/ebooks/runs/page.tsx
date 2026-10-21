@@ -24,7 +24,7 @@ export default async function IngestionRunsPage({ searchParams }: { searchParams
         <ArrowLeft className="h-3 w-3" strokeWidth={1.5} aria-hidden />
         eBooks
       </Link>
-      <PageHeader title="Ingestion runs" description="How eBook files reach the catalogue: each run, what it stored and whether it reconciled." />
+      <PageHeader title="Ingestion runs" />
       <section>
         <SectionHeading title="All runs" count={total} />
         {runs.length > 0 ? (

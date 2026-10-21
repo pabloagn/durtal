@@ -544,6 +544,10 @@ export async function createOrder(
   return actionResult(() => orders.createOrder(...args));
 }
 
+export async function createOrderGroup(...args: Parameters<typeof orders.createOrderGroup>) {
+  return actionResult(() => orders.createOrderGroup(...args));
+}
+
 export async function createOrderForNewBook(
   ...args: Parameters<typeof orders.createOrderForNewBook>
 ) {

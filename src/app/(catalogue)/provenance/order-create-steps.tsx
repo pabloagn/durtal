@@ -461,12 +461,14 @@ export function DetailsStep({
   onChange,
   venue,
   onVenueChange,
+  priceLabel,
 }: {
   method: AcquisitionMethod;
   form: DetailsForm;
   onChange: (key: keyof DetailsForm, value: string) => void;
   venue: OrderVenue | null;
   onVenueChange: (venue: OrderVenue | null) => void;
+  priceLabel?: string;
 }) {
   const isOnline = method === "online_order" || method === "digital_purchase";
   const isAuction = method === "auction";
@@ -538,7 +540,7 @@ export function DetailsStep({
         />
       )}
 
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <Select
           label="Currency"
           options={CURRENCY_SELECT_OPTIONS}
@@ -546,14 +548,14 @@ export function DetailsStep({
           onChange={(e) => onChange("currency", e.target.value)}
         />
         <Input
-          label={`Price (${currencySymbol(form.currency) ?? form.currency})`}
+          label={`${priceLabel ?? "Price"} (${currencySymbol(form.currency) ?? form.currency})`}
           type="number"
           value={form.price}
           onChange={(e) => onChange("price", e.target.value)}
           placeholder="0.00"
         />
         <Input
-          label={`Shipping (${currencySymbol(form.currency) ?? form.currency})`}
+          label={`Shipping per order (${currencySymbol(form.currency) ?? form.currency})`}
           type="number"
           value={form.shippingCost}
           onChange={(e) => onChange("shippingCost", e.target.value)}

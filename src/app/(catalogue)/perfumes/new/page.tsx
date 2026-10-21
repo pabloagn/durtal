@@ -9,7 +9,6 @@ export default function AddPerfumePage() {
     <>
       <PageHeader
         title="Add perfume"
-        description="The fragrance first; its concentrations, bottles and samples go on its page"
       />
       <div className="max-w-3xl">
         <PerfumeForm mode="create" />

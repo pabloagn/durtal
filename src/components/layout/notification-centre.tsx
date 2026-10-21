@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
-import { Bell, CircleAlert, TriangleAlert, X } from "lucide-react";
+import { Bell, CircleAlert, CircleCheck, Info, TriangleAlert, X } from "lucide-react";
 import { CapAligned } from "@/components/shared/cap-aligned";
 import {
   clearAll,
@@ -29,22 +29,24 @@ const ACTION =
   "whitespace-nowrap rounded-sm px-2 py-1 text-xs text-fg-secondary transition-colors hover:bg-bg-tertiary/50 hover:text-fg-primary pointer-coarse:min-h-11";
 
 function Entry({ entry, now, onRemove }: { entry: NotificationEntry; now: number; onRemove: (button: HTMLButtonElement) => void }) {
-  const Icon = entry.kind === "error" ? CircleAlert : TriangleAlert;
+  const Icon = { error: CircleAlert, warning: TriangleAlert, success: CircleCheck, info: Info }[entry.kind];
+  const linkAt = entry.link ? entry.title.indexOf(entry.link.label) : -1;
   return (
     <li className="flex gap-2.5 py-2.5 pl-3 pr-1 text-xs" data-notification={entry.read ? "read" : "unread"} data-notification-id={entry.id}>
       <CapAligned height={16}>
         <Icon
-          className={`h-4 w-4 ${entry.kind === "error" ? "text-accent-red-text" : "text-accent-gold"}`}
+          className={`h-4 w-4 ${entry.kind === "error" ? "text-accent-red-text" : entry.kind === "warning" ? "text-accent-gold" : "text-fg-secondary"}`}
           strokeWidth={1.5}
-          aria-label={entry.kind === "error" ? "Error" : "Warning"}
+          aria-label={entry.kind[0].toUpperCase() + entry.kind.slice(1)}
         />
       </CapAligned>
       <div className="min-w-0 flex-1 [overflow-wrap:anywhere]">
         <p className={entry.read ? "text-fg-secondary" : "font-medium text-fg-primary"}>
-          {entry.title}
+          {entry.link && linkAt >= 0 ? <>{entry.title.slice(0, linkAt)}<a className="text-command" href={entry.link.href}>{entry.link.label}</a>{entry.title.slice(linkAt + entry.link.label.length)}</> : entry.title}
           {!entry.read && <span className="sr-only"> (unread)</span>}
         </p>
         {entry.description && <p className="mt-0.5 text-fg-secondary">{entry.description}</p>}
+        {entry.link && linkAt < 0 && <a className="text-command" href={entry.link.href}>{entry.link.label}</a>}
         <p className="mt-1 text-fg-secondary">
           {ago(entry.at, now)}
           {entry.count > 1 && ` · ${entry.count} times`}
@@ -223,7 +225,7 @@ export function NotificationCentre({
           </ul>
         ) : (
           <p className="px-3 py-4 text-xs text-fg-secondary">
-            No notifications. Errors and warnings stay here for two weeks.
+            No notifications.
           </p>
         )}
       </div>

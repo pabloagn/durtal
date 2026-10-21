@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
-import { SlidersHorizontal, Lock, RotateCcw, RotateCw } from "lucide-react";
+import { SlidersHorizontal, RotateCcw, RotateCw } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "@/lib/notifications/toast";
 import { Button } from "@/components/ui/button";
@@ -323,12 +323,6 @@ function LoadedEditor({
           }}
         />
       </div>
-      {initial.monochrome && (
-        <p className="flex items-center gap-1.5 text-xs text-fg-secondary">
-          <Lock className="h-3 w-3" strokeWidth={1.5} />
-          Author monochrome stays on
-        </p>
-      )}
       <div className="space-y-3">
       <fieldset disabled={saving} className="space-y-3">
         <legend className="sr-only">Image adjustments</legend>

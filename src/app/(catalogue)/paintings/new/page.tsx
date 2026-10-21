@@ -11,7 +11,6 @@ export default async function AddPaintingPage() {
     <>
       <PageHeader
         title="Add painting"
-        description="The painting first; where the original is, and any print you own, go on its page"
       />
       <div className="max-w-3xl">
         <PaintingForm mode="create" choices={choices} />

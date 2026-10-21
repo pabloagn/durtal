@@ -68,7 +68,20 @@ afterEach(() => {
 });
 
 describe("the notification centre", () => {
-  it("keeps errors and warnings, not routine confirmations", async () => {
+  it("keeps a clickable book title after dismissing and reloading its notification", async () => {
+    act(() => {
+      toast.success(createElement("span", null, createElement("a", { href: "/library/agostino" }, "Agostino"), " moved to Delivered"));
+    });
+    await wait(50);
+    act(() => toast.dismiss());
+    await wait(50);
+    const saved = getEntries()[0];
+    expect(saved).toMatchObject({ title: "Agostino moved to Delivered", kind: "success", link: { href: "/library/agostino", label: "Agostino" } });
+    expect(popover().querySelector('a[href="/library/agostino"]')?.textContent).toBe("Agostino");
+    expect(JSON.parse(localStorage.getItem("durtal-notifications")!)[0]).toMatchObject(saved);
+  });
+
+  it("keeps successes, errors, warnings and information", async () => {
     act(() => {
       toast.success("Cover saved");
       toast.error("Could not update this collection", { description: "Nothing was changed." });
@@ -77,13 +90,15 @@ describe("the notification centre", () => {
     });
     await wait(50);
     expect(getEntries().map((e) => [e.kind, e.title, e.description])).toEqual([
+      ["info", "Added to Favourites", null],
       ["warning", "Cover skipped", null],
       ["error", "Could not update this collection", "Nothing was changed."],
+      ["success", "Cover saved", null],
     ]);
-    expect(bell().getAttribute("aria-label")).toBe("Notifications, 2 unread");
+    expect(bell().getAttribute("aria-label")).toBe("Notifications, 4 unread");
   });
 
-  it("keeps a pending toast once it fails, as one entry, and not when it succeeds", async () => {
+  it("keeps a pending toast's completed outcome, whether it fails or succeeds", async () => {
     let id: string | number = 0;
     act(() => {
       id = toast.loading("Uploading cover");
@@ -104,7 +119,7 @@ describe("the notification centre", () => {
       toast.success("Saved", { id: ok });
     });
     await wait(50);
-    expect(getEntries()).toHaveLength(1);
+    expect(getEntries()).toHaveLength(2);
   });
 
   it("dismissing a toast marks nothing read; closing the centre marks what it showed", async () => {

@@ -2167,6 +2167,10 @@ A book merge moves `work_id` like any single-column reference. Matching (`src/li
 
 ## Provenance Tables
 
+### `order_groups`
+
+A multi-book purchase has one group with its seller (`venue_id`), acquisition method, date, confirmation, URL, currency and `shipping_cost`. Its `orders` are the individual books, each retaining its own price, target, edition, receipt and status history. Shipping is held only on the group; grouped rows have null shipping and a total equal to their item price. Shared metadata changes update every member atomically. A group counts once in spending and order totals; cancelled and returned items are excluded and its shipping counts once while any paid item remains. Existing orders keep a null `group_id` and retain their previous values. No existing orders are automatically combined.
+
 ### `orders`
 
 Tracks the acquisition pipeline for individual works — from intent to receipt. Links a work to a venue, shipping details, cost breakdown, and destination location.
@@ -2174,6 +2178,7 @@ Tracks the acquisition pipeline for individual works — from intent to receipt.
 | Column | Type | Constraints | Description |
 |---|---|---|---|
 | `id` | UUID | PK, auto-generated | |
+| `group_id` | UUID | nullable, FK → `order_groups.id`, RESTRICT | Shared multi-book purchase; null for a standalone order |
 | `work_id` | UUID | FK → `works.id`, CASCADE, NOT NULL | The work being acquired |
 | `acquisition_target_id` | UUID | nullable, FK → acquisition_targets, RESTRICT | Optional collecting target; database validates work, edition and copy compatibility |
 | `edition_id` | UUID | FK → `editions.id`, SET NULL, nullable | Specific edition ordered (if known) |

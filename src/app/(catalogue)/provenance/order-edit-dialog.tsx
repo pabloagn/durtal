@@ -27,6 +27,7 @@ import { OrderShopField, type OrderVenue } from "./order-create-steps";
 
 interface OrderData {
   id: string;
+  group?: { shippingCost: string | null } | null;
   workId: string;
   /** A film, perfume or painting order keeps the target it was placed for */
   work?: { kind?: string | null };
@@ -93,7 +94,7 @@ export function OrderEditDialog({
   );
   const [orderUrl, setOrderUrl] = useState(order.orderUrl ?? "");
   const [price, setPrice] = useState(order.price ?? "");
-  const [shippingCost, setShippingCost] = useState(order.shippingCost ?? "");
+  const [shippingCost, setShippingCost] = useState(order.group?.shippingCost ?? order.shippingCost ?? "");
   // Orders saved without a currency get the home currency (Settings); saving stores it.
   const { homeCurrency } = useAppSettings();
   const [currency, setCurrency] = useState(() =>
@@ -276,7 +277,7 @@ export function OrderEditDialog({
           />
         )}
 
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <Select
             label="Currency"
             options={CURRENCY_SELECT_OPTIONS}
@@ -291,7 +292,7 @@ export function OrderEditDialog({
             placeholder="0.00"
           />
           <Input
-            label={`Shipping (${currencySymbol(currency) ?? currency})`}
+            label={`Shipping per order (${currencySymbol(currency) ?? currency})`}
             type="number"
             value={shippingCost}
             onChange={(e) => setShippingCost(e.target.value)}

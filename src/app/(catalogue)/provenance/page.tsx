@@ -24,6 +24,17 @@ async function ProvenanceContent() {
 
   const orders: OrderItem[] = rawOrders.map((o) => ({
     id: o.id,
+    groupId: o.groupId,
+    group: o.group ? {
+      id: o.group.id,
+      shippingCost: o.group.shippingCost,
+      items: o.group.items.map((item) => ({
+        id: item.id,
+        status: item.status,
+        price: item.price,
+        work: { title: item.work.title, slug: item.work.slug ?? "" },
+      })),
+    } : null,
     workId: o.workId,
     editionId: o.editionId,
     acquisitionTargetId: o.acquisitionTargetId,

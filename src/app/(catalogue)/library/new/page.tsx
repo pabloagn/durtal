@@ -15,7 +15,6 @@ export default async function AddBookPage({
     <>
       <PageHeader
         title="Add book"
-        description="Search by ISBN, title, or enter details manually"
       />
       <AddBookWizard initialQuery={initialQuery} initialIsbn={initialIsbn} then={then} />
     </>

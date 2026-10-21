@@ -103,7 +103,7 @@ describe("image adjustment groups", () => {
 
   it("leaves out Colour while author monochrome is locked on", async () => {
     await open({ monochrome: true, settings: { ...DEFAULT_IMAGE_ADJUSTMENTS, grayscale: 100, saturation: 0 } });
-    expect(host.textContent).toContain("Author monochrome stays on");
+    expect(host.textContent).not.toContain("Author monochrome stays on");
     // Tone alone: its controls with no one-option switch over them
     expect(groups()).toEqual([]);
     expect(host.querySelector('[role="radiogroup"]')).toBeNull();

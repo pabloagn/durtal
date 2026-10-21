@@ -1,13 +1,14 @@
 /**
- * The notification history (SLN-567): the errors and warnings this browser
- * showed, newest first, each read or unread. Routine confirmations ("Saved")
- * stay out of it. It lives in this browser's storage, so it survives
- * navigation, the reader and a reload, and follows other open tabs; it keeps
- * the latest 50 for 14 days. A storage that refuses (a private window) keeps
- * it for the page's life only.
+ * The notification history: completed notifications this browser showed,
+ * newest first, each read or unread. All completed notifications stay
+ * until explicitly removed. It lives in this browser's storage, so it survives
+ * navigation, the reader and a reload, and follows other open tabs. A storage
+ * that refuses (a private window) keeps it for the page's life only.
  */
 
-export type NotificationKind = "error" | "warning";
+import { localNotificationLink, type NotificationLink } from "./content";
+
+export type NotificationKind = "error" | "warning" | "success" | "info";
 
 export interface NotificationEntry {
   /** Stable across updates of the same toast */
@@ -20,11 +21,10 @@ export interface NotificationEntry {
   /** How many times it arrived in a row */
   count: number;
   read: boolean;
+  link?: NotificationLink;
 }
 
 export const STORAGE_KEY = "durtal-notifications";
-export const MAX_ENTRIES = 50;
-export const RETENTION_MS = 14 * 24 * 60 * 60 * 1000;
 /** The same message again within this window counts once more, as one entry */
 export const REPEAT_MS = 60 * 1000;
 
@@ -32,13 +32,9 @@ let entries: NotificationEntry[] = [];
 let loaded = false;
 const listeners = new Set<() => void>();
 
-function fresh(list: NotificationEntry[], now = Date.now()) {
-  return list.filter((e) => now - e.at < RETENTION_MS).slice(0, MAX_ENTRIES);
-}
-
 function isEntry(value: unknown): value is NotificationEntry {
   const e = value as NotificationEntry;
-  return !!e && typeof e.id === "string" && (e.kind === "error" || e.kind === "warning") &&
+  return !!e && typeof e.id === "string" && ["error", "warning", "success", "info"].includes(e.kind) &&
     typeof e.title === "string" && (e.description === null || typeof e.description === "string") &&
     typeof e.at === "number" && typeof e.count === "number" && typeof e.read === "boolean";
 }
@@ -46,7 +42,7 @@ function isEntry(value: unknown): value is NotificationEntry {
 function read(): NotificationEntry[] {
   try {
     const parsed: unknown = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "[]");
-    return Array.isArray(parsed) ? fresh(parsed.filter(isEntry)) : [];
+    return Array.isArray(parsed) ? parsed.filter(isEntry).map((entry) => ({ ...entry, link: localNotificationLink(entry.link) })) : [];
   } catch {
     return [];
   }
@@ -70,8 +66,8 @@ function emit() {
   for (const listener of listeners) listener();
 }
 
-function commit(next: NotificationEntry[], now = Date.now()) {
-  entries = fresh(next, now);
+function commit(next: NotificationEntry[]) {
+  entries = next;
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
   } catch {
@@ -103,27 +99,28 @@ export function getServerEntries(): NotificationEntry[] {
  * counts once more on that entry, unread and at the top (SLN-1460).
  */
 export function record(
-  input: { id: string; kind: NotificationKind; title: string; description?: string | null },
+  input: { id: string; kind: NotificationKind; title: string; description?: string | null; link?: NotificationLink },
   now = Date.now(),
 ) {
   load();
   const description = input.description ?? null;
+  input = { ...input, link: localNotificationLink(input.link) };
   const same = entries.find((e) => e.id === input.id);
   if (same) {
-    if (same.kind === input.kind && same.title === input.title && same.description === description) {
-      commit([{ ...same, at: now, count: same.count + 1, read: false }, ...entries.filter((e) => e !== same)], now);
+    if (same.kind === input.kind && same.title === input.title && same.description === description && same.link?.href === input.link?.href) {
+      commit([{ ...same, at: now, count: same.count + 1, read: false }, ...entries.filter((e) => e !== same)]);
       return;
     }
-    commit(entries.map((e) => (e === same ? { ...e, ...input, description, at: now, read: false } : e)), now);
+    commit([{ ...same, ...input, description, at: now, read: false }, ...entries.filter((e) => e !== same)]);
     return;
   }
   const latest = entries[0];
   if (latest && latest.kind === input.kind && latest.title === input.title &&
-      latest.description === description && now - latest.at < REPEAT_MS) {
-    commit([{ ...latest, at: now, count: latest.count + 1, read: false }, ...entries.slice(1)], now);
+      latest.description === description && latest.link?.href === input.link?.href && now - latest.at < REPEAT_MS) {
+    commit([{ ...latest, at: now, count: latest.count + 1, read: false }, ...entries.slice(1)]);
     return;
   }
-  commit([{ ...input, description, at: now, count: 1, read: false }, ...entries], now);
+  commit([{ ...input, description, at: now, count: 1, read: false }, ...entries]);
 }
 
 /** Mark the given entries read; other entries keep their state */
