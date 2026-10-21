@@ -281,6 +281,11 @@ dialog::backdrop {
   }
 }
 
+/* The repeated one-line slot around a cap-aligned box (SLN-524). */
+@utility cap-line {
+  @apply block h-[1lh] shrink-0;
+}
+
 /* CapAligned's inner box, one class on every card (page weight, SLN-381) */
 @utility cap-box {
   display: inline-block;
@@ -429,6 +434,24 @@ dialog::backdrop {
 /* With icon-hit-end, which the Compact grid resets by name */
 @utility card-heading-action {
   @apply relative z-20 float-right ml-2;
+}
+@utility card-title {
+  overflow-wrap: anywhere;
+}
+@utility card-subtitle {
+  @apply mt-1 min-h-[1lh] [overflow-wrap:anywhere];
+}
+@utility card-subtitle-tall {
+  @apply mt-1 min-h-[2lh] [overflow-wrap:anywhere];
+}
+@utility card-byline {
+  @apply text-sm text-fg-secondary;
+}
+@utility card-meta-end {
+  @apply ml-auto flex shrink-0 items-center gap-2;
+}
+@utility card-year {
+  @apply hidden font-mono text-micro text-fg-secondary;
 }
 @utility card-status-line {
   @apply relative z-20 flex min-w-0 gap-1.5 text-micro text-fg-secondary;

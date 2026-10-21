@@ -39,7 +39,7 @@ export function CapAligned({
 }) {
   if (coarseHeight === undefined)
     return (
-      <span className={`block h-[1lh] shrink-0 ${className}`}>
+      <span className={`cap-line ${className}`}>
         <span
           className="cap-box"
           style={{ height, marginBlock: -height / 2 }}
@@ -49,7 +49,7 @@ export function CapAligned({
       </span>
     );
   return (
-    <span className={`block h-[1lh] shrink-0 ${className}`}>
+    <span className={`cap-line ${className}`}>
       <span
         className="cap-box cap-touch"
         style={capTouchStyle(height, coarseHeight)}
@@ -87,7 +87,7 @@ export function CapAlignedControls({
   const controls = "float-left flex items-center gap-2 font-sans text-sm font-normal not-italic tracking-normal";
   if (coarseHeight === undefined)
     return (
-      <span className={`block h-[1lh] shrink-0 ${className}`}>
+      <span className={`cap-line ${className}`}>
         <span
           className="inline-block align-[0.5cap]"
           style={{ height, marginBlock: -height / 2 }}
@@ -99,7 +99,7 @@ export function CapAlignedControls({
       </span>
     );
   return (
-    <span className={`block h-[1lh] shrink-0 ${className}`}>
+    <span className={`cap-line ${className}`}>
       <span
         className="inline-block cap-touch align-[0.5cap]"
         style={capTouchStyle(height, coarseHeight)}

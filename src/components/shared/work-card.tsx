@@ -61,13 +61,13 @@ export function WorkCardInfo({
           </Badge>
         </span>
       )}
-      <span className="ml-auto flex shrink-0 items-center gap-2">
+      <span className="card-meta-end">
         <span className="hidden @[160px]:contents">
           <CardRating rating={rating} />
         </span>
         {year != null && year !== "" && (
           <span
-            className={`hidden font-mono text-micro text-fg-secondary ${rating ? "@[220px]:inline" : "@[160px]:inline"}`}
+            className={`card-year ${rating ? "@[220px]:inline" : "@[160px]:inline"}`}
           >
             {year}
           </span>
