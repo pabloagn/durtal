@@ -95,6 +95,7 @@ describe.skipIf(!url)("publisher migration rehearsal", () => {
         film_holding_id: null,
         perfume_bottle_id: null,
         art_object_id: null,
+        group_id: null,
       });
       expect(
         (await c`select * from publishing_houses where id=${p.id}`)[0],

@@ -50,6 +50,9 @@ const { recordActivity } = vi.hoisted(() => ({ recordActivity: vi.fn() }));
 vi.mock("@/lib/activity/record", () => ({ recordActivity }));
 import {
   createOrder,
+  createOrderGroup,
+  getOrder,
+  getProvenanceStats,
   deleteOrder,
   searchWorksForOrder,
   updateOrder,
@@ -129,6 +132,51 @@ describe.skipIf(!url)("order status sync with PostgreSQL (SLN-280)", () => {
     expect((await searchWorksForOrder("A REBOURS")).map((w) => w.title)).toEqual(["À rebours"]);
     expect((await searchWorksForOrder("rebours")).map((w) => w.title)).toEqual(["À rebours"]);
     expect((await searchWorksForOrder("la bas")).map((w) => w.title)).toEqual(["Là-bas"]);
+  });
+
+  it("ranks exact titles before typos and finds a title by a misspelling or its author", async () => {
+    const [author] = await db.insert(schema.authors).values({ name: "Alberto Moravia", slug: "moravia" }).returning();
+    const [book] = await db.insert(schema.works).values({ title: "Agostino", slug: "agostino" }).returning();
+    await db.insert(schema.workAuthors).values({ workId: book.id, authorId: author.id });
+    await db.insert(schema.works).values([{ title: "Agostno", slug: "exact-agostno" }, { title: "Unrelated", slug: "unrelated" }]);
+    expect((await searchWorksForOrder("Agostno")).map((w) => w.title).slice(0, 2)).toEqual(["Agostno", "Agostino"]);
+    expect((await searchWorksForOrder("moravya agostino")).map((w) => w.title)).toContain("Agostino");
+    expect(await searchWorksForOrder("   ")).toEqual([]);
+    expect(await searchWorksForOrder("💡")).toEqual([]);
+  });
+
+  it("keeps shipping once for a multi-book order and updates its shared fields together", async () => {
+    const a = await work("wanted"), b = await work("wanted");
+    const purchase = await createOrderGroup({ acquisitionMethod: "online_order", orderDate: "2026-10-21",
+      currency: "EUR", shippingCost: "5.00", items: [{ workId: a, price: "10.00" }, { workId: b, price: "20.00" }] });
+    expect(await getProvenanceStats()).toMatchObject({ orderCount: 1, activeOrders: 1, spentByCurrency: [{ currency: "EUR", total: "35.00" }] });
+    const [shop] = await db.insert(schema.venues).values({ name: "Test shop", slug: "test-shop", type: "bookshop" }).returning();
+    await updateOrder(purchase.orderIds[0], { venueId: shop.id, shippingCost: "7.00", price: "12.00", totalCost: "19.00" });
+    const rows = await db.select().from(schema.orders);
+    expect(rows.map((row) => row.venueId)).toEqual([shop.id, shop.id]);
+    expect(rows.every((row) => row.shippingCost === null && row.totalCost === row.price)).toBe(true);
+    expect((await getProvenanceStats()).spentByCurrency).toEqual([{ currency: "EUR", total: "39.00" }]);
+    expect((await getOrder(purchase.orderIds[0]))?.group?.items).toHaveLength(2);
+    await expect(db.update(schema.orders).set({ venueId: null }).where(eq(schema.orders.id, purchase.orderIds[1]))).rejects.toThrow();
+  });
+
+  it("creates each received book copy in the same purchase, with only its own item price", async () => {
+    const a = await work("wanted"), b = await work("wanted"), destination = await place();
+    const purchase = await createOrderGroup({ acquisitionMethod: "in_store_purchase", status: "purchased", orderDate: "2026-10-21",
+      currency: "EUR", shippingCost: "3.00", destinationLocationId: destination,
+      items: [{ workId: a, price: "10.00" }, { workId: b, price: "20.00" }] });
+    expect(purchase.orderIds).toHaveLength(2);
+    expect((await copies()).map((copy) => copy.acquisitionPrice).sort()).toEqual(["10.00", "20.00"]);
+    expect(await status(a)).toBe("accessioned");
+    expect(await status(b)).toBe("accessioned");
+  });
+
+  it("does not leave half an order when one member is invalid", async () => {
+    const a = await work("wanted");
+    await expect(createOrderGroup({ acquisitionMethod: "online_order", orderDate: "2026-10-21",
+      items: [{ workId: a }, { workId: "00000000-0000-4000-8000-000000000099" }] })).rejects.toThrow();
+    expect(await db.select().from(schema.orderGroups)).toHaveLength(0);
+    expect(await db.select().from(schema.orders)).toHaveLength(0);
   });
 
   it("follows a wanted work through order and delivery", async () => {

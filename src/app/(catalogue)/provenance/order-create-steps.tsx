@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback, useId } from "react";
 import { Plus, Loader2, Search } from "lucide-react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,17 @@ import { Select } from "@/components/ui/select";
 import { DatePicker } from "@/components/ui/date-picker";
 import { searchWorksForOrder } from "@/lib/actions/orders";
 import { searchAuthorsLite } from "@/lib/actions/authors";
+import { searchVenues } from "@/lib/actions/venues";
+import { createVenue } from "@/lib/actions/catalogue-client";
+import {
+  AddButton,
+  CHIP,
+  CHIP_NAME,
+  RemoveButton,
+  useAddButton,
+} from "@/components/catalogue/record-fields";
+import { SearchPicker, type PickerChoice } from "@/components/catalogue/search-picker";
+import type { VenueType } from "@/lib/catalogue/venues";
 import { todayLocal } from "@/lib/utils/date";
 import type { AcquisitionMethod, OrderStatus } from "@/lib/constants/orders";
 import { getValidInitialStatuses } from "@/lib/constants/orders";
@@ -448,10 +459,16 @@ export function DetailsStep({
   method,
   form,
   onChange,
+  venue,
+  onVenueChange,
+  priceLabel,
 }: {
   method: AcquisitionMethod;
   form: DetailsForm;
   onChange: (key: keyof DetailsForm, value: string) => void;
+  venue: OrderVenue | null;
+  onVenueChange: (venue: OrderVenue | null) => void;
+  priceLabel?: string;
 }) {
   const isOnline = method === "online_order" || method === "digital_purchase";
   const isAuction = method === "auction";
@@ -468,12 +485,7 @@ export function DetailsStep({
 
       {(isOnline || isAuction) && (
         <>
-          <Input
-            label="Venue / Seller"
-            value={form.venueName}
-            onChange={(e) => onChange("venueName", e.target.value)}
-            placeholder="Amazon, AbeBooks, etc."
-          />
+          <OrderShopField method={method} value={venue} onChange={onVenueChange} />
           <Input
             label="Order Confirmation #"
             value={form.orderConfirmation}
@@ -516,12 +528,7 @@ export function DetailsStep({
       )}
 
       {!isOnline && !isAuction && !isGift && (
-        <Input
-          label="Venue / Store"
-          value={form.venueName}
-          onChange={(e) => onChange("venueName", e.target.value)}
-          placeholder="Bookshop name, event, etc."
-        />
+        <OrderShopField method={method} value={venue} onChange={onVenueChange} />
       )}
 
       {isGift && (
@@ -533,7 +540,7 @@ export function DetailsStep({
         />
       )}
 
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <Select
           label="Currency"
           options={CURRENCY_SELECT_OPTIONS}
@@ -541,20 +548,103 @@ export function DetailsStep({
           onChange={(e) => onChange("currency", e.target.value)}
         />
         <Input
-          label={`Price (${currencySymbol(form.currency) ?? form.currency})`}
+          label={`${priceLabel ?? "Price"} (${currencySymbol(form.currency) ?? form.currency})`}
           type="number"
           value={form.price}
           onChange={(e) => onChange("price", e.target.value)}
           placeholder="0.00"
         />
         <Input
-          label={`Shipping (${currencySymbol(form.currency) ?? form.currency})`}
+          label={`Shipping per order (${currencySymbol(form.currency) ?? form.currency})`}
           type="number"
           value={form.shippingCost}
           onChange={(e) => onChange("shippingCost", e.target.value)}
           placeholder="0.00"
         />
       </div>
+    </div>
+  );
+}
+
+export type OrderVenue = { id: string; label: string };
+
+/** The kind of a shop first named in an order, by how the order was placed */
+const SHOP_TYPE: Record<AcquisitionMethod, VenueType> = {
+  online_order: "online_store",
+  digital_purchase: "online_store",
+  auction: "auction_house",
+  in_store_purchase: "bookshop",
+  event_purchase: "fair",
+  gift: "other",
+};
+
+/**
+ * Where the order was placed: one of the places, picked from a search, so a
+ * shop has one name and its page lists every order from it (SLN-985). A shop
+ * not in the places yet is added from the search.
+ */
+export function OrderShopField({
+  method,
+  value,
+  onChange,
+}: {
+  method: AcquisitionMethod;
+  value: OrderVenue | null;
+  onChange: (venue: OrderVenue | null) => void;
+}) {
+  const search = useCallback(
+    async (query: string): Promise<PickerChoice[]> =>
+      (await searchVenues(query)).map((v) => ({
+        id: v.id,
+        label: v.name,
+        hint: v.place?.name ?? null,
+      })),
+    [],
+  );
+  const create = useCallback(
+    async (name: string): Promise<PickerChoice> => {
+      const created = await createVenue({ name, type: SHOP_TYPE[method] });
+      return { id: created.id, label: created.name };
+    },
+    [method],
+  );
+  const add = useAddButton();
+  const labelId = useId();
+  // Stacked as the form's other fields: the label over the chip or Choose
+  return (
+    <div role="group" aria-labelledby={labelId} className="space-y-1.5">
+      <span id={labelId} className="type-label block">
+        Shop
+      </span>
+      {value ? (
+        <span className={CHIP}>
+          <span className={CHIP_NAME}>{value.label}</span>
+          <RemoveButton label={`Remove ${value.label}`} onClick={() => onChange(null)} />
+        </span>
+      ) : add.open ? (
+        <SearchPicker
+          label="Search: shop"
+          placeholder="Search shops..."
+          search={search}
+          onCreate={create}
+          onPick={(choice) => {
+            add.close();
+            onChange({ id: choice.id, label: choice.label });
+          }}
+          onClose={add.close}
+        />
+      ) : (
+        // A ghost button under its label pulls out by its padding, so its
+        // icon starts on the label's edge (docs/03, Spacing Scale)
+        <div className="-ml-1.5">
+          <AddButton
+            label="Choose: shop"
+            text="Choose"
+            onClick={() => add.setOpen(true)}
+            buttonRef={add.button}
+          />
+        </div>
+      )}
     </div>
   );
 }
@@ -581,7 +671,6 @@ export function NotesStep({
 
 export interface DetailsForm {
   orderDate: string;
-  venueName: string;
   orderConfirmation: string;
   orderUrl: string;
   carrier: string;
@@ -596,7 +685,6 @@ export interface DetailsForm {
 
 export const INITIAL_DETAILS: DetailsForm = {
   orderDate: todayLocal(),
-  venueName: "",
   orderConfirmation: "",
   orderUrl: "",
   carrier: "",

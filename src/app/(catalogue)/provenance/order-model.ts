@@ -36,6 +36,8 @@ export interface OrderVenue {
 
 export interface OrderItem {
   id: string;
+  groupId?: string | null;
+  group?: { id: string; shippingCost: string | null; items: { id: string; status: OrderStatus; price: string | null; work: { title: string; slug: string } }[] } | null;
   workId: string;
   editionId?: string | null;
   acquisitionTargetId?: string | null;

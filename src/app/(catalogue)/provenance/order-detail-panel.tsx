@@ -17,6 +17,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { SectionHeading } from "@/components/shared/section-heading";
 import { Button } from "@/components/ui/button";
 import { CapAligned } from "@/components/shared/cap-aligned";
 import { useEscapeToCancel } from "@/components/shared/escape-to-cancel";
@@ -95,7 +96,7 @@ export function OrderDetailPanel({
     setIsPending(true);
     try {
       await updateOrderStatus(order.id, newStatus);
-      toast.success(`Status updated to ${orderStatusLabel(newStatus)}`);
+      toast.success(<><a className="text-command" href={workHref(order.work)}>{order.work.title}</a>{` moved to ${orderStatusLabel(newStatus)}`}</>);
       router.refresh();
     } catch (err) {
       toast.error(
@@ -282,6 +283,15 @@ export function OrderDetailPanel({
               ))}
             </div>
           </div>
+
+          {order.group && <section className="mt-6 space-y-2" aria-label="Books in this order">
+            <SectionHeading as="h4" title={`${order.group.items.length} books in this order`} />
+            <ul className="space-y-2 text-sm">{order.group.items.map((item) => <li key={item.id} className="flex flex-wrap justify-between gap-2">
+              <a className="text-command" href={`/library/${item.work.slug}`}>{item.work.title}</a>
+              <span>{orderStatusLabel(item.status)}{item.price !== null ? ` · ${formatMoney(item.price, order.currency)}` : ""}</span>
+            </li>)}</ul>
+            {order.group.shippingCost !== null && <p className="text-sm">Shipping per order: {formatMoney(order.group.shippingCost, order.currency)}</p>}
+          </section>}
 
           {/* Shipping info */}
           {(order.carrier || order.trackingNumber) && (

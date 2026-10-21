@@ -80,8 +80,7 @@ export function DifferencesSection({ page, step, links, moreHref }: {
   const field = page.field;
   const keepAll = bulk("keep"), useAll = bulk("use");
   return <section aria-labelledby="review-section-differences" className="space-y-3">
-    <SectionHeading id="review-section-differences" title="Differences" count={page.total}
-      description="Where an e-book and its book disagree. Keep Durtal's sets the e-book's own field; Use the file's changes the book. Every choice can be undone." />
+    <SectionHeading id="review-section-differences" title="Differences" count={page.total} />
     <nav aria-label="Differences by field" className="flex flex-wrap gap-2">
       {DIFFERENCE_FIELDS.filter((f) => page.counts[f]).map((f) => <Link key={f} href={links[f] ?? "#"} scroll={false}
         aria-current={f === field ? "page" : undefined} className={buttonClass(f === field ? "secondary" : "ghost", "sm")}>

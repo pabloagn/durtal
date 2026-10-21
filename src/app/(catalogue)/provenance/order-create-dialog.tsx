@@ -22,8 +22,11 @@ import {
   INITIAL_DETAILS,
   type WorkResult,
   type DetailsForm,
+  type OrderVenue,
 } from "./order-create-steps";
-import { createOrder, createOrderForNewBook } from "@/lib/actions/catalogue-client";
+import { createOrder, createOrderForNewBook, createOrderGroup } from "@/lib/actions/catalogue-client";
+import { Input } from "@/components/ui/input";
+import { SectionHeading } from "@/components/shared/section-heading";
 import { refusalMessage } from "@/lib/actions/refusal";
 import { ActionRefusal } from "@/lib/actions/action-refusal";
 import { isOrderHref } from "@/lib/constants/orders";
@@ -80,14 +83,20 @@ export function OrderCreateDialog({
     ...INITIAL_DETAILS,
     currency: homeCurrency,
   }));
+  const [venue, setVenue] = useState<OrderVenue | null>(null);
+  const [otherBooks, setOtherBooks] = useState<WorkResult[]>([]);
+  const [addingBook, setAddingBook] = useState(false);
+  const [linePrices, setLinePrices] = useState<Record<string, string>>({});
+  const [lineTargets, setLineTargets] = useState<Record<string, OrderTargetValue>>({});
   const [notes, setNotes] = useState("");
   // The book it opened with (from a target) is not the owner's own work yet
   const [arrivedWith, setArrivedWith] = useState(seed?.work ?? null);
-  // Unsaved work the fields do not show: a picked book, method or status
+  // Unsaved work the fields do not show: a picked book, method, status or shop
   const picked =
     selectedWork !== arrivedWith ||
     method !== "online_order" ||
-    status !== "placed";
+    status !== "placed" ||
+    venue !== null;
 
   function resetForm() {
     setArrivedWith(null);
@@ -99,6 +108,11 @@ export function OrderCreateDialog({
     setMethod("online_order");
     setStatus("placed");
     setDetails({ ...INITIAL_DETAILS, currency: homeCurrency });
+    setVenue(null);
+    setOtherBooks([]);
+    setAddingBook(false);
+    setLinePrices({});
+    setLineTargets({});
     setNotes("");
   }
 
@@ -151,6 +165,8 @@ export function OrderCreateDialog({
         const order = {
           acquisitionTargetId: targetValue.acquisitionTargetId || null,
           editionId: targetValue.editionId || null,
+          // A gift has no shop: who gave it is its origin
+          venueId: method === "gift" ? null : (venue?.id ?? null),
           acquisitionMethod: method,
           status,
           orderDate: details.orderDate,
@@ -167,14 +183,21 @@ export function OrderCreateDialog({
           originDescription: details.originDescription || null,
           notes: notes || null,
         };
-        if (selectedWork.draft)
+        if (otherBooks.length) {
+          await createOrderGroup({ ...order, items: [selectedWork, ...otherBooks].map((book, index) => ({
+            workId: book.id,
+            price: index === 0 ? priceVal : (linePrices[book.id] || null),
+            acquisitionTargetId: (index === 0 ? targetValue : lineTargets[book.id])?.acquisitionTargetId || null,
+            editionId: (index === 0 ? targetValue : lineTargets[book.id])?.editionId || null,
+          })) });
+        } else if (selectedWork.draft)
           await createOrderForNewBook({ book: selectedWork.draft, order });
         else
           await createOrder(
             { ...order, workId: selectedWork.id },
             { orderAgain: again || undefined },
           );
-        toast.success(`Order for "${selectedWork.title}" created`);
+        toast.success(otherBooks.length ? `Order for ${otherBooks.length + 1} books created` : `Order for "${selectedWork.title}" created`);
         setOpen(false);
         resetForm();
         router.refresh();
@@ -235,42 +258,65 @@ export function OrderCreateDialog({
 
         {/* Step content */}
         <div className="min-h-[260px]">
-          {step === 0 && (
+          {step === 0 && (<>
+            {otherBooks.map((book) => <div key={book.id} className="mb-2 flex items-center justify-between gap-2 text-sm">
+              <span className="min-w-0 [overflow-wrap:anywhere]">{book.title}</span><Button size="sm" variant="ghost" aria-label={`Remove ${book.title}`} onClick={() => setOtherBooks((books) => books.filter((item) => item.id !== book.id))}>Remove</Button>
+            </div>)}
             <WorkSearchStep
-              selectedWork={selectedWork}
+              selectedWork={addingBook ? null : selectedWork}
               onSelect={(work) => {
+                if (addingBook) {
+                  if (work.draft) { toast.error("Save the new book before adding it to a multi-book order"); return; }
+                  if (work.id === selectedWork?.id || otherBooks.some((book) => book.id === work.id)) { toast.error("This book is already in the order"); return; }
+                  setOtherBooks((books) => [...books, work]);
+                  setAddingBook(false);
+                  return;
+                }
                 setSelectedWork(work);
+                setOtherBooks([]);
                 setTargetValue({ acquisitionTargetId: "", editionId: "" });
               }}
             />
-          )}
+            {selectedWork && !selectedWork.draft && otherBooks.length < 49 && <Button className="mt-3" size="sm" variant="secondary" onClick={() => setAddingBook(!addingBook)}>{addingBook ? "Done adding books" : "Add another book"}</Button>}
+          </>)}
+          {/* The hunt and edition sit with the method, inside the step's
+              height, so a short step leaves no gap above them (SLN-983). A
+              draft book has no targets or editions yet. */}
           {step === 1 && (
-            <MethodStep
-              method={method}
-              onMethodChange={setMethod}
-              status={status}
-              onStatusChange={setStatus}
-            />
+            <div className="space-y-4">
+              <MethodStep
+                method={method}
+                onMethodChange={setMethod}
+                status={status}
+                onStatusChange={setStatus}
+              />
+              {selectedWork && !selectedWork.draft && (
+                <div className="space-y-2">
+                {otherBooks.length > 0 && <SectionHeading as="h4" title={selectedWork.title} />}
+                <OrderTargetFields
+                  key={selectedWork.id}
+                  workId={selectedWork.id}
+                  value={targetValue}
+                  onChange={setTargetValue}
+                />
+                </div>
+              )}
+              {otherBooks.map((book) => <div key={book.id} className="space-y-2"><SectionHeading as="h4" title={book.title} /><OrderTargetFields workId={book.id} value={lineTargets[book.id] ?? { acquisitionTargetId: "", editionId: "" }} onChange={(value) => setLineTargets((values) => ({ ...values, [book.id]: value }))} /></div>)}
+            </div>
           )}
-          {step === 2 && (
+          {step === 2 && (<>
             <DetailsStep
               method={method}
               form={details}
               onChange={handleDetailsChange}
+              venue={venue}
+              onVenueChange={setVenue}
+              priceLabel={otherBooks.length ? `Price: ${selectedWork?.title}` : undefined}
             />
-          )}
+            {otherBooks.map((book) => <Input key={book.id} label={`Price: ${book.title}`} className="mt-3" type="number" min="0" step="0.01" value={linePrices[book.id] ?? ""} onChange={(event) => setLinePrices((values) => ({ ...values, [book.id]: event.target.value }))} />)}
+          </>)}
           {step === 3 && <NotesStep notes={notes} onChange={setNotes} />}
         </div>
-
-        {/* A draft book has no targets or editions yet */}
-        {step === 1 && selectedWork && !selectedWork.draft && (
-          <OrderTargetFields
-            key={selectedWork.id}
-            workId={selectedWork.id}
-            value={targetValue}
-            onChange={setTargetValue}
-          />
-        )}
 
         {/* Back or Cancel at the start, Next or Create at the end: under the
             dialog's body and always in view (SLN-1056) */}

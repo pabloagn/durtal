@@ -5,7 +5,7 @@ import { SkeletonBlock, SkeletonLine } from "@/components/shared/skeleton";
 export default function StatisticsLoading() {
   return (
     <div role="status" aria-label="Loading the statistics">
-      <PageHeader title="Statistics" description="The books on your shelves, in numbers." />
+      <PageHeader title="Statistics" />
       <div className="space-y-14">
         <div className="flex justify-center">
           {Array.from({ length: 5 }, (_, i) => (

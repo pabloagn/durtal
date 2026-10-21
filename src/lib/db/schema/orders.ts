@@ -24,10 +24,23 @@ import { filmHoldings } from "./films";
 import { perfumeBottles } from "./perfumes";
 import { artObjects } from "./paintings";
 
+export const orderGroups = pgTable("order_groups", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  venueId: uuid("venue_id").references(() => venues.id, { onDelete: "restrict" }),
+  acquisitionMethod: acquisitionMethodEnum("acquisition_method").notNull(),
+  orderDate: date("order_date").notNull(),
+  orderConfirmation: text("order_confirmation"),
+  orderUrl: text("order_url"),
+  currency: text("currency"),
+  shippingCost: numeric("shipping_cost", { precision: 10, scale: 2 }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [check("order_groups_shipping_check", sql`${t.shippingCost} is null or ${t.shippingCost} >= 0`)]);
+
 export const orders = pgTable(
   "orders",
   {
     id: uuid("id").defaultRandom().primaryKey(),
+    groupId: uuid("group_id").references(() => orderGroups.id, { onDelete: "restrict" }),
     workId: uuid("work_id")
       .notNull()
       .references(() => works.id, { onDelete: "cascade" }),
@@ -98,6 +111,8 @@ export const orders = pgTable(
       .defaultNow(),
   },
   (t) => [
+    index("orders_group_idx").on(t.groupId),
+    check("orders_group_cost_check", sql`${t.groupId} is null or (${t.shippingCost} is null and ${t.totalCost} is not distinct from ${t.price})`),
     index("orders_acquisition_target_idx").on(t.acquisitionTargetId),
     index("orders_work_id_idx").on(t.workId),
     index("orders_status_idx").on(t.status),
@@ -114,6 +129,7 @@ export const orders = pgTable(
 );
 
 export const ordersRelations = relations(orders, ({ one, many }) => ({
+  group: one(orderGroups, { fields: [orders.groupId], references: [orderGroups.id] }),
   work: one(works, {
     fields: [orders.workId],
     references: [works.id],
@@ -145,4 +161,9 @@ export const ordersRelations = relations(orders, ({ one, many }) => ({
     relationName: "orderDestinationSubLocation",
   }),
   statusHistory: many(orderStatusHistory),
+}));
+
+export const orderGroupsRelations = relations(orderGroups, ({ many, one }) => ({
+  items: many(orders),
+  venue: one(venues, { fields: [orderGroups.venueId], references: [venues.id] }),
 }));

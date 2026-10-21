@@ -153,7 +153,7 @@ describe.skipIf(!url)("work-kind migration on a populated catalogue", () => {
           delete row[column];
         }
     for (const row of projected.orders ?? [])
-      for (const column of ["film_holding_id", "perfume_bottle_id", "art_object_id"])
+      for (const column of ["film_holding_id", "perfume_bottle_id", "art_object_id", "group_id"])
         if (column in row) {
           expect(row[column], column).toBeNull();
           delete row[column];
@@ -223,7 +223,7 @@ describe.skipIf(!url)("work-kind migration on a populated catalogue", () => {
     for (const table of [
       "ebook_match_candidates", "ebook_annotation_cursors", "ebook_annotation_retired_ids",
       "reader_preferences", "legacy_reader_progress", "reader_quote_undo_receipts",
-      "reader_sitting_receipts", "ebook_upload_capacity", "ebook_upload_operations",
+      "reader_sitting_receipts", "ebook_upload_capacity", "ebook_upload_operations", "order_groups",
     ]) if (table in projected) {
       expect(projected[table], `${table} starts empty`).toEqual([]);
       delete projected[table];

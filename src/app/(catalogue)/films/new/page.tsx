@@ -11,7 +11,6 @@ export default async function AddFilmPage() {
     <>
       <PageHeader
         title="Add film"
-        description="The film first; its versions, releases and copies go on its page"
       />
       <div className="max-w-3xl">
         <FilmForm mode="create" choices={choices} />

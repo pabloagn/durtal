@@ -4,12 +4,10 @@ import {
   clearAll,
   getEntries,
   markRead,
-  MAX_ENTRIES,
   record,
   remove,
   REPEAT_MS,
   resetForTests,
-  RETENTION_MS,
   STORAGE_KEY,
   subscribe,
 } from "@/lib/notifications/history";
@@ -69,13 +67,17 @@ describe("the notification history", () => {
     expect(getEntries().map((e) => e.count)).toEqual([1, 1, 1, 2]);
   });
 
-  it("keeps the latest 50 for two weeks", () => {
-    for (let i = 0; i < MAX_ENTRIES + 5; i++)
+  it("keeps every notification across years and reloads until explicitly removed", () => {
+    for (let i = 0; i < 75; i++)
       record({ id: `p:${i}`, kind: "error", title: `Error ${i}` }, T + i);
-    expect(getEntries()).toHaveLength(MAX_ENTRIES);
-    expect(getEntries()[0].title).toBe(`Error ${MAX_ENTRIES + 4}`);
-    record({ id: "p:new", kind: "warning", title: "Later" }, T + RETENTION_MS + MAX_ENTRIES + 10);
-    expect(getEntries().map((e) => e.title)).toEqual(["Later"]);
+    record({ id: "p:new", kind: "success", title: "Later" }, T + 2 * 365 * 86400000);
+    resetForTests();
+    expect(getEntries()).toHaveLength(76);
+    expect(getEntries().at(-1)?.title).toBe("Error 0");
+    markRead(["p:0"]);
+    expect(getEntries()).toHaveLength(76);
+    remove("p:0");
+    expect(getEntries()).toHaveLength(75);
   });
 
   it("marks read only the entries named, removes one, and clears all", () => {

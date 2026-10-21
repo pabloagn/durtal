@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { CircleAlert, CircleCheck, Info, LoaderCircle, TriangleAlert, X } from "lucide-react";
 import { Toaster, useSonner, type ToastT } from "sonner";
 import { syncShownToasts } from "@/lib/notifications/toast";
+import { notificationContent } from "@/lib/notifications/content";
 import { CapAligned } from "@/components/shared/cap-aligned";
 import { NotificationRecorder } from "./notification-recorder";
 
@@ -20,7 +21,7 @@ const ICON = "h-4 w-4";
  * toast has its own small cross in its top-right corner: it dismisses that
  * toast only, and runs none of its actions. Several toasts stack, at most
  * three in view; pointing at the stack or focusing it spreads it out and
- * holds every timer. Errors and warnings also go to the notification history.
+ * holds every timer. Completed notifications also go to the notification history.
  *
  * Toasts are made through `@/lib/notifications/toast`, which sets how long
  * each kind stays and keeps a repeat to one toast.
@@ -221,8 +222,8 @@ function useClearance() {
 }
 
 function spoken(toast: ToastT) {
-  const title = typeof toast.title === "string" ? toast.title.trim() : "";
-  const description = typeof toast.description === "string" ? toast.description.trim() : "";
+  const title = notificationContent(toast.title).text.trim();
+  const description = notificationContent(toast.description).text.trim();
   return [title, description].filter(Boolean).join(". ");
 }
 

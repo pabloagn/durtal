@@ -93,7 +93,7 @@ export default async function StatisticsPage() {
 
   return (
     <>
-      <PageHeader title="Statistics" description="The books on your shelves, in numbers." />
+      <PageHeader title="Statistics" />
 
       {numbers.books === 0 ? (
         <div className="space-y-14">

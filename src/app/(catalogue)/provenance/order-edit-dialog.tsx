@@ -23,15 +23,18 @@ import type { OrderStatus, AcquisitionMethod } from "@/lib/constants/orders";
 import { updateOrder } from "@/lib/actions/catalogue-client";
 import { refusalMessage } from "@/lib/actions/refusal";
 import { useSaveReason } from "@/components/shared/save-reason";
+import { OrderShopField, type OrderVenue } from "./order-create-steps";
 
 interface OrderData {
   id: string;
+  group?: { shippingCost: string | null } | null;
   workId: string;
   /** A film, perfume or painting order keeps the target it was placed for */
   work?: { kind?: string | null };
   editionId?: string | null;
   acquisitionTargetId?: string | null;
   acquisitionMethod: AcquisitionMethod;
+  venue?: { id: string; name: string } | null;
   status: OrderStatus;
   orderDate: string;
   orderConfirmation: string | null;
@@ -81,13 +84,17 @@ export function OrderEditDialog({
   });
   const isBook = !order.work?.kind || order.work.kind === "book";
   const [method, setMethod] = useState(order.acquisitionMethod);
+  // The shop can change after the order is placed (SLN-986)
+  const [venue, setVenue] = useState<OrderVenue | null>(
+    order.venue ? { id: order.venue.id, label: order.venue.name } : null,
+  );
   const [orderDate, setOrderDate] = useState(order.orderDate);
   const [orderConfirmation, setOrderConfirmation] = useState(
     order.orderConfirmation ?? "",
   );
   const [orderUrl, setOrderUrl] = useState(order.orderUrl ?? "");
   const [price, setPrice] = useState(order.price ?? "");
-  const [shippingCost, setShippingCost] = useState(order.shippingCost ?? "");
+  const [shippingCost, setShippingCost] = useState(order.group?.shippingCost ?? order.shippingCost ?? "");
   // Orders saved without a currency get the home currency (Settings); saving stores it.
   const { homeCurrency } = useAppSettings();
   const [currency, setCurrency] = useState(() =>
@@ -136,6 +143,8 @@ export function OrderEditDialog({
       try {
         await updateOrder(order.id, {
           acquisitionMethod: method,
+          // A gift has no shop: who gave it is its origin
+          venueId: isGift ? null : (venue?.id ?? null),
           ...(isBook
             ? {
                 acquisitionTargetId: targetValue.acquisitionTargetId || null,
@@ -172,6 +181,8 @@ export function OrderEditDialog({
   return (
     <Dialog
       draft
+      // A changed shop is a chip, not a field the dialog sees
+      dirty={(venue?.id ?? null) !== (order.venue?.id ?? null)}
       open={open}
       onClose={onClose}
       title="Edit order"
@@ -198,6 +209,8 @@ export function OrderEditDialog({
           onChange={(v) => setOrderDate(v)}
           required
         />
+
+        {!isGift && <OrderShopField method={method} value={venue} onChange={setVenue} />}
 
         {showShipping && (
           <>
@@ -264,7 +277,7 @@ export function OrderEditDialog({
           />
         )}
 
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <Select
             label="Currency"
             options={CURRENCY_SELECT_OPTIONS}
@@ -279,7 +292,7 @@ export function OrderEditDialog({
             placeholder="0.00"
           />
           <Input
-            label={`Shipping (${currencySymbol(currency) ?? currency})`}
+            label={`Shipping per order (${currencySymbol(currency) ?? currency})`}
             type="number"
             value={shippingCost}
             onChange={(e) => setShippingCost(e.target.value)}

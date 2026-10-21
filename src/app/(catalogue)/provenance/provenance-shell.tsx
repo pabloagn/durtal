@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { todayLocal } from "@/lib/utils/date";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "@/lib/notifications/toast";
+import { workHref } from "@/lib/catalogue/work-href";
 import { BOOK_IN_HAND_STATUSES, getValidTransitions, orderStatusLabel, type OrderStatus } from "@/lib/constants/orders";
 import { formatMoney } from "@/lib/utils/money";
 import { DEFAULT_CURRENCY } from "@/lib/constants/currencies";
@@ -170,7 +171,7 @@ export function ProvenanceShell({ activeOrders, stats }: ProvenanceShellProps) {
     updateOrderStatus(order.id, targetStatus)
       .then(() => {
         toast.success(
-          `${order.work.title} moved to ${STATUS_LABELS[targetStatus] ?? targetStatus}`,
+          <><a className="text-command" href={workHref(order.work)}>{order.work.title}</a>{` moved to ${STATUS_LABELS[targetStatus] ?? targetStatus}`}</>,
         );
         router.refresh();
       })

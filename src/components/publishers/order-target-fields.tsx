@@ -44,6 +44,11 @@ export function OrderTargetFields({
     return (
       <p className="text-xs text-fg-secondary">Loading edition preferences…</p>
     );
+  // Hunts already received stay out, unless this order is the one for it
+  const targets = data.targets.filter(
+    (t) => t.state !== "received" || t.target.id === value.acquisitionTargetId,
+  );
+  const chosen = data.targets.find((t) => t.target.id === value.acquisitionTargetId);
   const editions = data.editions.filter(
     (e) =>
       !value.acquisitionTargetId ||
@@ -51,48 +56,50 @@ export function OrderTargetFields({
         (m) => m.targetId === value.acquisitionTargetId && m.editionId === e.id,
       ),
   );
+  // A hunt for one edition names the edition bought; a second list naming the
+  // same edition again only confused the two (SLN-989)
+  const editionFixed = !!chosen?.target.editionId && value.editionId === chosen.target.editionId;
+  if (!targets.length && !data.editions.length) return null;
   return (
     <div className="space-y-3 border-t border-glass-border pt-3">
-      <Select
-        label="Acquisition target"
-        value={value.acquisitionTargetId}
-        onChange={(e) => {
-          const t = data.targets.find((t) => t.target.id === e.target.value);
-          onChange({
-            acquisitionTargetId: e.target.value,
-            editionId: t?.target.editionId ?? "",
-          });
-        }}
-        options={[
-          { value: "", label: "No target" },
-          ...data.targets
-            .filter(
-              (t) =>
-                t.state !== "received" ||
-                t.target.id === value.acquisitionTargetId,
-            )
-            .map((t) => ({
+      {targets.length > 0 && (
+        <Select
+          label="Hunting for"
+          value={value.acquisitionTargetId}
+          onChange={(e) => {
+            const t = data.targets.find((t) => t.target.id === e.target.value);
+            onChange({
+              acquisitionTargetId: e.target.value,
+              editionId: t?.target.editionId ?? "",
+            });
+          }}
+          options={[
+            { value: "", label: "Not for a hunt" },
+            ...targets.map((t) => ({
               value: t.target.id,
               label: t.publisher
-                ? `${t.publisher.name} edition`
+                ? `Any ${t.publisher.name} edition`
                 : t.edition
                   ? `${t.edition.title} · ${t.edition.publisher ?? ""} · ${t.edition.isbn13 ?? t.edition.language}`
                   : "Any edition",
             })),
-        ]}
-      />
-      <Select
-        label="Ordered edition"
-        value={value.editionId}
-        onChange={(e) => onChange({ ...value, editionId: e.target.value })}
-        options={[
-          { value: "", label: "Not identified yet" },
-          ...editions.map((e) => ({
-            value: e.id,
-            label: `${e.title} · ${e.publisher ?? "Unspecified publisher"} · ${e.isbn13 ?? e.language}${e.publicationYear ? ` · ${e.publicationYear}` : ""}`,
-          })),
-        ]}
-      />
+          ]}
+        />
+      )}
+      {!editionFixed && (
+        <Select
+          label="Edition"
+          value={value.editionId}
+          onChange={(e) => onChange({ ...value, editionId: e.target.value })}
+          options={[
+            { value: "", label: "Not known yet" },
+            ...editions.map((e) => ({
+              value: e.id,
+              label: `${e.title} · ${e.publisher ?? "Unspecified publisher"} · ${e.isbn13 ?? e.language}${e.publicationYear ? ` · ${e.publicationYear}` : ""}`,
+            })),
+          ]}
+        />
+      )}
       {value.acquisitionTargetId && !value.editionId && (
         <p className="text-xs text-fg-secondary">
           Identify the matching edition before marking this purchase as

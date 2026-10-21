@@ -124,6 +124,7 @@ export function PipelineOrderCard({
               {order.venue.name}
             </p>
           )}
+          {order.group && <p className="mt-1 text-xs text-fg-secondary">Order of {order.group.items.length} books</p>}
         </div>
       </div>
 

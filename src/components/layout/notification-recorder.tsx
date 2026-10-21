@@ -3,18 +3,14 @@
 import { useEffect, useRef } from "react";
 import { useSonner } from "sonner";
 import { record } from "@/lib/notifications/history";
+import { notificationContent } from "@/lib/notifications/content";
 
 /** Toast ids restart with each page load: this keeps them apart in the history */
 const PAGE = Math.random().toString(36).slice(2, 10);
 
-function text(value: unknown): string | null {
-  return typeof value === "string" && value.trim() ? value.trim() : null;
-}
-
 /**
- * Keeps every error and warning toast in the notification history (SLN-567),
- * whichever page or dialog showed it. A pending toast that ends in an error
- * is kept then; one that ends well is not.
+ * Keep every completed toast, including linked titles, until explicit removal.
+ * Loading indicators are recorded when they settle into a result.
  */
 export function NotificationRecorder() {
   const { toasts } = useSonner();
@@ -26,14 +22,18 @@ export function NotificationRecorder() {
     for (const toast of toasts) {
       if (seen.current.has(toast)) continue;
       seen.current.add(toast);
-      if (toast.type !== "error" && toast.type !== "warning") continue;
-      const title = text(toast.title);
+      if (toast.delete || toast.type === "loading") continue;
+      const kind = toast.type === "error" || toast.type === "warning" || toast.type === "success" ? toast.type : "info";
+      const content = notificationContent(toast.title);
+      const description = notificationContent(toast.description);
+      const title = content.text.trim();
       if (!title) continue;
       record({
         id: `${PAGE}:${toast.id}`,
-        kind: toast.type,
+        kind,
         title,
-        description: text(toast.description),
+        description: description.text.trim() || null,
+        link: content.link ?? description.link,
       });
     }
   }, [toasts]);

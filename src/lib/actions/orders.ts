@@ -11,6 +11,7 @@ import { assertSql } from "@/lib/harmonization/store";
 import { withReadableErrors } from "@/lib/db/errors";
 import {
   orders,
+  orderGroups,
   orderStatusHistory,
   works,
   workStatusHistory,
@@ -26,7 +27,6 @@ import {
   inArray,
   notInArray,
   count,
-  sum,
   gte,
   lte,
   isNotNull,
@@ -53,6 +53,7 @@ import { recordActivity } from "@/lib/activity/record";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
 import {
   createOrderSchema,
+  createOrderGroupSchema,
   orderStatusSchema,
   updateOrderSchema,
 } from "@/lib/validations/orders";
@@ -171,10 +172,13 @@ async function syncWorkCatalogueStatusFromAllOrders(
 
 // ── Queries ───────────────────────────────────────────────────────────────────
 
+const groupDetails = { with: { items: { columns: { id: true, status: true, price: true }, with: { work: { columns: { title: true, slug: true } } } } } } as const;
+
 export async function getOrder(id: string) {
   return db.query.orders.findFirst({
     where: eq(orders.id, id),
     with: {
+      group: groupDetails,
       work: {
         columns: { id: true, title: true, slug: true, kind: true },
         with: {
@@ -239,6 +243,7 @@ export async function getOrdersForWork(workId: string) {
     where: eq(orders.workId, workId),
     orderBy: desc(orders.orderDate),
     with: {
+      group: groupDetails,
       venue: {
         columns: { id: true, name: true, slug: true, type: true },
       },
@@ -275,6 +280,7 @@ export async function getActiveOrders(filters?: {
     where: and(...conditions),
     orderBy: asc(orders.orderDate),
     with: {
+      group: groupDetails,
       work: {
         columns: { id: true, title: true, slug: true, kind: true },
         with: {
@@ -348,6 +354,7 @@ export async function getOrderTimeline(
       limit,
       offset,
       with: {
+      group: groupDetails,
         work: {
           columns: { id: true, title: true, slug: true, kind: true },
           with: {
@@ -384,6 +391,10 @@ export async function getOrderTimeline(
 
 /** What an order cost, as its card and receipt show it: the total, else the price */
 const orderAmount = sql<string | null>`coalesce(${orders.totalCost}, ${orders.price})`;
+const groupShipping = sql`case when ${orders.groupId} is not null and ${orders.id} =
+  (select o.id from orders o where o.group_id = ${orders.groupId} and o.status not in ('cancelled','returned') order by o.id limit 1)
+  then coalesce((select g.shipping_cost from order_groups g where g.id = ${orders.groupId}), 0) else 0 end`;
+const orderIdentity = sql`coalesce(${orders.groupId}, ${orders.id})`;
 
 export async function getProvenanceStats(dateRange?: {
   from?: string;
@@ -417,26 +428,26 @@ export async function getProvenanceStats(dateRange?: {
     arrivingThisWeekResult,
   ] = await Promise.all([
     db
-      .select({ orderCount: count() })
+      .select({ orderCount: sql<number>`count(distinct ${orderIdentity})`.mapWith(Number) })
       .from(orders)
       .where(where),
 
     // Amounts in different currencies cannot be added; total each one apart.
     // Each order counts as its card shows it: the total, else the price (SLN-1485)
     db
-      .select({ currency: orders.currency, total: sum(orderAmount) })
+      .select({ currency: orders.currency, total: sql<string>`sum(coalesce(${orderAmount}, 0) + ${groupShipping})` })
       .from(orders)
       .where(
         and(
           notInArray(orders.status, UNSPENT_STATUSES),
-          isNotNull(orderAmount),
+          sql`(${orderAmount} is not null or ${orders.groupId} is not null)`,
           where,
         ),
       )
       .groupBy(orders.currency),
 
     db
-      .select({ count: count() })
+      .select({ count: sql<number>`count(distinct ${orderIdentity})`.mapWith(Number) })
       .from(orders)
       .where(
         and(
@@ -446,7 +457,7 @@ export async function getProvenanceStats(dateRange?: {
       ),
 
     db
-      .select({ count: count() })
+      .select({ count: sql<number>`count(distinct ${orderIdentity})`.mapWith(Number) })
       .from(orders)
       .where(
         and(
@@ -457,7 +468,7 @@ export async function getProvenanceStats(dateRange?: {
 
     // M3: include outer date-range filter in arrivingThisWeek subquery
     db
-      .select({ count: count() })
+      .select({ count: sql<number>`count(distinct ${orderIdentity})`.mapWith(Number) })
       .from(orders)
       .where(
         and(
@@ -539,6 +550,36 @@ function newOrderQueries(
       notes: "Order created",
     }),
   ];
+}
+
+/** One purchase, one shipping charge, with independent book receipts. */
+export async function createOrderGroup(input: z.input<typeof createOrderGroupSchema>) {
+  const { items, ...shared } = createOrderGroupSchema.parse(input);
+  const groupId = randomUUID();
+  const status: OrderStatus = shared.status ?? "placed";
+  const plans = await Promise.all(items.map(async (item) => {
+    await requireBookWork(item.workId);
+    if (item.acquisitionTargetId) {
+      const open = await openTargetOrder(item.acquisitionTargetId);
+      if (open) throw new ExpectedActionError(open.message, { href: open.href });
+    }
+    const fields = { ...shared, ...item, shippingCost: null, totalCost: item.price ?? null };
+    const receipt = bookReceiptOrder(item.workId, fields);
+    const plan = BOOK_IN_HAND_STATUSES.includes(status) ? await planBookCopy(receipt) : null;
+    return { item, fields, receipt, plan, id: randomUUID() };
+  }));
+  await withReadableErrors(() => atomic((d) => [
+    d.insert(orderGroups).values({ id: groupId, venueId: shared.venueId, acquisitionMethod: shared.acquisitionMethod,
+      orderDate: shared.orderDate, orderConfirmation: shared.orderConfirmation, orderUrl: shared.orderUrl,
+      currency: shared.currency, shippingCost: shared.shippingCost }),
+    ...plans.flatMap(({ item, fields, receipt, plan, id }) => {
+      const received = plan ? bookReceiptQueries(d, plan, receipt, shared.actualDeliveryDate ?? todayLocal()) : null;
+      return [...(received?.queries ?? []), ...newOrderQueries(d, id, item.workId, fields, status, { ...received?.link, groupId })];
+    }),
+  ]));
+  for (const { item } of plans) await syncWorkCatalogueStatusFromAllOrders(item.workId, `Order created with status "${status}"`);
+  invalidate(CACHE_TAGS.orders, CACHE_TAGS.works, CACHE_TAGS.locations);
+  return { id: groupId, orderIds: plans.map((plan) => plan.id) };
 }
 
 export async function createOrder(
@@ -711,10 +752,24 @@ export async function updateOrder(id: string, rawInput: UpdateOrderInput) {
   // H3: fetch current state to record what changed
   const current = await db.query.orders.findFirst({
     where: eq(orders.id, id),
-    columns: { workId: true },
+    columns: { workId: true, groupId: true, price: true },
   });
 
-  const [updated] = await db
+  const groupPatch = {
+    ...(input.venueId !== undefined ? { venueId: input.venueId } : {}),
+    ...(input.acquisitionMethod !== undefined ? { acquisitionMethod: input.acquisitionMethod } : {}),
+    ...(input.orderDate !== undefined ? { orderDate: input.orderDate } : {}),
+    ...(input.orderConfirmation !== undefined ? { orderConfirmation: input.orderConfirmation } : {}),
+    ...(input.orderUrl !== undefined ? { orderUrl: input.orderUrl } : {}),
+    ...(input.currency !== undefined ? { currency: input.currency } : {}),
+    ...(input.shippingCost !== undefined ? { shippingCost: createOrderGroupSchema.shape.shippingCost.parse(input.shippingCost) } : {}),
+  };
+  if (current?.groupId) {
+    if (input.price !== undefined) createOrderGroupSchema.shape.items.element.shape.price.parse(input.price);
+    input.shippingCost = null;
+    input.totalCost = input.price !== undefined ? input.price : current.price;
+  }
+  const write = (d: typeof db) => d
     .update(orders)
     .set({
       ...(input.workId !== undefined ? { workId: input.workId } : {}),
@@ -774,6 +829,11 @@ export async function updateOrder(id: string, rawInput: UpdateOrderInput) {
     })
     .where(eq(orders.id, id))
     .returning();
+  const results = await withReadableErrors(() => atomic((d) => [
+    ...(current?.groupId && Object.keys(groupPatch).length ? [d.update(orderGroups).set(groupPatch).where(eq(orderGroups.id, current.groupId))] : []),
+    write(d),
+  ]));
+  const [updated] = results.at(-1) as (typeof orders.$inferSelect)[];
 
   // H3: record activity event for field edits
   if (current) {
@@ -971,14 +1031,18 @@ export async function deleteOrder(id: string) {
 }
 
 export async function searchWorksForOrder(query: string) {
-  const { works } = await import("@/lib/db/schema");
-  const { textContains } = await import("@/lib/actions/utils/text-search");
+  const { textSearchCondition, textSearchRank } = await import("@/lib/actions/utils/text-search");
+  const { isSearchableQuery } = await import("@/lib/utils/search-text");
+  const { workSearchCondition } = await import("@/lib/library/search-condition");
+  if (!isSearchableQuery(query)) return [];
+  const text = sql`search_normalize(concat_ws(' ', ${works.title}, ${works.originalTitle},
+    (select string_agg(a.name, ' ') from work_authors wa join authors a on a.id = wa.author_id where wa.work_id = ${works.id})))`;
 
   return db.query.works.findMany({
-    // Accents and case ignored, as every search (SLN-881)
-    where: and(bookCondition, textContains(works.title, query)),
+    // Keep title/edition/ISBN matches and rank close title or author typos after exact matches.
+    where: and(bookCondition, sql`(${workSearchCondition(query)} or ${textSearchCondition(text, query)})`),
     limit: 20,
-    orderBy: asc(works.title),
+    orderBy: [desc(textSearchRank(text, sql`${works.title}`, query)), asc(works.title), asc(works.id)],
     with: {
       workAuthors: {
         with: { author: { columns: { id: true, name: true } } },

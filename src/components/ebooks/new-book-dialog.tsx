@@ -32,7 +32,6 @@ export function NewBookFields({ row, disabled, onPrepare, issues = [] }: {
   return <form className="space-y-4" onSubmit={(event) => { event.preventDefault();
     if (name.trim() && language) onPrepare({ action: "accession", ebookId: row.id,
       authors: [authorId ? { id: authorId } : { name: name.trim() }], language, isbn13: null }); }}>
-    <p className="text-sm text-fg-secondary">Choose the author identity and language for the new book. The preview shows exactly what will be created.</p>
     <div className="flex items-end gap-2"><div className="min-w-0 flex-1">
       <AuthorNameInput label="Author" value={name} maxLength={300} disabled={disabled || loading}
         error={issues.find((issue) => issue.field === "authors")?.message}
