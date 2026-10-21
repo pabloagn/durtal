@@ -16,6 +16,7 @@ export {
 export { works, worksRelations } from "./works";
 export { personDomains, personDomainsRelations, personAliases, personAliasesRelations, creditRoles, workCredits, workCreditsRelations } from "./people";
 export { editions, editionsRelations } from "./editions";
+export { editionCoverHistory } from "./edition-cover-history";
 export { instances, instancesRelations } from "./instances";
 
 // ── Status history (audit trail) ────────────────────────────────────────────

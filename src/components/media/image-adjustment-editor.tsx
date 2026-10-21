@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { SlidersHorizontal, RotateCcw, RotateCw } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "@/lib/notifications/toast";
@@ -20,10 +20,10 @@ import {
   type ImageAdjustments,
 } from "@/lib/utils/image-adjustment-css";
 import { useImageAdjustmentUpdate } from "./image-adjustment-provider";
-import { saveImagePresentation } from "@/lib/actions/catalogue-client";
+import { saveImagePresentation, saveEditionCoverPresentation, getEditionCoverPresentation } from "@/lib/actions/catalogue-client";
 import { refusalMessage } from "@/lib/actions/refusal";
 
-type Presentation = Awaited<ReturnType<typeof getImagePresentation>>;
+type Presentation = Awaited<ReturnType<typeof getImagePresentation>> & { revision?: string };
 type Group = "tone" | "colour" | "framing";
 
 // Three groups, each shown whole: the light of the image, its colour, and
@@ -163,8 +163,10 @@ function LoadedEditor({
   onSaved,
   onDraft,
   pinned,
+  editionId,
 }: {
   initial: Presentation;
+  editionId?: string;
   /** In its own dialog: the actions sit under the body */
   pinned: boolean;
   /** After a save, with the image's new source */
@@ -223,7 +225,7 @@ function LoadedEditor({
     setSaving(true);
     const fromSave = document.activeElement === saveButton.current;
     try {
-      const record = await saveImagePresentation(source, {
+      const record = editionId ? await saveEditionCoverPresentation(editionId, { settings, crop: crop! }, initial.revision!) : await saveImagePresentation(source, {
         settings,
         ...(crop ? { crop } : {}),
       });
@@ -474,8 +476,10 @@ export function ImageAdjustmentEditor({
   onSaved,
   onDraft,
   pinned = false,
+  editionId,
 }: {
   source: string;
+  editionId?: string;
   /** In a dialog of its own, its actions sit under the body, always in view (SLN-1056) */
   pinned?: boolean;
   onSaved?: () => void;
@@ -497,7 +501,7 @@ export function ImageAdjustmentEditor({
   const own = written === source;
   useEffect(() => {
     let cancelled = false;
-    getImagePresentation(source)
+    (editionId ? getEditionCoverPresentation(editionId) : getImagePresentation(source))
       .then((data) => {
         if (!cancelled)
           setResult((previous) => ({ source, key: own && previous ? previous.key : source, data }));
@@ -508,7 +512,7 @@ export function ImageAdjustmentEditor({
     return () => {
       cancelled = true;
     };
-  }, [source, attempt, own]);
+  }, [source, attempt, own, editionId]);
   if (!result || (result.source !== source && !(own && result.data)))
     return (
       <p className="py-8 text-center text-sm text-fg-secondary" role="status">
@@ -535,6 +539,7 @@ export function ImageAdjustmentEditor({
     <LoadedEditor
       key={result.key}
       initial={result.data}
+      editionId={editionId}
       onSaved={(next) => {
         setWritten(next);
         onSaved?.();
@@ -551,14 +556,20 @@ export function ImageAdjustButton({
   label = "Adjust image",
   appearance = "glass",
   onSaved,
+  editionId,
+  disabled,
 }: {
   source: string;
+  editionId?: string;
+  disabled?: boolean;
   className?: string;
   label?: string;
   appearance?: "glass" | "ghost";
   onSaved?: () => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [draftSave, setDraftSave] = useState<DraftSave>(null);
+  const trackDraft = useCallback((save: DraftSave) => setDraftSave(() => save), []);
   if (!imageSourceIdentity(source)) return null;
   return (
     <>
@@ -566,6 +577,7 @@ export function ImageAdjustButton({
         type="button"
         data-tooltip={label}
         aria-label={label}
+        disabled={disabled}
         onClick={(event) => {
           event.preventDefault();
           event.stopPropagation();
@@ -577,7 +589,8 @@ export function ImageAdjustButton({
       </button>
       {open && (
         <Dialog
-          draft
+          dirty={!!draftSave}
+          onSave={() => void draftSave?.()}
           open={open}
           onClose={() => setOpen(false)}
           title={label}
@@ -586,6 +599,8 @@ export function ImageAdjustButton({
         >
           <ImageAdjustmentEditor
             source={source}
+            editionId={editionId}
+            onDraft={trackDraft}
             pinned
             onSaved={() => {
               onSaved?.();

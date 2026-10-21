@@ -1,3 +1,4 @@
+import { ExpectedActionError } from "@/lib/actions/expected-error";
 /**
  * An edition's cover, set on its own (SLN-638): a chosen or dropped file, an
  * image address, the book's cover, or the edition's previous own cover again.
@@ -10,8 +11,9 @@
 import { createHash } from "node:crypto";
 import { atomic } from "@/lib/db/atomic";
 import { db } from "@/lib/db";
-import { editions } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { editions, editionCoverHistory } from "@/lib/db/schema";
+import { and, desc, eq, isNull } from "drizzle-orm";
+import type { Db } from "@/lib/catalogue/work-store";
 import { readableDatabaseError } from "@/lib/db/errors";
 import { STALE_RECORD } from "@/lib/catalogue/work-store";
 import { parseId } from "@/lib/validations/helpers";
@@ -55,10 +57,16 @@ const NOT_RESTORABLE = "That cover can no longer be put back.";
 /** Largest stored image read back to restore a cover's colours */
 const MAX_RESTORE_BYTES = 20 * 1024 * 1024;
 
-function ownCover(snapshot: EditionWriteSnapshot): OwnCover {
-  const row = (JSON.parse(snapshot.state) as {
-    edition: { cover_s3_key: string | null; thumbnail_s3_key: string | null; cover_source_url: string | null };
-  }).edition;
+export function ownCover(snapshot: EditionWriteSnapshot): OwnCover {
+  const row = (
+    JSON.parse(snapshot.state) as {
+      edition: {
+        cover_s3_key: string | null;
+        thumbnail_s3_key: string | null;
+        cover_source_url: string | null;
+      };
+    }
+  ).edition;
   return {
     coverS3Key: row.cover_s3_key,
     thumbnailS3Key: row.thumbnail_s3_key,
@@ -67,28 +75,37 @@ function ownCover(snapshot: EditionWriteSnapshot): OwnCover {
 }
 
 /** One guarded write of the edition's cover columns */
-async function writeCover(
+export async function writeCover(
   id: string,
   expected: EditionWriteSnapshot,
   updates: Record<string, unknown>,
+  extra?: { before?: (d: Db) => unknown[]; after?: (d: Db) => unknown[] },
 ) {
   await atomic((d) => [
     ...editionWriteGuardQueries(d, expected),
+    ...(extra?.before?.(d) ?? []),
     editionUpdateQuery(d, id, { ...updates, updatedAt: new Date() }),
+    ...(extra?.after?.(d) ?? []),
   ]).catch((error) => {
     const readable = readableDatabaseError(error);
     throw readable instanceof Error && readable.message === STALE_RECORD
-      ? new Error(COVER_CHANGED, { cause: error })
+      ? new ExpectedActionError(COVER_CHANGED, { cause: error })
       : readable;
   });
   const row = await db.query.editions.findFirst({
     where: eq(editions.id, id),
     columns: { workId: true },
   });
-  if (row) recordActivity("work", row.workId, "work.edition_updated", { targetId: id });
+  if (row)
+    recordActivity("work", row.workId, "work.edition_updated", {
+      targetId: id,
+    });
 }
 
-async function stageFile(editionId: string, bytes: Buffer): Promise<VerifiedCoverStage> {
+export async function stageEditionCoverFile(
+  editionId: string,
+  bytes: Buffer,
+): Promise<VerifiedCoverStage> {
   // The declared type is the browser's guess from the name: read the bytes, as
   // an image address is read, so an SVG or TIFF named .png is never rendered
   if (!sniffImageType(bytes)) throw new Error(COVER_UNREADABLE);
@@ -104,7 +121,10 @@ async function stageFile(editionId: string, bytes: Buffer): Promise<VerifiedCove
     const { buffers, palette } = await renderCoverPair(bytes);
     return await stageCoverPair(allocation, buffers, palette);
   } catch (error) {
-    retainCoverAttempt(allocation, "upload rendering or stage outcome uncertain");
+    retainCoverAttempt(
+      allocation,
+      "upload rendering or stage outcome uncertain",
+    );
     throw new Error(COVER_UNREADABLE, { cause: error });
   }
 }
@@ -113,12 +133,14 @@ async function stageFile(editionId: string, bytes: Buffer): Promise<VerifiedCove
 export async function replaceEditionCover(
   editionId: string,
   input: CoverInput,
+  revision?: string,
 ): Promise<{ previous: OwnCover }> {
   parseId(editionId);
   const expected = await readEditionWriteSnapshot(editionId);
+  requireCoverRevision(expected, revision);
   const stage =
     input.kind === "file"
-      ? await stageFile(editionId, input.bytes)
+      ? await stageEditionCoverFile(editionId, input.bytes)
       : await processAndUploadCover(editionId, input.url);
   if (!stage) throw new Error(COVER_UNREADABLE);
   requireVerifiedCover(stage, editionId);
@@ -130,7 +152,10 @@ export async function replaceEditionCover(
       ...editionCoverPaletteFields(stage.palette),
     });
   } catch (error) {
-    retainCoverAttempt(stage, "edition cover publication rejected or uncertain");
+    retainCoverAttempt(
+      stage,
+      "edition cover publication rejected or uncertain",
+    );
     throw error;
   }
   return { previous: ownCover(expected) };
@@ -141,11 +166,16 @@ export async function replaceEditionCover(
  * changes. Its own cover stays stored. Returns that own cover, or null when
  * the edition had none.
  */
-export async function switchToBookCover(editionId: string): Promise<{ previous: OwnCover | null }> {
+export async function switchToBookCover(
+  editionId: string,
+  revision?: string,
+): Promise<{ previous: OwnCover | null }> {
   parseId(editionId);
   const expected = await readEditionWriteSnapshot(editionId);
+  requireCoverRevision(expected, revision);
   const previous = ownCover(expected);
-  if (!previous.coverS3Key && !previous.thumbnailS3Key) return { previous: null };
+  if (!previous.coverS3Key && !previous.thumbnailS3Key)
+    return { previous: null };
   await writeCover(editionId, expected, {
     coverS3Key: null,
     thumbnailS3Key: null,
@@ -158,36 +188,79 @@ export async function switchToBookCover(editionId: string): Promise<{ previous: 
 /** Whether an own cover can be put back: every key is the edition's own */
 export function isRestorableCover(editionId: string, cover: OwnCover) {
   const keys = [cover.coverS3Key, cover.thumbnailS3Key];
-  return keys.some(Boolean) &&
-    keys.every((key) => key === null || isOwnEditionCoverKey(editionId, key));
+  return (
+    keys.some(Boolean) &&
+    keys.every((key) => key === null || isOwnEditionCoverKey(editionId, key))
+  );
 }
 
-async function storedBytes(key: string): Promise<Buffer> {
+export async function storedCoverBytes(key: string): Promise<Buffer> {
   const object = await getS3Object(key).catch((error) => {
-    throw new Error(NOT_RESTORABLE, { cause: error });
+    throw new ExpectedActionError(NOT_RESTORABLE, { cause: error });
   });
   if (!object.body || (object.contentLength ?? 0) > MAX_RESTORE_BYTES)
-    throw new Error(NOT_RESTORABLE);
-  const bytes = Buffer.from(await object.body.transformToByteArray());
-  if (!bytes.length || bytes.length > MAX_RESTORE_BYTES) throw new Error(NOT_RESTORABLE);
-  return bytes;
+    throw new ExpectedActionError(NOT_RESTORABLE);
+  const reader = object.body.transformToWebStream().getReader();
+  const chunks: Buffer[] = [];
+  let size = 0;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > MAX_RESTORE_BYTES) {
+        await reader.cancel();
+        throw new ExpectedActionError(NOT_RESTORABLE);
+      }
+      chunks.push(Buffer.from(value));
+    }
+    if (!size) throw new ExpectedActionError(NOT_RESTORABLE);
+    return Buffer.concat(chunks, size);
+  } finally {
+    reader.releaseLock();
+  }
 }
 
 /**
  * Put back an own cover the edition used before, while it still shows the
  * book's cover. Only the edition's own stored images qualify.
  */
-export async function restoreEditionCover(editionId: string, cover: OwnCover): Promise<void> {
+export async function restoreEditionCover(
+  editionId: string,
+  cover: OwnCover,
+): Promise<void> {
   parseId(editionId);
-  if (!isRestorableCover(editionId, cover)) throw new Error(NOT_RESTORABLE);
+  if (!isRestorableCover(editionId, cover)) throw new ExpectedActionError(NOT_RESTORABLE);
   const expected = await readEditionWriteSnapshot(editionId);
   const current = ownCover(expected);
-  if (current.coverS3Key || current.thumbnailS3Key) throw new Error(COVER_CHANGED);
+  if (current.coverS3Key || current.thumbnailS3Key)
+    throw new ExpectedActionError(COVER_CHANGED);
+  const history = await db.query.editionCoverHistory.findFirst({
+    where: and(
+      eq(editionCoverHistory.editionId, editionId),
+      cover.coverS3Key
+        ? eq(editionCoverHistory.coverS3Key, cover.coverS3Key)
+        : isNull(editionCoverHistory.coverS3Key),
+      cover.thumbnailS3Key
+        ? eq(editionCoverHistory.thumbnailS3Key, cover.thumbnailS3Key)
+        : isNull(editionCoverHistory.thumbnailS3Key),
+    ),
+  });
+  if (!history || history.coverSourceUrl !== cover.coverSourceUrl)
+    throw new ExpectedActionError(NOT_RESTORABLE);
+  await restoreCommittedCover(editionId, expected, history);
+}
+
+async function restoreCommittedCover(
+  editionId: string,
+  expected: EditionWriteSnapshot,
+  cover: OwnCover,
+) {
   // Every image must still be stored; the colours come from the smaller one
   const keys = [...new Set([cover.thumbnailS3Key, cover.coverS3Key])].filter(
     (key): key is string => !!key,
   );
-  const [smallest] = await Promise.all(keys.map(storedBytes));
+  const [smallest] = await Promise.all(keys.map(storedCoverBytes));
   const palette = await extractColorPalette(smallest).catch(() => null);
   await writeCover(editionId, expected, {
     coverS3Key: cover.coverS3Key,
@@ -195,4 +268,56 @@ export async function restoreEditionCover(editionId: string, cover: OwnCover): P
     coverSourceUrl: cover.coverSourceUrl,
     ...editionCoverPaletteFields(palette),
   });
+}
+
+export function coverRevision(snapshot: EditionWriteSnapshot) {
+  return createHash("sha256").update(snapshot.state).digest("hex");
+}
+export function requireCoverRevision(
+  snapshot: EditionWriteSnapshot,
+  revision?: string,
+) {
+  if (revision !== undefined && revision !== coverRevision(snapshot))
+    throw new ExpectedActionError(COVER_CHANGED);
+}
+
+export async function editionCoverChoices(editionId: string, offset = 0) {
+  parseId(editionId);
+  if (!Number.isSafeInteger(offset) || offset < 0)
+    throw new Error("Invalid cover history page");
+  const expected = await readEditionWriteSnapshot(editionId);
+  const history = await db
+    .select()
+    .from(editionCoverHistory)
+    .where(eq(editionCoverHistory.editionId, editionId))
+    .orderBy(desc(editionCoverHistory.createdAt), desc(editionCoverHistory.id))
+    .limit(13)
+    .offset(offset);
+  return {
+    current: ownCover(expected),
+    revision: coverRevision(expected),
+    history: history.slice(0, 12),
+    hasMore: history.length > 12,
+  };
+}
+
+/** The client supplies a history identity, never an arbitrary asset key. A
+ * migrated legacy choice is valid too: its committed reference is the proof. */
+export async function restoreSavedEditionCover(
+  editionId: string,
+  historyId: string,
+  revision: string,
+) {
+  parseId(editionId);
+  parseId(historyId);
+  const expected = await readEditionWriteSnapshot(editionId);
+  requireCoverRevision(expected, revision);
+  const history = await db.query.editionCoverHistory.findFirst({
+    where: and(
+      eq(editionCoverHistory.id, historyId),
+      eq(editionCoverHistory.editionId, editionId),
+    ),
+  });
+  if (!history) throw new ExpectedActionError(NOT_RESTORABLE);
+  await restoreCommittedCover(editionId, expected, history);
 }

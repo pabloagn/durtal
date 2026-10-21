@@ -5,7 +5,7 @@ import {
   FormSection as Section,
   FormColumns,
 } from "@/components/shared/form-section";
-import { useId, useState, type ReactNode } from "react";
+import { useId, useRef, useState, type ReactNode } from "react";
 import { Plus } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { TitleInput } from "@/components/shared/title-input";
@@ -31,6 +31,7 @@ import {
   moveRow,
 } from "@/components/shared/credit-row-controls";
 import { isComposing } from "@/lib/shortcuts/shortcuts";
+import { IMAGE_ACCEPT, imageFileRefusal } from "@/lib/validations/media-security";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -85,6 +86,7 @@ export interface EditionFormValues {
   tableOfContents: string;
   notes: string;
   coverSourceUrl: string;
+  coverFile?: File | null;
   metadataLocked: boolean;
   metadataSource: string;
   contributors: ContributorEntry[];
@@ -235,6 +237,18 @@ export function EditionForm({
     ...initialValues,
     contributors: initialValues.contributors.map(withKey),
   }));
+  const coverInput = useRef<HTMLInputElement>(null);
+  const [coverError, setCoverError] = useState<string | null>(null);
+  function chooseCover(file: File | null) {
+    const refused = file ? imageFileRefusal(file) : null;
+    setCoverError(refused);
+    if (refused) return;
+    setValues((previous) => ({
+      ...previous,
+      coverFile: file,
+      ...(file ? { coverSourceUrl: "" } : {}),
+    }));
+  }
   const [newContributorName, setNewContributorName] = useState("");
   const [newContributorRole, setNewContributorRole] = useState("translator");
   const [authorSearch, setAuthorSearch] = useState("");
@@ -671,32 +685,95 @@ export function EditionForm({
       </Section>
 
       {/* Section 7: Cover */}
-      <Section keepMounted title="Cover">
-        {existingCoverUrl && (
-          <div className="mb-2">
-            <p className="mb-1.5 text-xs text-fg-secondary">Current cover</p>
-            <img
-              src={existingCoverUrl}
-              loading="lazy"
-              alt="Current cover"
-              className="h-24 w-auto rounded-sm border border-glass-border object-cover"
+        <Section keepMounted title="Cover">
+          {existingCoverUrl && (
+            <div className="mb-2">
+              <p className="mb-1.5 text-xs text-fg-secondary">Current cover</p>
+              <img
+                src={existingCoverUrl}
+                loading="lazy"
+                alt="Current cover"
+                className="h-24 w-auto rounded-sm border border-glass-border object-cover"
+              />
+            </div>
+          )}
+          <div
+            data-draft-value={values.coverFile ? `${values.coverFile.name}:${values.coverFile.size}:${values.coverFile.lastModified}` : ""}
+            className="rounded-sm border border-dashed border-glass-border p-3"
+            onDragOver={(event) => event.preventDefault()}
+            onDrop={(event) => {
+              event.preventDefault();
+              if (isPending) return;
+              const file = event.dataTransfer.files[0];
+              if (file) {
+                chooseCover(file);
+                event.currentTarget.dispatchEvent(
+                  new Event("input", { bubbles: true }),
+                );
+              }
+            }}
+          >
+            <input
+              ref={coverInput}
+              type="file"
+              accept={IMAGE_ACCEPT}
+              aria-label="Choose edition cover"
+              className="sr-only"
+              disabled={isPending}
+              onChange={(event) => {
+                chooseCover(event.target.files?.[0] ?? null);
+                event.target.value = "";
+              }}
             />
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={isPending}
+                onClick={() => coverInput.current?.click()}
+              >
+                Choose cover image
+              </Button>
+              {values.coverFile ? (
+                <>
+                  <span className="min-w-0 break-all text-xs text-fg-secondary">
+                    {values.coverFile.name}
+                  </span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    disabled={isPending}
+                    onClick={() => chooseCover(null)}
+                  >
+                    Remove chosen image
+                  </Button>
+                </>
+              ) : (
+                <span className="text-xs text-fg-secondary">
+                  Or drop an image here
+                </span>
+              )}
+            </div>
+            {coverError && (
+              <p role="alert" className="mt-2 text-xs text-accent-red-text">
+                {coverError}
+              </p>
+            )}
           </div>
-        )}
-        <Input
-          label="Cover source URL"
-          id="ed-cover-url"
-          type="url"
-          value={values.coverSourceUrl}
-          onChange={(e) => update("coverSourceUrl", e.target.value)}
-          placeholder="https://..."
-        />
-        <p className="text-xs text-fg-secondary">
-          Entering a new URL will re-process the cover on save.
-        </p>
-      </Section>
+          <Input
+            label="Cover source URL"
+            id="ed-cover-url"
+            type="url"
+            value={values.coverSourceUrl}
+            onChange={(e) => {
+              if (values.coverFile) chooseCover(null);
+              update("coverSourceUrl", e.target.value);
+            }}
+            placeholder="https://..."
+          />
+        </Section>
 
-      {/* Section 8: Contributors */}
+        {/* Section 8: Contributors */}
       <Section
         keepMounted
         title="Contributors"

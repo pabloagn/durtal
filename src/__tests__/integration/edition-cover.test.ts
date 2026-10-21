@@ -2,7 +2,7 @@ import { requireDisposableDatabaseUrl, resetDisposableDatabase } from "./helpers
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { DeleteObjectCommand, DeleteObjectsCommand } from "@aws-sdk/client-s3";
 import { NextRequest } from "next/server";
 import * as schema from "@/lib/db/schema";
@@ -49,9 +49,15 @@ import {
   isRestorableCover,
   COVER_CHANGED,
   COVER_UNREADABLE,
+  editionCoverChoices,
+  restoreSavedEditionCover,
 } from "@/lib/catalogue/edition-cover";
-import { showBookCover, restoreOwnCover } from "@/lib/actions/edition-cover";
+import { showBookCover, restoreOwnCover, getEditionCoverPresentation, saveEditionCoverPresentation } from "@/lib/actions/edition-cover";
 import { POST } from "@/app/api/editions/[id]/cover/route";
+import { POST as saveForm } from "@/app/api/editions/form/route";
+import { DEFAULT_IMAGE_ADJUSTMENTS } from "@/lib/utils/image-adjustments";
+import { keysInUse } from "@/lib/s3/cleanup";
+import { updateEdition } from "@/lib/actions/editions";
 import { safeFetchImage } from "@/lib/net/safe-fetch";
 import { recordActivity } from "@/lib/activity/record";
 import { coverBucket, resetCoverBucket, realCoverBytes, mintCover } from "../s3/cover-stage-fixture";
@@ -297,4 +303,271 @@ describe.skipIf(!url)("an edition's own cover with PostgreSQL (SLN-638)", () => 
     expect((await json({ imageUrl: "https://example.com/a.png" })).status).toBe(200);
     expect((await row(first.id)).coverSourceUrl).toBe("https://example.com/a.png");
   });
-});
+  it("restores a committed earlier choice after replacement and reload, without a client-held key", async () => {
+      const { first } = await book();
+      const old = await withOwnCover(first.id);
+      await replaceEditionCover(first.id, {
+        kind: "file",
+        bytes: await realCoverBytes("#aa3311"),
+      });
+      const choices = await editionCoverChoices(first.id);
+      expect(choices.history).toHaveLength(2);
+      const earlier = choices.history.find(
+        (item) => item.coverS3Key === old.coverKey,
+      )!;
+      await restoreSavedEditionCover(first.id, earlier.id, choices.revision);
+      expect((await row(first.id)).coverS3Key).toBe(old.coverKey);
+      await switchToBookCover(first.id);
+      const reloaded = await editionCoverChoices(first.id);
+      expect(reloaded.current.coverS3Key).toBeNull();
+      expect(reloaded.history).toHaveLength(2);
+      await restoreSavedEditionCover(first.id, earlier.id, reloaded.revision);
+      expect((await row(first.id)).coverS3Key).toBe(old.coverKey);
+      expect(deletes()).toEqual([]);
+    });
+
+    it("keeps committed legacy shared references restorable and protected from cleanup", async () => {
+      const { first, second } = await book();
+      const shared = await withOwnCover(second.id);
+      await db.update(schema.editions).set({ coverS3Key: shared.coverKey, thumbnailS3Key: shared.thumbnailKey }).where(eq(schema.editions.id, first.id));
+      await switchToBookCover(first.id);
+      await switchToBookCover(second.id);
+      expect(await keysInUse([shared.coverKey, shared.thumbnailKey])).toEqual(new Set([shared.coverKey, shared.thumbnailKey]));
+      const choices = await editionCoverChoices(first.id);
+      await restoreSavedEditionCover(first.id, choices.history[0].id, choices.revision);
+      expect((await row(first.id)).coverS3Key).toBe(shared.coverKey);
+      expect((await row(second.id)).coverS3Key).toBeNull();
+      expect(deletes()).toEqual([]);
+    });
+
+    it("follows the current parent after reparenting while retaining an independent override", async () => {
+      const { first } = await book();
+      const other = await book();
+      const parent = await poster(other.work.id);
+      await updateEdition(first.id, { workId: other.work.id });
+      expect((await getEditionCoverPresentation(first.id)).assetKey).toBe(parent.s3Key);
+      const own = await withOwnCover(first.id);
+      const third = await book();
+      await updateEdition(first.id, { workId: third.work.id });
+      expect((await row(first.id)).coverS3Key).toBe(own.coverKey);
+      expect((await getEditionCoverPresentation(first.id)).assetKey).toBe(own.coverKey);
+    });
+
+    it("refuses unpublished keys, another edition's history and stale history restores", async () => {
+      const { first, second } = await book();
+      const other = await withOwnCover(second.id);
+      const unpublished = await mintCover(first.id);
+      await expect(
+        restoreEditionCover(first.id, {
+          coverS3Key: unpublished.coverKey,
+          thumbnailS3Key: unpublished.thumbnailKey,
+          coverSourceUrl: null,
+        }),
+      ).rejects.toThrow("can no longer be put back");
+      const foreign = (await editionCoverChoices(second.id)).history.find(
+        (cover) => cover.coverS3Key === other.coverKey,
+      )!;
+      const before = await editionCoverChoices(first.id);
+      await expect(
+        restoreSavedEditionCover(first.id, foreign.id, before.revision),
+      ).rejects.toThrow("can no longer be put back");
+      await withOwnCover(first.id);
+      const selected = await editionCoverChoices(first.id);
+      await db
+        .update(schema.editions)
+        .set({ title: "Changed elsewhere" })
+        .where(eq(schema.editions.id, first.id));
+      await expect(
+        restoreSavedEditionCover(
+          first.id,
+          selected.history[0].id,
+          selected.revision,
+        ),
+      ).rejects.toThrow(COVER_CHANGED);
+    });
+
+    it("records only committed publications and captures URL-form edits too", async () => {
+      const { first } = await book();
+      const initial = await withOwnCover(first.id);
+      await expect(
+        client!.begin(async (tx) => {
+          await tx.unsafe("update editions set cover_s3_key='not-committed',thumbnail_s3_key=null where id=$1", [first.id]);
+          throw new Error("rollback");
+        }),
+      ).rejects.toThrow("rollback");
+      const choices = await editionCoverChoices(first.id);
+      expect(choices.history.map((choice) => choice.coverS3Key)).toEqual([
+        initial.coverKey,
+      ]);
+      const bytes = await realCoverBytes("#cc9922");
+      const form = new FormData();
+      form.set("id", first.id);
+      form.set("values", JSON.stringify({ title: "Edited together" }));
+      form.set(
+        "file",
+        new File([new Uint8Array(bytes)], "cover.png", { type: "image/png" }),
+      );
+      expect(
+        (
+          await saveForm(
+            new NextRequest("http://localhost/api/editions/form", {
+              method: "POST",
+              body: form,
+            }),
+          )
+        ).status,
+      ).toBe(200);
+      expect((await row(first.id)).title).toBe("Edited together");
+      expect((await editionCoverChoices(first.id)).history).toHaveLength(2);
+    });
+
+    async function poster(workId: string) {
+      const key = `gold/media/work/${workId}/poster.webp`;
+      coverBucket.objects.set(key, await realCoverBytes("#cc9922"));
+      const [item] = await db
+        .insert(schema.media)
+        .values({
+          workId,
+          type: "poster",
+          s3Key: key,
+          thumbnailS3Key: key,
+          cropX: 35,
+          cropY: 55,
+          cropZoom: 120,
+          brightness: 110,
+          contrast: 105,
+        })
+        .returning();
+      return item;
+    }
+    const framed = {
+      cropX: 40,
+      cropY: 55,
+      cropZoom: 160,
+      turn: 0,
+      straighten: 0,
+    };
+
+    it("opens and cancels inherited adjustments without writing; Save detaches only this edition", async () => {
+      const { work, first, second } = await book();
+      const parent = await poster(work.id);
+      const parentBytes = Buffer.from(coverBucket.objects.get(parent.s3Key)!);
+      const before = await row(first.id),
+        sibling = await row(second.id);
+      const presentation = await getEditionCoverPresentation(first.id);
+      expect(await row(first.id)).toEqual(before);
+      expect((await editionCoverChoices(first.id)).history).toEqual([]);
+      expect(presentation.crop).toMatchObject({ cropX: 35, cropZoom: 120 });
+      expect(presentation.preview).toContain("w=800");
+      const saved = await saveEditionCoverPresentation(
+        first.id,
+        {
+          settings: { ...presentation.settings, brightness: 145 },
+          crop: framed,
+        },
+        presentation.revision,
+      );
+      expect(saved.assetKey).toMatch(
+        new RegExp(`^gold/media/edition/${first.id}/`),
+      );
+      expect(await row(second.id)).toEqual(sibling);
+      expect(
+        (
+          await db
+            .select()
+            .from(schema.media)
+            .where(eq(schema.media.id, parent.id))
+        )[0],
+      ).toEqual(parent);
+      expect(coverBucket.objects.get(parent.s3Key)).toEqual(parentBytes);
+      const reopened = await getEditionCoverPresentation(first.id);
+      expect(reopened.settings.brightness).toBe(145);
+      expect(reopened.crop).toEqual(framed);
+      const history = (await editionCoverChoices(first.id)).history[0];
+      expect(history.originalS3Key).toMatch(
+        new RegExp(`^gold/media/edition/${first.id}/`),
+      );
+      expect(await keysInUse([history.originalS3Key!])).toEqual(new Set([history.originalS3Key]));
+      // Removing parent assets later cannot break the edition's independent original.
+      coverBucket.objects.delete(parent.s3Key);
+      await saveEditionCoverPresentation(
+        first.id,
+        {
+          settings: DEFAULT_IMAGE_ADJUSTMENTS,
+          crop: { cropX: 50, cropY: 50, cropZoom: 100, turn: 0, straighten: 0 },
+        },
+        reopened.revision,
+      );
+      expect((await editionCoverChoices(first.id)).history).toHaveLength(2);
+      expect(deletes()).toEqual([]);
+    });
+
+    it("refuses changed parent artwork and rolls back history when adjustment publication fails", async () => {
+      const { work, first } = await book();
+      const parent = await poster(work.id);
+      const old = await getEditionCoverPresentation(first.id);
+      await db
+        .update(schema.media)
+        .set({ brightness: 90 })
+        .where(eq(schema.media.id, parent.id));
+      await expect(
+        saveEditionCoverPresentation(
+          first.id,
+          { settings: old.settings, crop: framed },
+          old.revision,
+        ),
+      ).rejects.toThrow(COVER_CHANGED);
+      expect((await row(first.id)).coverS3Key).toBeNull();
+      const fresh = await getEditionCoverPresentation(first.id);
+      await db.execute(
+        sql`create function reject_cover_test() returns trigger language plpgsql as $$begin raise exception 'injected write failure'; end$$`,
+      );
+      await db.execute(
+        sql`create trigger reject_cover_test before insert on image_adjustments for each row execute function reject_cover_test()`,
+      );
+      await expect(
+        saveEditionCoverPresentation(
+          first.id,
+          { settings: fresh.settings, crop: framed },
+          fresh.revision,
+        ),
+      ).rejects.toThrow();
+      expect((await row(first.id)).coverS3Key).toBeNull();
+      expect((await editionCoverChoices(first.id)).history).toEqual([]);
+      expect(deletes()).toEqual([]);
+    });
+
+    it("creates a new edition with its file in one transaction and refuses unreadable files without an edition", async () => {
+      const { work } = await book();
+      const form = (bytes: Uint8Array, title: string) => {
+        const body = new FormData();
+        body.set("values", JSON.stringify({ workId: work.id, title }));
+        body.set("file", new File([new Uint8Array(bytes)], "cover.png", { type: "image/png" }));
+        return new NextRequest("http://localhost/api/editions/form", {
+          method: "POST",
+          body,
+        });
+      };
+      const response = await saveForm(
+        form(new Uint8Array(await realCoverBytes()), "New file edition"),
+      );
+      expect(response.status).toBe(200);
+      const saved = await response.json();
+      expect((await row(saved.id)).coverS3Key).toBeTruthy();
+      expect((await editionCoverChoices(saved.id)).history).toHaveLength(1);
+      expect(
+        (
+          await saveForm(
+            form(new Uint8Array([1, 2, 3]), "Invalid file edition"),
+          )
+        ).status,
+      ).toBe(422);
+      expect(
+        await db
+          .select()
+          .from(schema.editions)
+          .where(eq(schema.editions.title, "Invalid file edition")),
+      ).toEqual([]);
+    });
+  },
+);

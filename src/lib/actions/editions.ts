@@ -1,6 +1,8 @@
 "use server";
 
 import { ExpectedActionError } from "@/lib/actions/expected-error";
+import { randomUUID } from "node:crypto";
+import { prepareEditionFile } from "@/lib/catalogue/edition-file";
 import { requireBookWork } from "@/lib/catalogue/book-boundary";
 
 import { readEditionWriteSnapshot, editionWriteGuardQueries, editionUpdateQuery } from "@/lib/catalogue/edition-write-guard";
@@ -37,7 +39,7 @@ import { autoResolveEditions } from "@/lib/publishers/resolution";
 import { isbnHolder, isbnTaken } from "@/lib/catalogue/isbn-clash";
 import { queueNewBookEnrichment } from "@/lib/enrichment/queue";
 
-export async function createEdition(input: CreateEditionInput) {
+export async function createEdition(input: CreateEditionInput, file?: File) {
   const parsed = createEditionSchema.parse(input);
   await requireBookWork(parsed.workId);
 
@@ -49,7 +51,10 @@ export async function createEdition(input: CreateEditionInput) {
   // created by name are one write. A failed write retains the uploaded cover
   // and leaves no edition and no new author behind.
   const { credits, newAuthors } = await resolveBookCredits(parsed.contributorIds);
-  const plan = await planBookEdition({ ...parsed, contributorIds: credits });
+  const fileId = file ? randomUUID() : undefined;
+  const cover = file && fileId ? await prepareEditionFile(fileId, file) : undefined;
+  const plan = await planBookEdition({ ...parsed, ...(file ? { coverSourceUrl: null } : {}), contributorIds: credits },
+    fileId ? { id: fileId, cover } : {});
   try {
     await atomic((d) => [
       ...newAuthors.flatMap((author) => newAuthorQueries(d, author)),
@@ -72,11 +77,11 @@ export async function createEdition(input: CreateEditionInput) {
   return { ...edition!, coverUnavailable: plan.coverUnavailable };
 }
 
-export async function updateEdition(id: string, input: UpdateEditionInput) {
-  return withReaderWriteRetry(() => updateEditionOnce(id, input));
+export async function updateEdition(id: string, input: UpdateEditionInput, file?: File) {
+  return withReaderWriteRetry(() => updateEditionOnce(id, input, file));
 }
 
-async function updateEditionOnce(id: string, input: UpdateEditionInput) {
+async function updateEditionOnce(id: string, input: UpdateEditionInput, file?: File) {
   parseId(id);
   // No defaults (an omitted field keeps its stored value), unknown keys rejected
   const parsed = updateEditionSchema.parse(input);
@@ -102,17 +107,17 @@ async function updateEditionOnce(id: string, input: UpdateEditionInput) {
   };
 
   // Re-process cover if new URL
-  if (coverSourceUrl) {
-    const result = await processAndUploadCover(id, coverSourceUrl);
+  if (file || coverSourceUrl) {
+    const result = file ? await prepareEditionFile(id, file) : await processAndUploadCover(id, coverSourceUrl!);
     stagedCover = result;
     coverSkipped = !result;
     if (result) {
       requireVerifiedCover(result, id);
-      if (result.source.kind !== "url" || result.source.url !== coverSourceUrl)
+      if (!file && (result.source.kind !== "url" || result.source.url !== coverSourceUrl))
         throw new Error("Replacement cover source differs from its verified stage");
       updates.coverS3Key = result.coverKey;
       updates.thumbnailS3Key = result.thumbnailKey;
-      updates.coverSourceUrl = coverSourceUrl;
+      updates.coverSourceUrl = file ? null : coverSourceUrl;
       Object.assign(updates, editionCoverPaletteFields(result.palette));
     }
   }

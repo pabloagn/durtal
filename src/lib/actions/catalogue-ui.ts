@@ -14,6 +14,7 @@ import * as catalogue_provenance from "./catalogue-provenance";
 import * as collections from "./collections";
 import * as curation from "./curation";
 import * as editions from "./editions";
+import * as edition_covers from "./edition-cover";
 import * as favourites from "./favourites";
 import * as hunting from "./hunting";
 import * as identify from "./identify";
@@ -476,6 +477,20 @@ export async function saveImagePresentation(
   ...args: Parameters<typeof image_adjustments.saveImagePresentation>
 ) {
   return actionResult(() => image_adjustments.saveImagePresentation(...args));
+}
+
+export async function saveEditionCoverPresentation(...args: Parameters<typeof edition_covers.saveEditionCoverPresentation>) {
+  return actionResult(() => edition_covers.saveEditionCoverPresentation(...args));
+}
+export async function showBookCover(...args: Parameters<typeof edition_covers.showBookCover>) {
+  return actionResult(() => edition_covers.showBookCover(...args));
+}
+
+export async function getEditionCoverPresentation(...args: Parameters<typeof edition_covers.getEditionCoverPresentation>) {
+  return actionResult(() => edition_covers.getEditionCoverPresentation(...args));
+}
+export async function restoreSavedCover(...args: Parameters<typeof edition_covers.restoreSavedCover>) {
+  return actionResult(() => edition_covers.restoreSavedCover(...args));
 }
 
 export async function createInstance(

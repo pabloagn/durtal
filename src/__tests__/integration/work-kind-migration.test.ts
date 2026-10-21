@@ -209,6 +209,22 @@ describe.skipIf(!url)("work-kind migration on a populated catalogue", () => {
     for (const row of projected.app_settings ?? [])
       if ("reading_rhythm_days" in row) expect(row.reading_rhythm_days, "app_settings.reading_rhythm_days").toBeNull();
     // 0073 (SLN-457): Anathema stays in suggestions, and the predicted rating has not been checked
+    if (projected.edition_cover_history) {
+      const covered = projected.editions.filter((row) => row.cover_s3_key || row.thumbnail_s3_key);
+      expect(projected.edition_cover_history).toHaveLength(covered.length);
+      for (const edition of covered) {
+        expect(projected.edition_cover_history).toContainEqual(expect.objectContaining({
+          edition_id: edition.id,
+          cover_s3_key: edition.cover_s3_key,
+          thumbnail_s3_key: edition.thumbnail_s3_key,
+          cover_source_url: edition.cover_source_url,
+          created_at: edition.updated_at,
+          original_s3_key: null,
+          applied_crop: null,
+        }));
+      }
+      delete projected.edition_cover_history;
+    }
     for (const row of projected.app_settings ?? []) {
       if ("reading_suggest_hide_anathema" in row) expect(row.reading_suggest_hide_anathema, "app_settings.reading_suggest_hide_anathema").toBe(false);
       if ("reading_prediction_gate" in row) expect(row.reading_prediction_gate, "app_settings.reading_prediction_gate").toBeNull();

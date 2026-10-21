@@ -452,6 +452,20 @@ export async function saveImagePresentation(
   return value(actions.saveImagePresentation(...args));
 }
 
+export async function saveEditionCoverPresentation(...args: Parameters<typeof actions.saveEditionCoverPresentation>) {
+  return value(actions.saveEditionCoverPresentation(...args));
+}
+export async function showBookCover(...args: Parameters<typeof actions.showBookCover>) {
+  return value(actions.showBookCover(...args));
+}
+
+export async function getEditionCoverPresentation(...args: Parameters<typeof actions.getEditionCoverPresentation>) {
+  return value(actions.getEditionCoverPresentation(...args));
+}
+export async function restoreSavedCover(...args: Parameters<typeof actions.restoreSavedCover>) {
+  return value(actions.restoreSavedCover(...args));
+}
+
 export async function createInstance(
   ...args: Parameters<typeof actions.createInstance>
 ) {

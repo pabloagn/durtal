@@ -19,6 +19,7 @@ import { previewDeleteMany, previewList, previewS3Dir } from "./preview-dir";
 export const KEY_COLUMNS = {
   media: ["s3_key", "thumbnail_s3_key", "original_s3_key", "uncropped_s3_key"],
   editions: ["cover_s3_key", "thumbnail_s3_key"],
+  edition_cover_history: ["cover_s3_key", "thumbnail_s3_key", "original_s3_key"],
   authors: ["photo_s3_key"],
   venues: ["poster_s3_key", "thumbnail_s3_key"],
   ebooks: ["cover_key"],
