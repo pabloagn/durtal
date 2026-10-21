@@ -22,6 +22,7 @@ import {
   INITIAL_DETAILS,
   type WorkResult,
   type DetailsForm,
+  type OrderVenue,
 } from "./order-create-steps";
 import { createOrder, createOrderForNewBook } from "@/lib/actions/catalogue-client";
 import { refusalMessage } from "@/lib/actions/refusal";
@@ -80,14 +81,16 @@ export function OrderCreateDialog({
     ...INITIAL_DETAILS,
     currency: homeCurrency,
   }));
+  const [venue, setVenue] = useState<OrderVenue | null>(null);
   const [notes, setNotes] = useState("");
   // The book it opened with (from a target) is not the owner's own work yet
   const [arrivedWith, setArrivedWith] = useState(seed?.work ?? null);
-  // Unsaved work the fields do not show: a picked book, method or status
+  // Unsaved work the fields do not show: a picked book, method, status or shop
   const picked =
     selectedWork !== arrivedWith ||
     method !== "online_order" ||
-    status !== "placed";
+    status !== "placed" ||
+    venue !== null;
 
   function resetForm() {
     setArrivedWith(null);
@@ -99,6 +102,7 @@ export function OrderCreateDialog({
     setMethod("online_order");
     setStatus("placed");
     setDetails({ ...INITIAL_DETAILS, currency: homeCurrency });
+    setVenue(null);
     setNotes("");
   }
 
@@ -151,6 +155,8 @@ export function OrderCreateDialog({
         const order = {
           acquisitionTargetId: targetValue.acquisitionTargetId || null,
           editionId: targetValue.editionId || null,
+          // A gift has no shop: who gave it is its origin
+          venueId: method === "gift" ? null : (venue?.id ?? null),
           acquisitionMethod: method,
           status,
           orderDate: details.orderDate,
@@ -244,33 +250,38 @@ export function OrderCreateDialog({
               }}
             />
           )}
+          {/* The hunt and edition sit with the method, inside the step's
+              height, so a short step leaves no gap above them (SLN-983). A
+              draft book has no targets or editions yet. */}
           {step === 1 && (
-            <MethodStep
-              method={method}
-              onMethodChange={setMethod}
-              status={status}
-              onStatusChange={setStatus}
-            />
+            <div className="space-y-4">
+              <MethodStep
+                method={method}
+                onMethodChange={setMethod}
+                status={status}
+                onStatusChange={setStatus}
+              />
+              {selectedWork && !selectedWork.draft && (
+                <OrderTargetFields
+                  key={selectedWork.id}
+                  workId={selectedWork.id}
+                  value={targetValue}
+                  onChange={setTargetValue}
+                />
+              )}
+            </div>
           )}
           {step === 2 && (
             <DetailsStep
               method={method}
               form={details}
               onChange={handleDetailsChange}
+              venue={venue}
+              onVenueChange={setVenue}
             />
           )}
           {step === 3 && <NotesStep notes={notes} onChange={setNotes} />}
         </div>
-
-        {/* A draft book has no targets or editions yet */}
-        {step === 1 && selectedWork && !selectedWork.draft && (
-          <OrderTargetFields
-            key={selectedWork.id}
-            workId={selectedWork.id}
-            value={targetValue}
-            onChange={setTargetValue}
-          />
-        )}
 
         {/* Back or Cancel at the start, Next or Create at the end: under the
             dialog's body and always in view (SLN-1056) */}

@@ -23,6 +23,7 @@ import type { OrderStatus, AcquisitionMethod } from "@/lib/constants/orders";
 import { updateOrder } from "@/lib/actions/catalogue-client";
 import { refusalMessage } from "@/lib/actions/refusal";
 import { useSaveReason } from "@/components/shared/save-reason";
+import { OrderShopField, type OrderVenue } from "./order-create-steps";
 
 interface OrderData {
   id: string;
@@ -32,6 +33,7 @@ interface OrderData {
   editionId?: string | null;
   acquisitionTargetId?: string | null;
   acquisitionMethod: AcquisitionMethod;
+  venue?: { id: string; name: string } | null;
   status: OrderStatus;
   orderDate: string;
   orderConfirmation: string | null;
@@ -81,6 +83,10 @@ export function OrderEditDialog({
   });
   const isBook = !order.work?.kind || order.work.kind === "book";
   const [method, setMethod] = useState(order.acquisitionMethod);
+  // The shop can change after the order is placed (SLN-986)
+  const [venue, setVenue] = useState<OrderVenue | null>(
+    order.venue ? { id: order.venue.id, label: order.venue.name } : null,
+  );
   const [orderDate, setOrderDate] = useState(order.orderDate);
   const [orderConfirmation, setOrderConfirmation] = useState(
     order.orderConfirmation ?? "",
@@ -136,6 +142,8 @@ export function OrderEditDialog({
       try {
         await updateOrder(order.id, {
           acquisitionMethod: method,
+          // A gift has no shop: who gave it is its origin
+          venueId: isGift ? null : (venue?.id ?? null),
           ...(isBook
             ? {
                 acquisitionTargetId: targetValue.acquisitionTargetId || null,
@@ -172,6 +180,8 @@ export function OrderEditDialog({
   return (
     <Dialog
       draft
+      // A changed shop is a chip, not a field the dialog sees
+      dirty={(venue?.id ?? null) !== (order.venue?.id ?? null)}
       open={open}
       onClose={onClose}
       title="Edit order"
@@ -198,6 +208,8 @@ export function OrderEditDialog({
           onChange={(v) => setOrderDate(v)}
           required
         />
+
+        {!isGift && <OrderShopField method={method} value={venue} onChange={setVenue} />}
 
         {showShipping && (
           <>
