@@ -698,6 +698,7 @@ export function EditionForm({
             </div>
           )}
           <div
+            data-draft-value={values.coverFile ? `${values.coverFile.name}:${values.coverFile.size}:${values.coverFile.lastModified}` : ""}
             className="rounded-sm border border-dashed border-glass-border p-3"
             onDragOver={(event) => event.preventDefault()}
             onDrop={(event) => {

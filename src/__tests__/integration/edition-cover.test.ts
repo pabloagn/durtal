@@ -56,6 +56,8 @@ import { showBookCover, restoreOwnCover, getEditionCoverPresentation, saveEditio
 import { POST } from "@/app/api/editions/[id]/cover/route";
 import { POST as saveForm } from "@/app/api/editions/form/route";
 import { DEFAULT_IMAGE_ADJUSTMENTS } from "@/lib/utils/image-adjustments";
+import { keysInUse } from "@/lib/s3/cleanup";
+import { updateEdition } from "@/lib/actions/editions";
 import { safeFetchImage } from "@/lib/net/safe-fetch";
 import { recordActivity } from "@/lib/activity/record";
 import { coverBucket, resetCoverBucket, realCoverBytes, mintCover } from "../s3/cover-stage-fixture";
@@ -324,6 +326,33 @@ describe.skipIf(!url)("an edition's own cover with PostgreSQL (SLN-638)", () => 
       expect(deletes()).toEqual([]);
     });
 
+    it("keeps committed legacy shared references restorable and protected from cleanup", async () => {
+      const { first, second } = await book();
+      const shared = await withOwnCover(second.id);
+      await db.update(schema.editions).set({ coverS3Key: shared.coverKey, thumbnailS3Key: shared.thumbnailKey }).where(eq(schema.editions.id, first.id));
+      await switchToBookCover(first.id);
+      await switchToBookCover(second.id);
+      expect(await keysInUse([shared.coverKey, shared.thumbnailKey])).toEqual(new Set([shared.coverKey, shared.thumbnailKey]));
+      const choices = await editionCoverChoices(first.id);
+      await restoreSavedEditionCover(first.id, choices.history[0].id, choices.revision);
+      expect((await row(first.id)).coverS3Key).toBe(shared.coverKey);
+      expect((await row(second.id)).coverS3Key).toBeNull();
+      expect(deletes()).toEqual([]);
+    });
+
+    it("follows the current parent after reparenting while retaining an independent override", async () => {
+      const { first } = await book();
+      const other = await book();
+      const parent = await poster(other.work.id);
+      await updateEdition(first.id, { workId: other.work.id });
+      expect((await getEditionCoverPresentation(first.id)).assetKey).toBe(parent.s3Key);
+      const own = await withOwnCover(first.id);
+      const third = await book();
+      await updateEdition(first.id, { workId: third.work.id });
+      expect((await row(first.id)).coverS3Key).toBe(own.coverKey);
+      expect((await getEditionCoverPresentation(first.id)).assetKey).toBe(own.coverKey);
+    });
+
     it("refuses unpublished keys, another edition's history and stale history restores", async () => {
       const { first, second } = await book();
       const other = await withOwnCover(second.id);
@@ -458,6 +487,7 @@ describe.skipIf(!url)("an edition's own cover with PostgreSQL (SLN-638)", () => 
       expect(history.originalS3Key).toMatch(
         new RegExp(`^gold/media/edition/${first.id}/`),
       );
+      expect(await keysInUse([history.originalS3Key!])).toEqual(new Set([history.originalS3Key]));
       // Removing parent assets later cannot break the edition's independent original.
       coverBucket.objects.delete(parent.s3Key);
       await saveEditionCoverPresentation(
