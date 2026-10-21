@@ -7,7 +7,7 @@ import { CapAligned } from "./cap-aligned";
  * its title without a blank line and footers align at the bottom. */
 export function CardHeading({
   title, icon, subtitle, subtitleLines = 1,
-  subtitleClassName = "text-sm text-fg-secondary",
+  subtitleClassName = "card-byline",
   titleClassName = "", action,
 }: {
   title: ReactNode;
@@ -27,12 +27,12 @@ export function CardHeading({
             {action}
           </CapAligned>
         )}
-        <h3 className={`type-item-title [overflow-wrap:anywhere] ${titleClassName}`}>
+        <h3 className={`type-item-title card-title ${titleClassName}`}>
           {icon && <CapAligned height={16} className="float-left mr-1.5">{icon}</CapAligned>}
           <span>{title}</span>
         </h3>
       </div>
-      {subtitle !== undefined && <p className={`mt-1 [overflow-wrap:anywhere] ${subtitleLines === 2 ? "min-h-[2lh]" : "min-h-[1lh]"} ${subtitleClassName}`}>
+      {subtitle !== undefined && <p className={`${subtitleLines === 2 ? "card-subtitle-tall" : "card-subtitle"} ${subtitleClassName}`}>
         {subtitle}
       </p>}
     </div>
