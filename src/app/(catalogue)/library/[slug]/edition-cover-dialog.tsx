@@ -130,7 +130,7 @@ export function EditionCoverDialog({
       setUrlBusy(false);
     }
   }
-  async function useBookCover() {
+  async function chooseBookCover() {
     if (!choices || unavailable) return;
     setBusy(true);
     try {
@@ -298,7 +298,7 @@ export function EditionCoverDialog({
                     size="sm"
                     variant="secondary"
                     disabled={unavailable || !bookCover}
-                    onClick={() => void useBookCover()}
+                    onClick={() => void chooseBookCover()}
                   >
                     Use the book&apos;s cover
                   </Button>
