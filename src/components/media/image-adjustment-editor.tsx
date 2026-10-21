@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { SlidersHorizontal, RotateCcw, RotateCw } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "@/lib/notifications/toast";
@@ -20,9 +20,8 @@ import {
   type ImageAdjustments,
 } from "@/lib/utils/image-adjustment-css";
 import { useImageAdjustmentUpdate } from "./image-adjustment-provider";
-import { saveImagePresentation, saveEditionCoverPresentation } from "@/lib/actions/catalogue-client";
+import { saveImagePresentation, saveEditionCoverPresentation, getEditionCoverPresentation } from "@/lib/actions/catalogue-client";
 import { refusalMessage } from "@/lib/actions/refusal";
-import { getEditionCoverPresentation } from "@/lib/actions/edition-cover";
 
 type Presentation = Awaited<ReturnType<typeof getImagePresentation>> & { revision?: string };
 type Group = "tone" | "colour" | "framing";
@@ -569,6 +568,8 @@ export function ImageAdjustButton({
   onSaved?: () => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [draftSave, setDraftSave] = useState<DraftSave>(null);
+  const trackDraft = useCallback((save: DraftSave) => setDraftSave(() => save), []);
   if (!imageSourceIdentity(source)) return null;
   return (
     <>
@@ -588,7 +589,8 @@ export function ImageAdjustButton({
       </button>
       {open && (
         <Dialog
-          draft
+          dirty={!!draftSave}
+          onSave={() => void draftSave?.()}
           open={open}
           onClose={() => setOpen(false)}
           title={label}
@@ -598,6 +600,7 @@ export function ImageAdjustButton({
           <ImageAdjustmentEditor
             source={source}
             editionId={editionId}
+            onDraft={trackDraft}
             pinned
             onSaved={() => {
               onSaved?.();

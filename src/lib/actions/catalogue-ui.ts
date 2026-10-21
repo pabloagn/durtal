@@ -485,6 +485,10 @@ export async function saveEditionCoverPresentation(...args: Parameters<typeof ed
 export async function showBookCover(...args: Parameters<typeof edition_covers.showBookCover>) {
   return actionResult(() => edition_covers.showBookCover(...args));
 }
+
+export async function getEditionCoverPresentation(...args: Parameters<typeof edition_covers.getEditionCoverPresentation>) {
+  return actionResult(() => edition_covers.getEditionCoverPresentation(...args));
+}
 export async function restoreSavedCover(...args: Parameters<typeof edition_covers.restoreSavedCover>) {
   return actionResult(() => edition_covers.restoreSavedCover(...args));
 }

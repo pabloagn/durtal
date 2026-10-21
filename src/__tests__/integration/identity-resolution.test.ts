@@ -313,11 +313,10 @@ describe.skipIf(!url)("the enrichment worker", () => {
   it("queues a new book with a priority it is given; a failing queue logs and the save still succeeds", async () => {
     const w = await book("Bulk accession");
     await queueNewBookEnrichment(w.id, { priority: BULK_ACCESSION_PRIORITY });
-    expect((await c`select kind, priority, payload->>'reason' as reason from enrichment_jobs where work_id = ${w.id}`)[0]).toEqual({
-      kind: "identity",
-      priority: 200,
-      reason: "created",
-    });
+    expect(await c`select kind, priority, payload->>'reason' as reason from enrichment_jobs where work_id = ${w.id} order by kind`).toEqual([
+      { kind: "identity", priority: 200, reason: "created" },
+      { kind: "research", priority: 200, reason: "created" },
+    ]);
     const errors = vi.spyOn(console, "error").mockImplementation(() => {});
     queue.down = true;
     try {

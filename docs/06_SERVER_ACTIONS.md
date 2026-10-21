@@ -128,16 +128,18 @@ Dashboard statistics. Returns counts for all major entities, the 8 most recently
 ### `createEdition(input)`
 
 ```typescript
-createEdition(input: CreateEditionInput): Promise<Edition>
+createEdition(input: CreateEditionInput, file?: File): Promise<Edition>
 ```
 
-Refuses an ISBN-13 that another edition has. A contributor is `{ authorId, role }` or, for a person not yet in the library, `{ authorName, role }`; the name is matched to an existing author first. Then uploads the cover from `coverSourceUrl` under the new edition's id and writes the edition, its publishers, contributors (and any new authors), genres, tags and activity in one transaction. A failure writes nothing and deletes the uploaded cover. Returns the edition plus `coverUnavailable` when the cover could not be downloaded (its source URL is still saved).
+Refuses an ISBN-13 that another edition has. A contributor is `{ authorId, role }` or, for a person not yet in the library, `{ authorName, role }`; the name is matched to an existing author first. Then uploads the cover from `coverSourceUrl` under the new edition's id and writes the edition, its publishers, contributors (and any new authors), genres, tags and activity in one transaction. A failed transaction publishes no edition or links; immutable staged files are retained for reconciliation. Returns the edition plus `coverUnavailable` when the cover could not be downloaded (its source URL is still saved).
 
 ### `updateEdition(id, input)`
 
 ```typescript
-updateEdition(id: string, input: Partial<CreateEditionInput>): Promise<Edition>
+updateEdition(id: string, input: Partial<CreateEditionInput>, file?: File): Promise<Edition>
 ```
+
+An optional validated local file overrides URL import and clears `coverSourceUrl`; its verified image references commit with metadata and links. The browser sends local file drafts through `POST /api/editions/form`. Committed choices are recorded by the cover-history trigger.
 
 Updates edition metadata. If a new `coverSourceUrl` is provided and differs from the existing one, reprocesses the cover. The edition row, its publishers, contributors (and any new authors named by `authorName`), genres and tags change in one transaction.
 
