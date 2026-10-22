@@ -130,7 +130,7 @@ async function renderFirstPage(doc: PDFDocumentProxy): Promise<Uint8Array> {
     const releaseOutput = budget.imageAllocation(width, height, width * height * 8 + MiB);
     try {
       const context = pair.context!; context.fillStyle = "#ffffff"; context.fillRect(0, 0, width, height);
-      await page.render({ canvas: pair.canvas as unknown as HTMLCanvasElement, canvasContext: context as unknown as CanvasRenderingContext2D, viewport }).promise;
+      await page.render({ canvas: pair.canvas as unknown as HTMLCanvasElement, viewport }).promise;
       const bytes = pair.canvas!.toBuffer("image/png");
       if (bytes.length > width * height * 8 + MiB) budget.reject("PDF cover encoding exceeds its native envelope");
       budget.decodedChunk("pdf:cover", bytes.length); budget.imageAllocation(1, 1, bytes.length);
@@ -141,7 +141,7 @@ async function renderFirstPage(doc: PDFDocumentProxy): Promise<Uint8Array> {
   const context = canvas.getContext("2d");
   context.fillStyle = "#ffffff";
   context.fillRect(0, 0, canvas.width, canvas.height);
-  await page.render({ canvas: canvas as unknown as HTMLCanvasElement, canvasContext: context as unknown as CanvasRenderingContext2D, viewport }).promise;
+  await page.render({ canvas: canvas as unknown as HTMLCanvasElement, viewport }).promise;
   page.cleanup();
   return canvas.toBuffer("image/png");
 }

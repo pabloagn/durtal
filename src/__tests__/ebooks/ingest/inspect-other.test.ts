@@ -5,6 +5,8 @@ import { inspectFb2 } from "@/lib/ebooks/ingest/inspect/fb2";
 import { inspectMobi } from "@/lib/ebooks/ingest/inspect/mobi";
 import { inspectPdf } from "@/lib/ebooks/ingest/inspect/pdf";
 import { bytesSource } from "@/lib/ebooks/ingest/source";
+import { withInspectionBudget } from "@/lib/ebooks/ingest/budget";
+import { InspectorAttemptBudget } from "@/lib/ebooks/upload/inspector-resources";
 import { makeCbz, makeFb2, makeImage, makeMobi, makePdf, makeXmp, makeZip } from "../../fixtures/ebook-builders";
 
 /* SLN-494: MOBI and AZW3 EXTH, PDF info and XMP, ComicInfo.xml, FB2 title-info and publish-info */
@@ -54,6 +56,25 @@ describe("MOBI and AZW3", () => {
 });
 
 describe("PDF", () => {
+  it.each([false, true])("renders the first page as an 800px PNG with visible ink (upload budget: %s)", async (bounded) => {
+    const budget = new InspectorAttemptBudget();
+    const render = async () => {
+      const result = await inspectPdf(bytesSource(makePdf(), "cover.pdf"));
+      try {
+        expect(result.problem).toBeNull();
+        const png = Buffer.from(await result.cover!.load());
+        expect(await sharp(png).metadata()).toMatchObject({ format: "png", width: 800, height: 1200 });
+        const stats = await sharp(png).stats();
+        expect(stats.channels.slice(0, 3).every((channel) => channel.min < 200 && channel.max === 255)).toBe(true);
+      } finally {
+        await result.close?.();
+      }
+    };
+    if (bounded) await withInspectionBudget(budget, render);
+    else await render();
+    expect(() => budget.assertHealthy()).not.toThrow();
+  });
+
   it("reads the info dictionary, the page count and whether it is linearized", async () => {
     const result = await inspectPdf(bytesSource(makePdf({ info: { Title: "Info Title", Author: "Anna Vale; Ben Moss", CreationDate: "D:19990304120000Z" } }), "info.pdf"));
     try {
