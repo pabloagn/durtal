@@ -98,7 +98,7 @@ export default async function HighlightsPage({ searchParams }: { searchParams: P
   const books = await getHighlightBooks();
   return (
     <>
-      <PageHeader title="Highlights" description="Every highlight, note and bookmark from your eBooks." />
+      <PageHeader title="Highlights" />
       <HighlightsFilters books={books} />
       <Suspense key={toSearchParams(search).toString()} fallback={<div className="h-96" />}>
         <HighlightResults search={search} />
