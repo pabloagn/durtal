@@ -33,7 +33,7 @@ export function AnnotationConflicts({ snapshot, onRefresh, onRetry }: { snapshot
     {shown.slice(visiblePage*50,(visiblePage+1)*50).map(item => {
       const row = item.operation, key = `${row.operationId}:${row.revision}:${item.state}`, draft = annotationProblemDraft(row);
       const saved = snapshot.annotations.find(annotation => annotation.id === row.mutation.id);
-      return <div key={key} className="flex flex-col gap-2 rounded-sm border border-border-primary p-3">
+      return <div key={key} className="flex flex-col gap-2 rounded-sm border border-border-control p-3">
         <p className="text-sm text-fg-secondary">{item.reason === "authentication" ? "Sign in on the device that made this change, then retry." : item.reason === "deleted" || item.reason === "missing" ? "The saved mark was removed. Your local draft is retained." : "The saved mark changed before this edit could be saved."}</p>
         {draft && <p className="whitespace-pre-wrap break-words text-sm">{draft}</p>}
         {saved?.note && <details><summary className="min-h-11 cursor-pointer text-sm">Show saved note</summary><p className="whitespace-pre-wrap break-words text-sm text-fg-secondary">{saved.note}</p></details>}

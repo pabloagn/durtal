@@ -112,6 +112,7 @@ A heading never picks its own size and color: it uses its role. Each role sets f
 | `type-page-title` | Serif 46px, tight tracking, heading | The h1 of every page (`PageHeader`). On a phone a detail title past 30 letters is 38px, past 60 it is 30px; under 375px a shorter one is 38px and both longer bands 30px (`DetailTitleRow`, and a collection's name through `titleLength`) |
 | `type-section-title` | Serif 30px, primary | Every titled block on a page, through `SectionHeading` |
 | `type-item-title` | Serif 21px, line height 1.375, primary | Card titles, the title of a block inside a section, empty and error states |
+| `type-row-title` (planned in SLN-1505) | Inter 16px | Reading-row titles, quieter than card titles |
 | `type-group-title` | Sans 21px, secondary | A group of fields in a form or dialog |
 | `type-stat` | Serif 38px, tight tracking | The number in a stat tile |
 | `type-dialog-title` | Sans 16px, medium, heading | Functional dialog title |
@@ -195,7 +196,7 @@ In CSS, write `-webkit-backdrop-filter` before `backdrop-filter`. In the other o
 
 - Dark background (`bg-secondary`)
 - Cover image with no border radius
-- Subtle 1px border in `bg-tertiary`
+- Subtle 1px `glass-border` edge
 - Hover: a quiet surface lift and restrained petrol shadow, without a coloured rim
 - The cover shows its art. Only the marks that make a copy special sit on it: rare, poison and digital edition, as one cluster in the bottom-left corner. Their chips (`src/components/books/cover-chip.ts`) share one size and inset and the shared `glass-chip` material, so they read on white and on black covers alike. Controls on a cover (the actions menu, copy, image adjustment) show on hover and keyboard focus, and always on a touch screen, which has no hover (`hover-reveal` in `globals.css`).
 - Text uses `CardHeading`: 21px Cirka titles and full-width 16px Inter identifying metadata. Titles take their natural height and metadata sits 4px below the last title line. Metadata reserves a minimum line but never clamps; longer text grows naturally. The favourite action floats beside only the first title line; it never narrows the metadata column. Ordinary words wrap at spaces; an exceptionally long unbroken token may wrap to prevent overflow. Essential names never require hover to read.
@@ -211,7 +212,7 @@ Every work card, whatever its collection, is cut like a book's card (`src/compon
 - Where collections mix in one row (the dashboard's recent additions), every card has the book cover's 2:3 frame. `WorkCardArt` contains the picture whole and centered; a blurred, dimmed copy of it fills the bands, like frosted glass behind it. Without a picture, the collection's stand-in (the title's letter, a monogram) fills the frame.
 - Domain-specific film/perfume rows may identify their association ("With Kurt Russell", "Shares iris, vanilla") under the card. The book page's Similar Works shelf has no reason captions, scores or explanation controls. Translator/publishing shelves identify their matching edition as card metadata.
 
-Author, series, collection and dashboard cards follow the same layout. Author cards: name, nationality, then the years and the number of books. Series cards: title, original title, then the counts and "Complete" in gold; a series holding more books than its total leaves the total out, so no count reads "5 of 4". Collection cards: the complete name with its icon, a description preview limited to two lines, then the count line, which counts a book once whether it is held whole or through its editions ("5 books (6 editions) · 2 films"). Descriptive prose is not identifying metadata: keep its preview bounded so long descriptions cannot stretch an entire row; the collection detail page displays the full description. No count or status sits on a portrait or a cover.
+Author, series, collection and dashboard cards follow the same layout. Author cards: name, nationality, then the years and the number of books. Series cards: title, original title, then the counts and "Complete" in gold; a series holding more books than its total leaves the total out, so no count reads "5 of 4". Collection cards: the complete name with its icon, then the count line, which counts a book once whether it is held whole or through its editions ("5 books (6 editions) · 2 films"). Collection cards omit descriptive prose; the collection detail page displays the full description. No count or status sits on a portrait or a cover.
 
 ### Mosaic
 
@@ -246,6 +247,8 @@ Fine-pointer heights are 28/32/36px for sm/md/lg, with 14px labels, 6px gaps and
 
 Keep neighbouring targets separate: each icon utility grows its actual box to 44 × 44px on touch, and labelled buttons grow to at least 44px high/wide. Do not add `touch-hit` to these growing controls. Use 8px between header actions, 4px in dense edition/dialog rows, and `CapAlignedControls` (with the matching height and `coarseHeight={44}`) beside titles. Rows wrap whole controls when labels need room; preserve the cap center and avoid clipping focus. Hover, focus, active/menu-open, pressed and disabled states must not change padding, borders or dimensions. Export keeps its label and swaps a same-size busy icon to avoid shifting the row. Sidebar/navigation geometry and dropdown content spacing have their own guidance.
 
+Primary buttons are reserved for a form's or dialog's main confirmation and an empty state's single Add. Page-header actions, other page actions and repeated per-card actions are secondary.
+
 ### Inputs and dialog chrome
 
 Default fields use a faint neutral boundary, 4px corners and a visible steel focus outline. Labels remain persistent. Text-entry controls use 14px text on desktop and at least 16px on touch. `Input appearance="open"` removes the redundant background/border from title entry while keeping its label and focus treatment.
@@ -278,16 +281,16 @@ A work's rating is 0.5 to 5 in half steps, the same for books, films, perfumes a
 
 ### Tables
 
-- Clean rows with alternating subtle backgrounds
+- Clean rows without alternating backgrounds
 - No heavy borders
-- Serif column headers
+- Column headers use `type-caption`
 - Row hover with `bg-tertiary`
 
 ### Modals (Dialogs)
 
 - Centered on screen
 - Glass (`glass`), over the veil (`glass-veil`): the page stays in view, dimmed and softly blurred
-- 4px corners, the glass edge and its shadow
+- 6px corners (`glass`), the glass edge and its shadow
 - The header stays in view; the body scrolls when the dialog reaches 90% of the screen height
 - Backdrop clicks close the modal
 - A dialog whose lists load as it opens (`OptionsNotice`, `src/components/shared/options-notice.tsx`, SLN-510) shows the chosen items in them at once and never an empty list. A load under 200 ms shows nothing; a longer one puts "Loading the lists…" in 12px `fg-secondary` at the footer's start, beside the buttons, so nothing moves. A failed load puts "Could not load the lists." in `accent-red-text` there, with Retry. An empty list section says "Loading…" until its list arrives, or "Not loaded" after a failed load, never "No themes available"
@@ -317,13 +320,12 @@ Multiple semantic variants:
 
 **Errors, loading and busy controls.**
 
-- **Errors** use the same block (`SectionError`): what happened, Try again, and a link back to a page that works. The catalogue's root error page still has its own button and no way back; slice 3 piece D moves it onto `SectionError`.
-- **Loading** keeps the page's final layout: skeletons the size of the content they replace, so nothing jumps when the page arrives. The SLN-641 slice 3 audit (`sln-641-slice-3.md`) found pages without a loading state and a film skeleton that does not match its page; its pieces A and B make this hold.
+- **Errors** use the same block (`SectionError`): what happened, Try again, and a link back to a page that works.
+- **Loading** keeps the page's final layout: skeletons the size of the content they replace, so nothing jumps when the page arrives.
 - **A busy button keeps its width.**
   - A button with an icon swaps the icon for a same-size spinner and keeps its label, as Export does.
   - A button without an icon keeps its label.
   - Either way it reads as off (`aria-disabled`, `aria-busy`, the disabled dimming) and ignores presses, but is never `disabled`: a disabled button drops the keyboard focus to the page. A button's own busy flag never goes into its `disabled` (SLN-853, SLN-867).
-  - Slice 3 found Save buttons that change width while they save; its piece C makes this hold.
 
 ### Toasts
 
