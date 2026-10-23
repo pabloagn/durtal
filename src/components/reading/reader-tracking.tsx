@@ -36,7 +36,7 @@ export function ReaderTrackingFailure(props: ReaderControllerFailureProps) {
   const notice = useRef<HTMLElement>(null);
   useReaderControllerFailure(id, code, notice);
   return <aside ref={notice} role="alert" data-reader-chrome
-    className="fixed inset-x-4 bottom-4 z-50 mx-auto flex max-w-xl flex-wrap items-center justify-between gap-3 rounded-xl border border-border-primary bg-bg-primary p-4 text-sm shadow-lg">
+    className="fixed inset-x-4 bottom-4 z-50 mx-auto flex max-w-xl flex-wrap items-center justify-between gap-3 rounded-xl border border-border-control bg-bg-primary p-4 text-sm shadow-lg">
     <p>Reading tracking is unavailable. Your book is still available to read.</p>
     {onRetry && <Button onClick={onRetry}>Retry tracking</Button>}
   </aside>;

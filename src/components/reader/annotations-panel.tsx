@@ -237,7 +237,7 @@ export function AnnotationsPanel({
             placeholder={`Find in ${counts[tab]} ${counts[tab] === 1 ? tab.slice(0, -1) : tab}`}
             value={query}
             onChange={(event) => setQuery(event.currentTarget.value)}
-            className="h-10 rounded-sm border border-border-primary bg-bg-secondary px-3 text-sm outline-none focus:border-accent-primary pointer-coarse:h-11"
+            className="h-10 rounded-sm border border-border-control bg-bg-secondary px-3 text-sm placeholder:text-fg-muted outline-none focus:border-accent-primary focus:glass-input-focus pointer-coarse:h-11"
           />
           <div className="grid grid-cols-2 gap-2">
             {tab !== "bookmarks" && (

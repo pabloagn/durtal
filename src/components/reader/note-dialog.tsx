@@ -110,7 +110,7 @@ function DraftNoteDialog({
           rows={6}
           disabled={saving}
           aria-describedby={error ? id + "-error" : count >= 9000 ? id + "-count" : undefined}
-          className="w-full resize-y rounded-sm border border-border-primary bg-bg-secondary px-3 py-2 text-sm text-fg-primary outline-none focus:border-accent-primary pointer-coarse:text-base"
+          className="w-full resize-y rounded-sm border border-border-control bg-bg-secondary px-3 py-2 text-sm text-fg-primary outline-none focus:border-accent-primary focus:glass-input-focus pointer-coarse:text-base"
           onKeyDown={(event) => {
             if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
               event.preventDefault();
@@ -236,7 +236,7 @@ function SavedNoteDialog({
           aria-describedby={
             error ? id + "-error" : count >= 9000 ? id + "-count" : undefined
           }
-          className="w-full resize-y rounded-sm border border-border-primary bg-bg-secondary px-3 py-2 text-sm text-fg-primary outline-none focus:border-accent-primary"
+          className="w-full resize-y rounded-sm border border-border-control bg-bg-secondary px-3 py-2 text-sm text-fg-primary outline-none focus:border-accent-primary focus:glass-input-focus"
           onChange={(event) => {
             const value = event.currentTarget.value;
             if (annotationCharacterCount(value) > ANNOTATION_TEXT_LIMIT) {
