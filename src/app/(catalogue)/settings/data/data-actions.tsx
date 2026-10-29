@@ -10,8 +10,10 @@ import { SettingRow, settingDescriptionId } from "@/components/settings/settings
 import { Dialog } from "@/components/ui/dialog";
 import {
   EXPORT_FORMAT_LABELS,
+  exportFormatName,
   exportFormats,
   triggerExport,
+  goodreadsWarning,
   type ExportEntity,
   type ExportFormat,
 } from "@/components/shared/export-menu";
@@ -38,14 +40,15 @@ export function ExportRow({
   const [format, setFormat] = useState<ExportFormat>("csv");
   const [exporting, setExporting] = useState(false);
   /** The Goodreads file's half stars, said before it downloads */
-  const [halfStars, setHalfStars] = useState<number | null>(null);
+  const [notice, setNotice] = useState<{ halfStars: number; unresolvedIds: number } | null>(null);
 
   async function save() {
     setExporting(true);
     const progress = toast.pending(`Exporting ${inSentence(label)}`);
     try {
-      await triggerExport(entity, "all", format);
-      progress.success(`${label} exported`);
+      const result = await triggerExport(entity, "all", format);
+      if (result.unresolvedIds) progress.warning(goodreadsWarning(result.unresolvedIds));
+      else progress.success(`${label} exported as ${exportFormatName(format)}`);
     } catch (error) {
       progress.error(error instanceof Error ? error.message : "Export failed");
     } finally {
@@ -58,7 +61,7 @@ export function ExportRow({
     setExporting(true);
     try {
       const notice = await getGoodreadsExportNotice();
-      if (notice.halfStars > 0) return setHalfStars(notice.halfStars);
+      if (notice.halfStars > 0) return setNotice(notice);
     } catch {
       // The count is a courtesy: the file still downloads
     } finally {
@@ -90,26 +93,29 @@ export function ExportRow({
         </Button>
       </div>
       <Dialog
-        open={halfStars !== null}
-        onClose={() => setHalfStars(null)}
+        open={notice !== null}
+        onClose={() => setNotice(null)}
         title="Export for Goodreads"
         className="max-w-md"
         expandable={false}
       >
         <div className="space-y-4" data-goodreads-notice="">
-          <p className="text-sm text-fg-secondary">
-            {halfStars === 1 ? "1 half-star rating will be rounded up" : `${halfStars} half-star ratings will be rounded up`}: Goodreads
+          {!!notice?.halfStars && <p className="text-sm text-fg-secondary">
+            {notice.halfStars === 1 ? "1 half-star rating will be rounded up" : `${notice.halfStars} half-star ratings will be rounded up`}: Goodreads
             takes whole stars. Durtal keeps your ratings as they are.
-          </p>
+          </p>}
+          {!!notice?.unresolvedIds && <p className="text-sm text-fg-secondary">
+            {notice.unresolvedIds} unresolved Goodreads Book {notice.unresolvedIds === 1 ? "Id will" : "Ids will"} be left blank.
+          </p>}
           <div className="flex justify-end gap-2 pt-2">
-            <Button variant="secondary" size="sm" onClick={() => setHalfStars(null)}>
+            <Button variant="secondary" size="sm" onClick={() => setNotice(null)}>
               Cancel
             </Button>
             <Button
               size="sm"
               data-shortcut="save"
               onClick={() => {
-                setHalfStars(null);
+                setNotice(null);
                 void save();
               }}
             >

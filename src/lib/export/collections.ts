@@ -1,3 +1,4 @@
+import { nativeProjection } from "./schema";
 import { sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { resultRows } from "@/lib/harmonization/store";
@@ -39,7 +40,7 @@ async function inChunks<T>(ids: string[], load: (ids: string[]) => Promise<T[]>)
 
 /** Each work's personal notes and description, as plain text */
 async function workTexts(ids: string[]) {
-  if (!ids.length) return new Map<string, { notes: string; description: string }>();
+  if (!ids.length) return new Map<string, { notes: string; description: string; nativeNotes: string | null; nativeDescription: string | null }>();
   const rows = resultRows<{ id: string; notes: string | null; description: string | null }>(
     await db.execute(sql`select id, notes, description from works where id in (${uuids(ids)})`),
   );
@@ -49,6 +50,8 @@ async function workTexts(ids: string[]) {
       {
         notes: r.notes ? stripHtmlToText(r.notes) : "",
         description: r.description ? stripHtmlToText(r.description) : "",
+        nativeNotes: r.notes === null ? null : stripHtmlToText(r.notes),
+        nativeDescription: r.description === null ? null : stripHtmlToText(r.description),
       },
     ]),
   );
@@ -73,10 +76,12 @@ async function workTerms(ids: string[]) {
 }
 const list = (names: (string | null | undefined)[]) =>
   names.filter((n): n is string => !!n).join("; ");
+const names = (items: (string | null | undefined)[]) => items.filter((item): item is string => item !== null && item !== undefined);
+const termNames = (terms: Map<string, Map<string, string[]>>, id: string, family: string) => terms.get(id)?.get(family) ?? [];
 const term = (terms: Map<string, Map<string, string[]>>, id: string, family: string) =>
   list(terms.get(id)?.get(family) ?? []);
 
-async function perfumeRows(ids: string[]) {
+async function perfumeRows(ids: string[], native = false) {
   const cards = await inChunks(ids, loadPerfumeCards);
   const [texts, terms, notes] = await Promise.all([
     workTexts(ids),
@@ -90,7 +95,8 @@ async function perfumeRows(ids: string[]) {
   const noteRows = notes ? resultRows<{ workId: string; position: string; name: string }>(notes) : [];
   const notesAt = (id: string, position: string) =>
     list(noteRows.filter((n) => n.workId === id && n.position === position).map((n) => n.name));
-  return cards.map((p) => ({
+  return cards.map((p) => {
+    const legacy = {
     title: p.title,
     houses: list(p.organizations.filter((o) => o.role !== "manufacturer").map((o) => o.name)),
     manufacturers: list(p.organizations.filter((o) => o.role === "manufacturer").map((o) => o.name)),
@@ -107,13 +113,26 @@ async function perfumeRows(ids: string[]) {
     samples: p.holdings.samples,
     decants: p.holdings.decants,
     rating: p.rating ?? "",
-    favourite: p.isFavourite ? "yes" : "no",
+    favourite: p.isFavourite,
     notes: texts.get(p.id)?.notes ?? "",
     description: texts.get(p.id)?.description ?? "",
-  }));
+    };
+    return native ? nativeProjection("perfumes", legacy, {
+      houses: p.organizations.filter((o) => o.role !== "manufacturer").map((o) => o.name),
+      manufacturers: p.organizations.filter((o) => o.role === "manufacturer").map((o) => o.name),
+      perfumers: names(p.perfumers.map((x) => x.name)), released: p.releaseDate,
+      concentrations: p.formulations.map((f) => ({ concentration: f.concentration, concentration_label: f.concentrationLabel })),
+      families: termNames(terms, p.id, "perfume-families"), accords: termNames(terms, p.id, "perfume-accords"),
+      top_notes: noteRows.filter((n) => n.workId === p.id && n.position === "top").map((n) => n.name),
+      heart_notes: noteRows.filter((n) => n.workId === p.id && n.position === "heart").map((n) => n.name),
+      base_notes: noteRows.filter((n) => n.workId === p.id && n.position === "base").map((n) => n.name),
+      other_notes: noteRows.filter((n) => n.workId === p.id && n.position === "unspecified").map((n) => n.name),
+      rating: p.rating, notes: texts.get(p.id)?.nativeNotes ?? null, description: texts.get(p.id)?.nativeDescription ?? null,
+    }) : legacy;
+  });
 }
 
-async function filmRows(ids: string[]) {
+async function filmRows(ids: string[], native = false) {
   const cards = await inChunks(ids, loadFilmCards);
   const [texts, terms, credits, languages] = await Promise.all([
     workTexts(ids),
@@ -133,7 +152,8 @@ async function filmRows(ids: string[]) {
   const languageRows = languages ? resultRows<{ workId: string; name: string }>(languages) : [];
   const credited = (id: string, role: string) =>
     list(creditRows.filter((c) => c.workId === id && c.role === role).map((c) => c.name));
-  return cards.map((f) => ({
+  return cards.map((f) => {
+    const legacy = {
     title: f.title,
     original_title: f.originalTitle ?? "",
     directors: list(f.directors.map((d) => d.name)),
@@ -147,13 +167,24 @@ async function filmRows(ids: string[]) {
     physical_copies: f.holdings.physical,
     digital_copies: f.holdings.digital,
     rating: f.rating ?? "",
-    favourite: f.isFavourite ? "yes" : "no",
+    favourite: f.isFavourite,
     notes: texts.get(f.id)?.notes ?? "",
     description: texts.get(f.id)?.description ?? "",
-  }));
+    };
+    return native ? nativeProjection("films", legacy, {
+      original_title: f.originalTitle,
+      directors: names(f.directors.map((d) => d.name)),
+      writers: names(creditRows.filter((c) => c.workId === f.id && c.role === "film.screenwriter").map((c) => c.name)),
+      cast: names(creditRows.filter((c) => c.workId === f.id && c.role === "film.cast").map((c) => c.name)),
+      released: f.releaseDate, runtime: f.runtimeSeconds === null ? null : legacy.runtime, runtime_seconds: f.runtimeSeconds,
+      countries: f.countries.map((c) => c.name), languages: languageRows.filter((l) => l.workId === f.id).map((l) => l.name),
+      genres: termNames(terms, f.id, "film-genres"), rating: f.rating,
+      notes: texts.get(f.id)?.nativeNotes ?? null, description: texts.get(f.id)?.nativeDescription ?? null,
+    }) : legacy;
+  });
 }
 
-async function paintingRows(ids: string[]) {
+async function paintingRows(ids: string[], native = false) {
   const cards = await inChunks(ids, loadPaintingCards);
   const [texts, terms, movements] = await Promise.all([
     workTexts(ids),
@@ -167,7 +198,7 @@ async function paintingRows(ids: string[]) {
   const movementRows = movements ? resultRows<{ workId: string; name: string }>(movements) : [];
   return cards.map((p) => {
     const o = p.primaryObject;
-    return {
+    const legacy = {
       title: p.title,
       painters: list(p.painters.map((x) => x.name)),
       painted: catalogueDateText(p.creationDate) ?? "",
@@ -184,10 +215,19 @@ async function paintingRows(ids: string[]) {
       width_cm: o?.widthCm ?? "",
       objects_owned: p.personalCount,
       rating: p.rating ?? "",
-      favourite: p.isFavourite ? "yes" : "no",
+      favourite: p.isFavourite,
       notes: texts.get(p.id)?.notes ?? "",
       description: texts.get(p.id)?.description ?? "",
     };
+    return native ? nativeProjection("paintings", legacy, {
+      original: o ? legacy.original : null, original_owner: o ? legacy.original_owner : null,
+      painters: names(p.painters.map((x) => x.name)), painted: p.creationDate,
+      movements: movementRows.filter((m) => m.workId === p.id).map((m) => m.name),
+      genres: termNames(terms, p.id, "painting-genres"), techniques: termNames(terms, p.id, "painting-techniques"),
+      media: termNames(terms, p.id, "painting-media"), supports: termNames(terms, p.id, "painting-supports"),
+      height_cm: o?.heightCm ?? null, width_cm: o?.widthCm ?? null, rating: p.rating,
+      notes: texts.get(p.id)?.nativeNotes ?? null, description: texts.get(p.id)?.nativeDescription ?? null,
+    }) : legacy;
   });
 }
 
@@ -198,22 +238,26 @@ async function paintingRows(ids: string[]) {
 export async function collectionExportRows(
   entity: "perfumes",
   ids: string[] | null,
+  native?: boolean,
 ): Promise<Awaited<ReturnType<typeof perfumeRows>>>;
 export async function collectionExportRows(
   entity: "films",
   ids: string[] | null,
+  native?: boolean,
 ): Promise<Awaited<ReturnType<typeof filmRows>>>;
 export async function collectionExportRows(
   entity: "paintings",
   ids: string[] | null,
+  native?: boolean,
 ): Promise<Awaited<ReturnType<typeof paintingRows>>>;
 export async function collectionExportRows(
   entity: CollectionExport,
   ids: string[] | null,
-): Promise<Record<string, string | number>[]>;
-export async function collectionExportRows(entity: CollectionExport, ids: string[] | null) {
+  native?: boolean,
+): Promise<Record<string, unknown>[]>;
+export async function collectionExportRows(entity: CollectionExport, ids: string[] | null, native = false) {
   const found = await exportIds(COLLECTION_EXPORTS[entity], ids);
-  if (entity === "perfumes") return perfumeRows(found);
-  if (entity === "films") return filmRows(found);
-  return paintingRows(found);
+  if (entity === "perfumes") return perfumeRows(found, native);
+  if (entity === "films") return filmRows(found, native);
+  return paintingRows(found, native);
 }

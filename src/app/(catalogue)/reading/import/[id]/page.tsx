@@ -14,6 +14,7 @@ import { rowView } from "@/lib/reading/import/row-view";
 import { formatReadingDate } from "@/lib/reading/dates";
 import { readingToday } from "@/lib/reading/day";
 import { appTimeZone, calendarDate } from "@/lib/utils/date";
+import { canCommitImport, canUndoImport } from "@/lib/reading/import/action-words";
 import { isUuid } from "@/lib/utils/uuid";
 
 export const metadata = { title: "Import preview" };
@@ -25,7 +26,7 @@ const SECTION_NOTES: Partial<Record<ImportSection, string>> = {
   likely: "One book with the same title and author.",
   none: "No book in Durtal. Add it, then the row matches it.",
   exact: "The same Durtal book, Goodreads id or link, or ISBN.",
-  present: "Every read of these rows is already in Durtal. Nothing is written for them.",
+  present: "These readings, sessions or notes are already in Durtal. Existing edits are kept.",
   cannot: "A rule of the reading tracker is broken. The reason is on each row.",
   to_read: "Books on the to-read shelf. Imported, they go to the bottom of Up next, oldest added first.",
   not_imported: "Books on shelves that are neither read nor to-read stay with the import.",
@@ -60,7 +61,10 @@ export default async function ImportPreviewPage({ params, searchParams }: { para
   // Goodreads private notes (SLN-453), 50 at a time like the sections
   const notes = await getImportNotes(id, Math.min(5000, Math.max(SECTION_PAGE, Number(one(query.notes)) || SECTION_PAGE)));
   const today = await readingToday();
-  const commit = commitWords(summary.toImport, summary.pending, summary.toQueue, notes.toImport, summary.toRate);
+  const commit = commitWords(summary.toImport, summary.pending, summary.toQueue, notes.toImport + (summary.toRestoreNotes ?? 0), summary.toRate, summary.toSessions, summary.identifiers);
+  const canCommit = canCommitImport({ readings: summary.toImport, queued: summary.toQueue,
+    notes: notes.toImport + (summary.toRestoreNotes ?? 0), ratings: summary.toRate,
+    sessions: summary.toSessions, identifiers: summary.identifiers });
   const carry = cannotCarry(header.source, summary, header.errorLog?.missing ?? []);
   const errors = header.errorLog?.errors ?? [];
   const uploaded = formatReadingDate(calendarDate(new Date(header.createdAt), appTimeZone()), "day");
@@ -84,10 +88,10 @@ export default async function ImportPreviewPage({ params, searchParams }: { para
             {summaryLine(summary)}
           </p>
           <div className="mt-4 flex flex-wrap items-center gap-3">
-            <CommitImport importId={id} label={commit.label} disabled={summary.toImport === 0 && summary.toQueue === 0 && notes.toImport === 0 && summary.toRate === 0} />
+            <CommitImport importId={id} label={commit.label} disabled={!canCommit} />
             <MatchAgain importId={id} show={summary.noBook > 0} />
-            {(header.readings > 0 || header.queued > 0 || header.notes > 0 || header.ratings > 0) && (
-              <UndoImport importId={id} readings={header.readings} queued={header.queued} notes={header.notes} goodreadsIds={header.identifiers} />
+            {canUndoImport(header) && (
+              <UndoImport importId={id} readings={header.readings} queued={header.queued} notes={header.notes} goodreadsIds={header.identifiers} pendingClaims={header.pendingClaims} ratings={header.ratings} sessions={header.sessions} />
             )}
             <Link href="/reading/import" className="text-sm text-fg-secondary transition-colors hover:text-fg-primary touch-hit">
               All imports

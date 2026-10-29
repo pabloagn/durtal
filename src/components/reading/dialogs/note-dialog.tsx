@@ -285,7 +285,7 @@ export function NoteDialog({ data, request, home, onClose, changed, open }: Read
               <p>The thought editor could not load.</p>
               <button type="button" onClick={retry} className="underline pointer-coarse:min-h-11">Retry editor</button>
             </div> : <div className="h-[135px] rounded-sm border border-glass-border bg-bg-secondary/30" aria-hidden />}
-            rendererProps={{ label: "Your thought", value: thought, onChange: (value: RichValue) => {
+            rendererProps={{ kit: { code: {}, codeBlock: {}, strike: {}, underline: {}, horizontalRule: {} }, label: "Your thought", value: thought, onChange: (value: RichValue) => {
               setThought(value);
               setThoughtEdited(true);
             }, placeholder: "Why it stayed with you" }}

@@ -1,3 +1,11 @@
+import { randomUUID } from "node:crypto";
+import { sql } from "drizzle-orm";
+import * as atomicModule from "@/lib/db/atomic";
+import { toCSV } from "@/lib/utils/export";
+import { SESSION_EXPORT_COLUMNS, SESSION_EXPORT_COLUMNS_V2 } from "@/lib/export/columns";
+import { renderThought } from "@/lib/reading/import/thought";
+import { countedPagesSql } from "@/lib/reading/summary";
+import { parseImportFile } from "@/lib/reading/import/parse";
 import { requireDisposableDatabaseUrl, resetDisposableDatabase } from "./helpers/disposable-database";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import postgres from "postgres";
@@ -56,11 +64,20 @@ import { getImportPreview, listReadingImports } from "@/lib/reading/import/page-
 import { commitReadingImport, decideImportRow, decideImportSection, rematchImport, undoReadingImport } from "@/lib/actions/reading-import";
 import { writeReadings } from "@/lib/reading/service";
 import { ExpectedActionError } from "@/lib/actions/expected-error";
+import { updateEdition } from "@/lib/actions/editions";
+import { canCommitImport, canUndoImport } from "@/lib/reading/import/action-words";
+import { registerCatalogueIdentifier, recordSourceObservation } from "@/lib/actions/catalogue-provenance";
+import { claimImportedGoodreadsIds } from "@/lib/catalogue/goodreads-identity";
+import type { StoredRow } from "@/lib/reading/import/store";
+import { NextRequest } from "next/server";
+import { POST as exportRoute } from "@/app/api/export/route";
+import { parseCsv } from "@/lib/reading/import/csv";
 import { executeMerge, previewMerge } from "@/lib/harmonization/merge";
 import { deleteWork } from "@/lib/actions/works";
 import type { ImportMatch } from "@/lib/reading/import/match-rules";
 import type { ImportRow } from "@/lib/reading/import/types";
 import type { Written } from "@/lib/reading/import/store";
+import { commitWords } from "@/lib/reading/import/preview-text";
 
 /* The reading import against PostgreSQL (SLN-450): matching, the duplicate
    verdicts, decisions, commit, undo and the table's rules. Every file is
@@ -171,7 +188,7 @@ describe.skipIf(!url)("the reading import with PostgreSQL", () => {
       ]);
     });
 
-    it("matches a Durtal file's work id, and drops an edition of another book", async () => {
+    it("matches a Durtal file's work id, and refuses an edition of another book", async () => {
       const workId = await book("Watt", "Samuel Beckett");
       const own = await edition(workId);
       const other = await edition(await book("Molloy", "Samuel Beckett"));
@@ -183,8 +200,8 @@ describe.skipIf(!url)("the reading import with PostgreSQL", () => {
         "readings.csv",
       );
       const [a, b] = await rows(importId);
-      expect([a.match.reason, a.match.editionId, a.match.warnings]).toEqual(["Same Durtal book", own, []]);
-      expect([b.match.editionId, b.match.warnings]).toEqual([null, ["Edition not in Durtal; the reading is kept without it"]]);
+      expect([a.match.reason, a.match.editionId, a.match.warnings]).toEqual(["Exact Durtal parent", own, []]);
+      expect(b.match).toMatchObject({section:"cannot",note:"The explicit edition is missing or belongs to another book"});
     });
 
     it("finds likely, possible and no matches, and a book by its English edition title", async () => {
@@ -315,7 +332,7 @@ describe.skipIf(!url)("the reading import with PostgreSQL", () => {
         "readings.csv",
       );
       const [same, other] = await rows(importId);
-      expect([same.match.section, same.match.note]).toEqual(["present", "Same reading"]);
+      expect([same.match.section, same.match.note]).toEqual(["present", "Already in Durtal; existing edits kept"]);
       expect([other.match.section, other.match.note, other.decision]).toEqual(["cannot", "This book already has an open reading", "skip"]);
       const gr = await upload(goodreads([{ "Book Id": "1", Title: "Watt", Author: "Samuel Beckett", "Exclusive Shelf": "currently-reading", "Read Count": "0" }]));
       const [current] = await rows(gr.importId);
@@ -383,7 +400,7 @@ describe.skipIf(!url)("the reading import with PostgreSQL", () => {
         { "Book Id": "1", Title: "Watt", Author: "Samuel Beckett", "My Rating": "4", "My Review": "<b>Good</b>", "Exclusive Shelf": "read", "Read Count": "2", "Date Read": "2019/04/14", "Number of Pages": "300" },
       ]);
       const { importId } = await upload(file);
-      expect(await commitReadingImport({ importId })).toEqual({ written: 2, present: 0, refused: 0, rows: 1, queued: 0, queuePresent: 0, queueSkipped: 0, notes: 0, notesPresent: 0 });
+      expect(await commitReadingImport({ importId })).toEqual({ identifiers: 0, written: 2, present: 0, refused: 0, rows: 1, queued: 0, queuePresent: 0, queueSkipped: 0, notes: 0, notesPresent: 0 });
       const written = await readingsOf(workId);
       expect(written.map((r) => [r.source, r.source_key, r.import_id, r.finished_on, r.rating, r.total_pages])).toEqual([
         ["import", "goodreads:1#1", importId, null, null, 280],
@@ -395,7 +412,7 @@ describe.skipIf(!url)("the reading import with PostgreSQL", () => {
       expect(row.written!.bookRating).toEqual({ workId, before: null, after: 4 });
       expect(await value(`select rating::float8 from works where id = $1`, [workId])).toBe(4);
       expect(await value(`select status from imports where id = $1`, [importId])).toBe("completed");
-      expect(await commitReadingImport({ importId })).toEqual({ written: 0, present: 0, refused: 0, rows: 0, queued: 0, queuePresent: 0, queueSkipped: 0, notes: 0, notesPresent: 0 });
+      expect(await commitReadingImport({ importId })).toEqual({ identifiers: 0, written: 0, present: 0, refused: 0, rows: 0, queued: 0, queuePresent: 0, queueSkipped: 0, notes: 0, notesPresent: 0 });
       const again = await upload(file);
       expect((await rows(again.importId)).map((r) => r.match.section)).toEqual(["present"]);
       expect(await commitReadingImport({ importId: again.importId })).toMatchObject({ written: 0 });
@@ -523,6 +540,296 @@ describe.skipIf(!url)("the reading import with PostgreSQL", () => {
       expect([await rating(none), await rating(rated), await rating(replaced)]).toEqual([4.5, 3, 2]);
     });
 
+    describe("Goodreads identity claims", () => {
+      const line = (id: string, title = "Watt", extra: Record<string, string> = {}) =>
+        ({ "Book Id": id, Title: title, Author: "Samuel Beckett", "Exclusive Shelf": "read", "Read Count": "1", ...extra });
+      const accept = async (importId: string, rowNo = 1) => decideImportRow({ importId, rowNo, decision: "import" });
+      const identityRows = () => q(`select id, entity_kind, work_id, edition_id, external_id from catalogue_identifiers where provider = 'goodreads'`);
+      const exportIds = async () => {
+        const response = await exportRoute(new NextRequest("http://localhost/api/export", { method: "POST", body: JSON.stringify({ entity: "goodreads", format: "csv", all: true }) }));
+        expect(response.status).toBe(200);
+        const [header, ...data] = parseCsv(await response.text());
+        return { data: data.map((row) => Object.fromEntries(header.map((key, i) => [key, row[i]]))), warning: response.headers.get("X-Durtal-Goodreads-Unresolved") };
+      };
+      it("preserves a manual no-edition association and the literal large ID through export and Undo", async () => {
+        const workId = await book("Watt", "Samuel Beckett");
+        const id = "0009007199254740993";
+        const { importId } = await upload(goodreads([line(id, "Different title")]));
+        await chooseBook({ importId, rowNo: 1, workId });
+        await accept(importId);
+        await commitReadingImport({ importId });
+        expect(await identityRows()).toEqual([expect.objectContaining({ entity_kind: "book", work_id: workId, edition_id: null, external_id: id })]);
+        expect((await exportIds()).data[0]["Book Id"]).toBe(id);
+        await undoReadingImport({ importId });
+        expect(await identityRows()).toEqual([]);
+      });
+      it("reuses an existing same-book legacy identity without claiming Undo ownership", async () => {
+        const workId = await book("Watt", "Samuel Beckett");
+        const editionId = await edition(workId, { goodreadsId: "00072112" });
+        const { importId } = await upload(goodreads([line("72112")]));
+        expect((await getImportPreview(importId))!.summary.identifiers).toBe(0);
+        expect(await commitReadingImport({ importId })).toMatchObject({ identifiers: 0 });
+        expect((await rows(importId))[0].written?.identifiers).toEqual([]);
+        expect(await identityRows()).toEqual([]);
+        await undoReadingImport({ importId });
+        expect(await value(`select goodreads_id from editions where id = $1`, [editionId])).toBe("00072112");
+      });
+      it("retains an edition-owned ID after the public edition action moves its effective book", async () => {
+        const original = await book("Watt", "Samuel Beckett");
+        const target = await book("Molloy", "Samuel Beckett");
+        const editionId = await edition(original, { isbn13: "9780140449136" });
+        const { importId } = await upload(goodreads([line("72113", "Watt", { ISBN13: "9780140449136" })]));
+        // No reading exists to incidentally protect the ID: its effective owner snapshot is the guard.
+        vi.mocked(writeReadings).mockRejectedValueOnce(new Error("First reading failed"));
+        await expect(commitReadingImport({ importId })).rejects.toThrow("First reading failed");
+        expect((await rows(importId))[0].written?.identifierSnapshots?.[0]).toMatchObject({ workId: null, editionId, effectiveWorkId: original });
+        await updateEdition(editionId, { workId: target });
+        expect(await value(`select work_id from editions where id = $1`, [editionId])).toBe(target);
+        expect(await undoReadingImport({ importId })).toMatchObject({ removed: 0, identifiersKept: 1 });
+        expect(await identityRows()).toEqual([expect.objectContaining({ edition_id: editionId, external_id: "72113" })]);
+      });
+      it.each([false, true])("exposes safe Undo for a failed first reading with a reused claim: %s", async (reused) => {
+        const workId = await book("Watt", "Samuel Beckett");
+        if (reused) await registerCatalogueIdentifier({ owner: { kind: "book", id: workId }, provider: "goodreads", externalId: "72114" });
+        const { importId } = await upload(goodreads([line("72114")])); await accept(importId);
+        vi.mocked(writeReadings).mockRejectedValueOnce(new Error("First reading failed"));
+        await expect(commitReadingImport({ importId })).rejects.toThrow("First reading failed");
+        const header = (await getImportPreview(importId))!.header;
+        const listed = (await listReadingImports()).find((i) => i.id === importId)!;
+        expect(header).toMatchObject({ readings: 0, queued: 0, notes: 0, ratings: 0, pendingClaims: 1, identifiers: reused ? 0 : 1 });
+        expect(canUndoImport(header)).toBe(true);
+        expect(canUndoImport(listed)).toBe(true);
+        expect(await undoReadingImport({ importId })).toMatchObject({ removed: 0, queueRemoved: 0, notesRemoved: 0 });
+        expect((await getImportPreview(importId))!.header.pendingClaims).toBe(0);
+        expect(await identityRows()).toHaveLength(reused ? 1 : 0);
+      });
+      it("does not turn the convenience single-edition link into identifier ownership", async () => {
+        const workId = await book("Watt", "Samuel Beckett");
+        const editionId = await edition(workId);
+        const { importId } = await upload(goodreads([line("72001")]));
+        await accept(importId);
+        await commitReadingImport({ importId });
+        expect((await identityRows())[0]).toMatchObject({ entity_kind: "book", work_id: workId, edition_id: null });
+        expect(await value(`select edition_id from readings where import_id = $1`, [importId])).toBe(editionId);
+      });
+      it("journals one repeated ID on the book when accepted rows prove different editions", async () => {
+        const workId = await book("Watt", "Samuel Beckett");
+        await edition(workId, { isbn13: "9780140449136" });
+        await edition(workId, { isbn13: "9780141185064" });
+        const { importId } = await upload(goodreads([line("72002", "Watt", { ISBN13: "9780140449136" }), line("72002", "Watt", { ISBN13: "9780141185064" })]));
+        await accept(importId, 1); await accept(importId, 2);
+        const persisted = await testDb!.query.readingImportRows.findMany({ where: (r, { eq }) => eq(r.importId, importId) });
+        expect(await claimImportedGoodreadsIds(importId, persisted.map((r) => ({ ...r, data: r.data, match: r.match, written: r.written })) as StoredRow[])).toBe(1);
+        const again = await testDb!.query.readingImportRows.findMany({ where: (r, { eq }) => eq(r.importId, importId) });
+        expect(await claimImportedGoodreadsIds(importId, again as unknown as StoredRow[])).toBe(0);
+        expect(await identityRows()).toEqual([expect.objectContaining({ entity_kind: "book", work_id: workId, edition_id: null })]);
+        expect((await rows(importId)).map((r) => r.written?.identifiers.length)).toEqual([1, 0]);
+      });
+      it("keeps claim-only ownership across failure and retries the remaining reading", async () => {
+        await book("Watt", "Samuel Beckett");
+        const { importId } = await upload(goodreads([line("72003")])); await accept(importId);
+        vi.mocked(writeReadings).mockRejectedValueOnce(new Error("Reading phase unavailable"));
+        await expect(commitReadingImport({ importId })).rejects.toThrow("Reading phase unavailable");
+        expect((await rows(importId))[0].written).toMatchObject({ readings: [], identifiers: [expect.any(String)], goodreadsClaim: { externalId: "72003" } });
+        const preview = await getImportPreview(importId);
+        expect(preview!.summary.toImport).toBe(1);
+        expect(Object.values(preview!.sections).flat()[0].written?.goodreadsClaim).toBeTruthy();
+        await commitReadingImport({ importId });
+        expect(await identityRows()).toHaveLength(1);
+        expect(Number(await value(`select count(*) from readings where import_id = $1`, [importId]))).toBe(1);
+      });
+      it("rolls back the claim itself when its ownership journal cannot be saved", async () => {
+        await book("Watt", "Samuel Beckett");
+        const { importId } = await upload(goodreads([line("72004")])); await accept(importId);
+        await q(`create function test_refuse_claim() returns trigger language plpgsql as $$ begin
+          if new.written->'goodreadsClaim' is not null then raise exception 'Claim journal unavailable'; end if; return new; end $$`);
+        await q(`create trigger test_refuse_claim before update on reading_import_rows for each row execute function test_refuse_claim()`);
+        try { await expect(commitReadingImport({ importId })).rejects.toThrow("Claim journal unavailable"); expect(await identityRows()).toEqual([]); }
+        finally { await q(`drop trigger test_refuse_claim on reading_import_rows`); await q(`drop function test_refuse_claim()`); }
+        await commitReadingImport({ importId }); expect(await identityRows()).toHaveLength(1);
+      });
+      it("offers and records the missing ID on an accepted completed legacy row without changing its reading", async () => {
+        await book("Watt", "Samuel Beckett");
+        const file = goodreads([line("72101")]);
+        const { importId } = await upload(file); await accept(importId); await commitReadingImport({ importId });
+        // The durable reading is from a legacy import that predates ID preservation.
+        await q(`delete from catalogue_identifiers where external_id = '72101'`);
+        await q(`update reading_import_rows set written = (written - 'goodreadsClaim' - 'identifierSnapshots') || '{"identifiers":[]}'::jsonb where import_id = $1`, [importId]);
+        const before = await q(`select to_jsonb(r) as row from readings r where import_id = $1 order by id`, [importId]);
+        expect(before).toHaveLength(1);
+        expect(await value(`select status from imports where id=$1`, [importId])).toBe("completed");
+        const preview = (await getImportPreview(importId))!;
+        expect(preview.summary).toMatchObject({ identifiers: 1, toImport: 0, toQueue: 0, toRate: 0, toSessions: 0, toRestoreNotes: 0 });
+        expect(canCommitImport({ identifiers: preview.summary.identifiers, readings: preview.summary.toImport })).toBe(true);
+        expect(commitWords(0, 0, 0, 0, 0, 0, preview.summary.identifiers).label).toBe("Record 1 Goodreads ID");
+        // A newly uploaded present row remains skipped; it cannot silently backfill the ID.
+        const present = await upload(file);
+        expect((await rows(present.importId))[0]).toMatchObject({ decision: "skip", match: { section: "present" } });
+        expect((await getImportPreview(present.importId))!.summary.identifiers).toBe(0);
+        expect(await commitReadingImport({ importId: present.importId })).toMatchObject({ identifiers: 0, written: 0 });
+        expect(await identityRows()).toHaveLength(0);
+        expect(await commitReadingImport({ importId })).toMatchObject({ identifiers: 1, written: 0 });
+        expect(await q(`select to_jsonb(r) as row from readings r where import_id = $1 order by id`, [importId])).toEqual(before);
+        const [owned] = await identityRows();
+        expect((await rows(importId))[0].written).toMatchObject({ identifiers: [owned.id], identifierSnapshots: [{ id: owned.id }] });
+        expect(await commitReadingImport({ importId })).toMatchObject({ identifiers: 0, written: 0 });
+        expect(await identityRows()).toEqual([owned]);
+        expect((await rows(importId))[0].written?.identifiers).toEqual([owned.id]);
+        expect((await rows(importId))[0].written?.identifierSnapshots).toHaveLength(1);
+        expect(await q(`select to_jsonb(r) as row from readings r where import_id = $1 order by id`, [importId])).toEqual(before);
+        expect(await undoReadingImport({ importId })).toMatchObject({ removed: 1, identifiersKept: 0 });
+        expect(await identityRows()).toHaveLength(0);
+      });
+      it("keeps an ID-only claim when its retained reading was edited", async () => {
+        await book("Watt", "Samuel Beckett");
+        const { importId } = await upload(goodreads([line("72115")])); await accept(importId); await commitReadingImport({ importId });
+        await q(`delete from catalogue_identifiers where external_id = '72115'`);
+        await q(`update reading_import_rows set written = (written - 'goodreadsClaim' - 'identifierSnapshots') || '{"identifiers":[]}'::jsonb where import_id=$1`, [importId]);
+        await q(`update readings set review_html='<p>Edited legacy reading</p>', updated_at=created_at + interval '1 second' where import_id=$1`, [importId]);
+        const before = await q(`select to_jsonb(r) as row from readings r where import_id=$1 order by id`, [importId]);
+        expect(await commitReadingImport({ importId })).toMatchObject({ identifiers: 1, written: 0 });
+        expect(await undoReadingImport({ importId })).toMatchObject({ removed: 0, kept: 1, identifiersKept: 1 });
+        expect(await identityRows()).toHaveLength(1);
+        expect(await q(`select to_jsonb(r) as row from readings r where import_id=$1 order by id`, [importId])).toEqual(before);
+      });
+      it("counts one new ID across concurrent accepted claims for the same owner", async () => {
+        await book("Watt", "Samuel Beckett");
+        const first = await upload(goodreads([line("72116")])), second = await upload(goodreads([line("72116")]));
+        await accept(first.importId); await accept(second.importId);
+        const load = async (importId: string) => await testDb!.query.readingImportRows.findMany({ where: (r, { eq }) => eq(r.importId, importId) }) as unknown as StoredRow[];
+        const firstRows = await load(first.importId), secondRows = await load(second.importId);
+        expect((await Promise.all([claimImportedGoodreadsIds(first.importId, firstRows), claimImportedGoodreadsIds(second.importId, secondRows)])).sort()).toEqual([0, 1]);
+        expect(await identityRows()).toHaveLength(1);
+        expect([...(await load(first.importId)), ...(await load(second.importId))].reduce((n, row) => n + (row.written?.identifiers.length ?? 0), 0)).toBe(1);
+      });
+      it("excludes skipped, pending, errored and custom-shelf rows from this commit", async () => {
+        await book("Watt", "Samuel Beckett");
+        const { importId } = await upload(goodreads([
+          line("72102"), line("72103"), line("72104"),
+          line("72105", "Watt", { "Exclusive Shelf": "favourites", "Read Count": "0" }), line("72106", ""),
+        ]));
+        await accept(importId, 1);
+        await decideImportRow({ importId, rowNo: 2, decision: "skip" });
+        const untouched = await q(`select to_jsonb(r) as row from reading_import_rows r where import_id=$1 and row_no>1 order by row_no`, [importId]);
+        expect(await commitReadingImport({ importId })).toMatchObject({ identifiers: 1 });
+        expect((await identityRows()).map((r) => r.external_id)).toEqual(["72102"]);
+        expect(await q(`select to_jsonb(r) as row from reading_import_rows r where import_id=$1 and row_no>1 order by row_no`, [importId])).toEqual(untouched);
+      });
+      it("refuses duplicate accepted IDs assigned to different books before any claim", async () => {
+        const first = await book("Watt", "Samuel Beckett"); const second = await book("Molloy", "Samuel Beckett");
+        const { importId } = await upload(goodreads([line("72107", "First unknown"), line("72107", "Second unknown")]));
+        await chooseBook({ importId, rowNo: 1, workId: first }); await chooseBook({ importId, rowNo: 2, workId: second });
+        await accept(importId, 1); await accept(importId, 2);
+        await expect(commitReadingImport({ importId })).rejects.toThrow("different books");
+        expect(await identityRows()).toEqual([]);
+      });
+      it("revalidates the persisted row data after taking its claim locks", async () => {
+        await book("Watt", "Samuel Beckett");
+        const { importId } = await upload(goodreads([line("72108")])); await accept(importId);
+        const persisted = await testDb!.query.readingImportRows.findMany({ where: (r, { eq }) => eq(r.importId, importId) });
+        await q(`update reading_import_rows set data = jsonb_set(data, '{sourceBookId}', '"72109"') where import_id = $1`, [importId]);
+        await expect(claimImportedGoodreadsIds(importId, persisted as unknown as StoredRow[])).rejects.toThrow("changed");
+        expect(await identityRows()).toEqual([]);
+      });
+      it("serializes an import and an opposing registry claim on the same ID", async () => {
+        await book("Watt", "Samuel Beckett"); const other = await book("Molloy", "Samuel Beckett");
+        const { importId } = await upload(goodreads([line("72110")])); await accept(importId);
+        const attempts = await Promise.allSettled([
+          commitReadingImport({ importId }),
+          registerCatalogueIdentifier({ owner: { kind: "book", id: other }, provider: "goodreads", externalId: "72110" }),
+        ]);
+        expect(attempts.filter((r) => r.status === "fulfilled")).toHaveLength(1);
+        expect(attempts.filter((r) => r.status === "rejected")).toHaveLength(1);
+        expect(await identityRows()).toHaveLength(1);
+      });
+      it("re-proves an ISBN match before granting edition ownership", async () => {
+        const workId = await book("Watt", "Samuel Beckett");
+        const editionId = await edition(workId, { isbn13: "9780140449136" });
+        const { importId } = await upload(goodreads([line("72005", "Watt", { ISBN13: "9780140449136" })]));
+        await q(`update editions set isbn_13 = null where id = $1`, [editionId]);
+        await expect(commitReadingImport({ importId })).rejects.toThrow("changed");
+        expect(await identityRows()).toEqual([]);
+      });
+      it.each(["book", "edition", "legacy-edition", "legacy-url"])("refuses a different-work %s owner after the row was accepted", async (kind) => {
+        const workId = await book("Watt", "Samuel Beckett");
+        const other = await book("Molloy", "Samuel Beckett");
+        const { importId } = await upload(goodreads([line("72006")])); await accept(importId);
+        if (kind === "book") await q(`insert into catalogue_identifiers(entity_kind, work_id, provider, external_id) values ('book',$1,'goodreads','72006')`, [other]);
+        if (kind === "edition") await registerCatalogueIdentifier({ owner: { kind: "edition", id: await edition(other) }, provider: "goodreads", externalId: "72006" });
+        if (kind === "legacy-edition") await edition(other, { goodreadsId: "72006" });
+        if (kind === "legacy-url") await q(`update works set goodreads_url = 'https://www.goodreads.com/book/show/72006' where id = $1`, [other]);
+        await expect(commitReadingImport({ importId })).rejects.toThrow("Goodreads Book Id");
+        await expect(registerCatalogueIdentifier({ owner: { kind: "book", id: workId }, provider: "goodreads", externalId: "72006" })).rejects.toThrow("Goodreads Book Id");
+        expect(Number(await value(`select count(*) from readings where import_id = $1`, [importId]))).toBe(0);
+      });
+      it("serializes opposing registry claims across book and edition namespaces", async () => {
+        const first = await book("Watt", "Samuel Beckett"); const second = await book("Molloy", "Samuel Beckett");
+        const secondEdition = await edition(second);
+        const attempts = await Promise.allSettled([
+          registerCatalogueIdentifier({ owner: { kind: "book", id: first }, provider: "goodreads", externalId: "00072007" }),
+          registerCatalogueIdentifier({ owner: { kind: "edition", id: secondEdition }, provider: "goodreads", externalId: "72007" }),
+        ]);
+        expect(attempts.filter((r) => r.status === "fulfilled")).toHaveLength(1);
+        expect(attempts.filter((r) => r.status === "rejected")).toHaveLength(1);
+        expect(await identityRows()).toHaveLength(1);
+      });
+      it("retains a shared identity when another import has committed a later reading", async () => {
+        await book("Watt", "Samuel Beckett");
+        const first = await upload(goodreads([line("72008")])); await accept(first.importId); await commitReadingImport(first);
+        const second = await upload(goodreads([line("72008", "Watt", { "Read Count": "2", "Date Read": "2025/01/09" })]));
+        await accept(second.importId); await commitReadingImport(second);
+        expect((await rows(second.importId))[0].written?.identifiers).toEqual([]);
+        expect(await undoReadingImport(first)).toMatchObject({ identifiersKept: 1 });
+        expect(await identityRows()).toHaveLength(1);
+      });
+      it("retains a source-cited identity and an identity moved by an audited merge", async () => {
+        const workId = await book("Watt", "Samuel Beckett");
+        const { importId } = await upload(goodreads([line("72009")])); await accept(importId); await commitReadingImport({ importId });
+        const id = (await identityRows())[0].id as string;
+        await recordSourceObservation({ owner: { kind: "book", id: workId }, identifierId: id, provider: "goodreads", retrievedAt: new Date(), payload: {} });
+        expect(await undoReadingImport({ importId })).toMatchObject({ identifiersKept: 1 });
+        expect(await identityRows()).toHaveLength(1);
+        const second = await upload(goodreads([line("72010")])); await accept(second.importId); await commitReadingImport(second);
+        const target = await book("Molloy", "Samuel Beckett");
+        const merge = await previewMerge("works", workId, target);
+        await executeMerge({ entity: "works", sourceId: workId, targetId: target, fingerprint: merge.fingerprint, choices: Object.fromEntries(merge.fields.filter((f) => f.conflict).map((f) => [f.key, "target"])) });
+        expect(await undoReadingImport(second)).toMatchObject({ identifiersKept: 1 });
+        expect((await identityRows()).find((r) => r.external_id === "72010")?.work_id).toBe(target);
+      });
+      it("preserves queue claims and prefers exact queue provenance over legitimate alternate IDs", async () => {
+        const workId = await book("Watt", "Samuel Beckett");
+        const { importId } = await upload(goodreads([line("72011", "Watt", { "Exclusive Shelf": "to-read", "Read Count": "0" })]));
+        await accept(importId); await commitReadingImport({ importId });
+        const written = (await rows(importId))[0].written!;
+        expect(written).toMatchObject({ identifiers: [expect.any(String)], queueOutcome: "written", goodreadsClaim: { externalId: "72011" } });
+        await registerCatalogueIdentifier({ owner: { kind: "edition", id: await edition(workId) }, provider: "goodreads", externalId: "72012" });
+        expect((await exportIds()).data[0]["Book Id"]).toBe("72011");
+        expect(await undoReadingImport({ importId })).toMatchObject({ identifiersKept: 0 });
+        expect((await identityRows()).map((r) => r.external_id)).toEqual(["72012"]);
+      });
+      it("does not trust exact provenance once an unrelated legacy writer creates a cross-book conflict", async () => {
+        await book("Watt", "Samuel Beckett");
+        const { importId } = await upload(goodreads([line("72111")])); await accept(importId); await commitReadingImport({ importId });
+        await book("Conflicting legacy record", "Someone Else", { goodreadsUrl: "https://www.goodreads.com/book/show/72111" });
+        const exported = await exportIds(); expect(exported.data[0]["Book Id"]).toBe(""); expect(exported.warning).toBe("1");
+        expect((await identityRows())[0].external_id).toBe("72111");
+      });
+      it("uses only exact reading provenance, warns for ambiguity and rejects a copied source key", async () => {
+        const workId = await book("Watt", "Samuel Beckett");
+        const { importId } = await upload(goodreads([line("72013")])); await accept(importId); await commitReadingImport({ importId });
+        await registerCatalogueIdentifier({ owner: { kind: "edition", id: await edition(workId) }, provider: "goodreads", externalId: "72014" });
+        expect((await exportIds()).data[0]["Book Id"]).toBe("72013");
+        // The exact same text no longer corroborates when its owning import is a Durtal file.
+        await q(`update imports set source = 'durtal' where id = $1`, [importId]);
+        const exported = await exportIds();
+        expect(exported.data[0]["Book Id"]).toBe("");
+        expect(exported.warning).toBe("1"); // the copied key cannot resolve two legitimate catalogue IDs
+        await edition(workId, { goodreadsId: "72015" });
+        await edition(workId, { goodreadsId: "72016" });
+        const ambiguous = await exportIds(); expect(ambiguous.data[0]["Book Id"]).toBe(""); expect(ambiguous.warning).toBe("1");
+      });
+    });
+
     it("records the Goodreads id of an edition matched by ISBN, once", async () => {
       const workId = await book("Watt", "Samuel Beckett");
       const editionId = await edition(workId, { isbn13: "9780140449136" });
@@ -591,7 +898,7 @@ describe.skipIf(!url)("the reading import with PostgreSQL", () => {
       );
       await commitReadingImport({ importId });
       await q(`update readings set rating = 4, updated_at = now() + interval '1 second' where work_id = $1`, [a]);
-      expect(await undoReadingImport({ importId })).toEqual({ removed: 1, kept: 1, queueRemoved: 0, queueKept: 0, notesRemoved: 0, notesKept: 0 });
+      expect(await undoReadingImport({ importId })).toEqual({ removed: 1, kept: 1, queueRemoved: 0, queueKept: 0, notesRemoved: 0, notesKept: 0, identifiersKept: 0 });
       expect((await readingsOf(a)).length).toBe(1);
       expect((await readingsOf(b)).length).toBe(0);
       expect(await value(`select status from imports where id = $1`, [importId])).toBe("undone");
@@ -777,4 +1084,217 @@ describe.skipIf(!url)("the reading import with PostgreSQL", () => {
       expect((await rows(importId))[0].written).toMatchObject({ ratingOutcome: "kept", bookRating: null });
     });
   });
+  describe("Durtal history restore (SLN-1090)",()=>{
+    const download=async(entity:string,format="csv")=>{
+      const response=await exportRoute(new NextRequest("http://localhost/api/export",{method:"POST",body:JSON.stringify({entity,format,all:true})}));
+      expect(response.status).toBe(200);return response.text();
+    };
+    const fixture=async()=>{
+      const workId=await book("History restore","Author");const editionId=await edition(workId,{pages:200});
+      const readingId=await value<string>(`insert into readings(work_id,edition_id,status,format,unit,started_precision,total_pages,start_page,start_percent,current_page,current_percent,current_chapter,source,created_at,updated_at)
+        values($1,$2,'reading','ebook','pages','unknown',200,50,25,160,80,'manual position','manual','1969-12-31T23:59:59.123456Z','1970-01-01T00:00:00.000001Z') returning id`,[workId,editionId]);
+      const sessionId=await value<string>(`insert into reading_sessions(reading_id,edition_id,format,read_on,time_zone,started_at,ended_at,duration_seconds,start_percent,end_percent,pages_total,note,source,paused_seconds,created_at,updated_at)
+        values($1,$2,'ebook','1969-12-31','Europe/Amsterdam','1969-12-31T23:59:58.123456Z','1969-12-31T23:59:59.999999Z',1,25,50,200,E'line\\ttwo\\nthree','timer',7,'1969-12-31T23:59:59.999999Z','1970-01-01T00:00:00.000001Z') returning id`,[readingId,editionId]);
+      const thought={type:"doc",content:[{type:"paragraph",content:[{type:"text",text:"code",marks:[{type:"code"}]},{type:"hardBreak"},{type:"text",text:"link",marks:[{type:"link",attrs:{href:"https://example.com",target:"_blank",rel:"noopener noreferrer nofollow",class:null}}]}]}]};
+      const noteId=await value<string>(`insert into reading_notes(work_id,reading_id,edition_id,kind,body,comment_html,comment_json,source,created_at,updated_at)
+        values($1,$2,$3,'quote',E'  literal\\tpassage\\nnext  ',$4,$5::jsonb,'manual','1969-12-31T23:59:59.999999Z','1970-01-01T00:00:00.000001Z') returning id`,[workId,readingId,editionId,renderThought(thought),JSON.stringify(thought)]);
+      return {workId,editionId,readingId,sessionId,noteId,thought};
+    };
+    const snapshot=async()=>value(`select jsonb_build_object(
+      'readings',(select jsonb_agg(to_jsonb(r) order by id) from readings r),
+      'sessions',(select jsonb_agg(to_jsonb(s) order by id) from reading_sessions s),
+      'notes',(select jsonb_agg(to_jsonb(n) order by id) from reading_notes n))`);
+
+    it("exports and reimports 30 books of readings, sessions and notes without modifying existing records",async()=>{
+      for(let i=0;i<30;i++) {
+        const workId=await book(`Restore ${i}`,"A Writer");
+        const id=await reading(workId,{totalPages:100,finishedOn:"2020-02-02",finishedPrecision:"day"});
+        await q(`insert into reading_sessions(reading_id,format,read_on,time_zone,start_percent,end_percent,pages_total,source) values($1,'print','2020-02-02','UTC',0,100,100,'manual')`,[id]);
+        await q(`insert into reading_notes(work_id,reading_id,kind,body,source) values($1,$2,'note','Existing edited note','manual')`,[workId,id]);
+      }
+      const before=await snapshot();
+      for(const entity of ["readings","reading-sessions","reading-notes"]) {
+        const created=await upload(await download(entity),`${entity}.csv`);
+        expect((await rows(created.importId)).map(r=>r.match.section)).toEqual(Array(30).fill("present"));
+        expect(await commitReadingImport({importId:created.importId})).toMatchObject({written:0,sessions:0,notes:0});
+      }
+      expect(await snapshot()).toEqual(before);
+    },60000);
+
+    it("formats stored session previews without rewriting raw summaries, exact instants or note previews", async () => {
+      await fixture();
+      const sessions = await upload(await download("reading-sessions"), "sessions.csv");
+      const notes = await upload(await download("reading-notes"), "notes.csv");
+      const stored = () => q(`select import_id, row_no, to_jsonb(r) as row from reading_import_rows r where import_id in ($1, $2) order by import_id, row_no`, [sessions.importId, notes.importId]);
+      const before = await stored();
+      const domainBefore = await snapshot();
+      const sessionRows = Object.values((await getImportPreview(sessions.importId))!.sections).flat();
+      expect(sessionRows).toHaveLength(1);
+      expect(sessionRows[0].data.history?.summary).toBe("31 Dec 1969 · 25–50% · under a minute");
+      expect(Object.keys(sessionRows[0].data.history!).sort()).toEqual(["entity", "id", "summary"]);
+      expect(sessionRows[0]).not.toHaveProperty("sessionPreview");
+      const noteRows = Object.values((await getImportPreview(notes.importId))!.sections).flat();
+      expect(noteRows).toHaveLength(1);
+      expect(noteRows[0].data.history?.summary).toBe("  literal\tpassage\nnext  ");
+      const after = await stored();
+      expect(after).toEqual(before);
+      expect(await snapshot()).toEqual(domainBefore);
+      const saved = ((await rows(sessions.importId))[0].data as ImportRow).history!;
+      expect(saved.summary).toBe("1969-12-31 · 25–50% · 1 seconds");
+      expect(saved.values.duration_seconds).toBe(1);
+      expect(String(saved.values.started_at)).toContain("23:59:58.123456");
+      expect(String(saved.values.ended_at)).toContain("23:59:59.999999");
+    });
+
+    it("restores new reading UUIDs, exact microseconds, original baselines and rich notes without moving current position",async()=>{
+      const f=await fixture();
+      const readingFile=await download("readings","tsv"), sessionFile=await download("reading-sessions","tsv"), noteFile=await download("reading-notes","tsv");
+      await q(`delete from reading_notes`);await q(`delete from reading_sessions`);await q(`delete from readings`);
+      const readingImport=await upload(readingFile,"readings.tsv");
+      expect(await commitReadingImport({importId:readingImport.importId})).toMatchObject({written:1});
+      const restored=await value<string>(`select id from readings where source_key=$1`,[`durtal:${f.readingId}`]);
+      expect(restored).not.toBe(f.readingId);
+      const before=await value(`select to_jsonb(r) from readings r where id=$1`,[restored]);
+      const sessions=await upload(sessionFile,"sessions.tsv"), notes=await upload(noteFile,"notes.tsv");
+      expect((await getImportPreview(sessions.importId))!.summary).toMatchObject({toSessions:1,toImport:0});
+      expect(await commitReadingImport({importId:sessions.importId})).toMatchObject({sessions:1});
+      expect(await commitReadingImport({importId:notes.importId})).toMatchObject({notes:1});
+      expect(await value(`select to_jsonb(r) from readings r where id=$1`,[restored])).toEqual(before);
+      expect(await value(`select (extract(epoch from ended_at)*1000000)::bigint::text from reading_sessions where id=$1`,[f.sessionId])).toBe("-1");
+      expect(await value(`select (extract(epoch from updated_at)*1000000)::bigint::text from reading_sessions where id=$1`,[f.sessionId])).toBe("1");
+      expect(await value(`select reading_id from reading_sessions where id=$1`,[f.sessionId])).toBe(restored);
+      expect(await value(`select paused_seconds from reading_sessions where id=$1`,[f.sessionId])).toBe(7);
+      const totals=await testDb!.execute(sql`select sum(c.pages)::float8 as pages from ${countedPagesSql()} c where c.reading_id=${restored}::uuid`);
+      expect(totals[0].pages).toBe(50);
+      expect(await value(`select comment_json from reading_notes where id=$1`,[f.noteId])).toEqual(f.thought);
+      const again=await upload(sessionFile,"again.tsv");
+      expect((await rows(again.importId))[0].match.section).toBe("present");
+      expect(await commitReadingImport({importId:again.importId})).toMatchObject({sessions:0});
+      expect(await undoReadingImport({importId:notes.importId})).toMatchObject({notesRemoved:1});
+      expect(await undoReadingImport({importId:sessions.importId})).toMatchObject({sessionsRemoved:1});
+      expect(await undoReadingImport({importId:readingImport.importId})).toMatchObject({removed:1});
+    });
+
+    it("never falls back from a live wrong-book UUID, or guesses a missing parent by title",async()=>{
+      const f=await fixture(), other=await book("Wrong book","Author");
+      const source=sessionExportRecord(f.readingId,f.workId,f.editionId);
+      const wrong=await upload(toCSV([{...source,work_id:other,reading_source_key:`durtal:${f.readingId}`}],SESSION_EXPORT_COLUMNS));
+      expect((await rows(wrong.importId))[0].match).toMatchObject({section:"cannot",note:"The reading UUID belongs to another book"});
+      const missing=await upload(toCSV([{...source,reading_id:randomUUID(),reading_source_key:"",work_title:"History restore"}],SESSION_EXPORT_COLUMNS));
+      expect((await rows(missing.importId))[0].match.section).toBe("cannot");
+      expect(await commitReadingImport({importId:wrong.importId})).toMatchObject({sessions:0});
+    });
+
+    function sessionExportRecord(readingId:string,workId:string,editionId:string|null=null) {
+      return {session_id:randomUUID(),reading_id:readingId,work_id:workId,edition_id:editionId,work_title:"History restore",day:"2020-01-01",time_zone:"UTC",format:"ebook",source:"manual",start_percent:25,end_percent:50,pages_total:200,export_version:3,created_at:"2020-01-01T00:00:00.123456Z",updated_at:"2020-01-01T00:00:00.123456Z"};
+    }
+
+    it("resolves legacy parents only through a unique insert-proven mapping",async()=>{
+      const workId=await book("Mapped history","Author"), oldId=randomUUID();
+      const file=(source_key:string)=>toCSV([{reading_id:oldId,work_id:workId,title:"Mapped history",status:"finished",format:"print",source_key}],DURTAL_READING_COLUMNS);
+      const first=await upload(file("legacy:exact-one"));
+      expect(await commitReadingImport({importId:first.importId})).toMatchObject({written:1});
+      const actual=await value<string>(`select id from readings where source_key='legacy:exact-one'`);
+      const legacy={...sessionExportRecord(oldId,workId),session_id:randomUUID()};
+      const child=await upload(toCSV([legacy],SESSION_EXPORT_COLUMNS_V2));
+      expect(await commitReadingImport({importId:child.importId})).toMatchObject({sessions:1});
+      expect(await value(`select reading_id from reading_sessions where id=$1`,[legacy.session_id])).toBe(actual);
+      // Historical journals can disagree even though the current writer will not create this ambiguity.
+      const secondActual=await value<string>(`insert into readings(work_id,status,format,unit,started_precision,finished_precision,source,source_key)
+        values($1,'finished','print','pages','unknown','unknown','manual','legacy:exact-two') returning id`,[workId]);
+      const second=await upload(file("legacy:exact-two"));
+      await q(`update reading_import_rows set written=$2::jsonb where import_id=$1`,[second.importId,JSON.stringify({parent:{oldReadingId:oldId,oldWorkId:workId,readingId:secondActual,workId,sourceKey:"legacy:exact-two",proof:"inserted"}})]);
+      const ambiguous=await upload(toCSV([{...legacy,session_id:randomUUID()}],SESSION_EXPORT_COLUMNS_V2));
+      expect((await rows(ambiguous.importId))[0].match).toMatchObject({section:"cannot",note:"Ambiguous reading parent mapping"});
+    });
+
+    it("concurrent commits journal ownership only once and preserve existing or edited rows on undo",async()=>{
+      const f=await fixture();const source=sessionExportRecord(f.readingId,f.workId,f.editionId);
+      const file=toCSV([source],SESSION_EXPORT_COLUMNS), first=await upload(file), second=await upload(file);
+      const outcomes=await Promise.all([commitReadingImport({importId:first.importId}),commitReadingImport({importId:second.importId})]);
+      expect(outcomes.reduce((n,r)=>n+(r.sessions??0),0)).toBe(1);
+      const owners=await q(`select import_id from reading_import_rows where written->'history'->>'id'=$1 and written->'history'->>'created'='true'`,[source.session_id]);
+      expect(owners).toHaveLength(1);
+      const loser=owners[0].import_id===first.importId?second.importId:first.importId;
+      expect(await undoReadingImport({importId:loser})).toMatchObject({sessionsRemoved:0});
+      expect(await value(`select count(*)::int from reading_sessions where id=$1`,[source.session_id])).toBe(1);
+      await q(`update reading_sessions set note='Edited after import' where id=$1`,[source.session_id]);
+      expect(await undoReadingImport({importId:owners[0].import_id})).toMatchObject({sessionsRemoved:0,sessionsKept:1});
+    });
+
+    it("keeps unmodified child snapshots after effective parent ownership changes",async()=>{
+      const f=await fixture(), source=sessionExportRecord(f.readingId,f.workId,null), file=toCSV([source],SESSION_EXPORT_COLUMNS);
+      const created=await upload(file);await commitReadingImport({importId:created.importId});
+      const other=await book("Moved parent","Other");
+      await q(`update readings set work_id=$1,edition_id=null where id=$2`,[other,f.readingId]);
+      expect(await undoReadingImport({importId:created.importId})).toMatchObject({sessionsRemoved:0,sessionsKept:1});
+    });
+
+    it("keeps current progress through edition switches and duration-only historical sessions",async()=>{
+      const f=await fixture(), otherEdition=await edition(f.workId,{title:"Long edition",pages:500});
+      await q(`delete from reading_sessions where reading_id=$1`,[f.readingId]);
+      const before=await value(`select to_jsonb(r) from readings r where id=$1`,[f.readingId]);
+      const first={...sessionExportRecord(f.readingId,f.workId,f.editionId),created_at:"2020-01-01T00:00:00.100001Z",updated_at:"2020-01-01T00:00:00.100001Z"};
+      const second={...sessionExportRecord(f.readingId,f.workId,otherEdition),start_percent:50,end_percent:60,pages_total:500,created_at:"2020-01-01T00:00:00.200001Z",updated_at:"2020-01-01T00:00:00.200001Z"};
+      const duration={...sessionExportRecord(f.readingId,f.workId,null),start_percent:null,end_percent:null,pages_total:null,duration_seconds:900,end_chapter:"Old chapter",created_at:"2020-01-01T00:00:00.300001Z",updated_at:"2020-01-01T00:00:00.300001Z"};
+      const imported=await upload(toCSV([first,second,duration],SESSION_EXPORT_COLUMNS));
+      expect(await commitReadingImport({importId:imported.importId})).toMatchObject({sessions:3});
+      expect(await value(`select to_jsonb(r) from readings r where id=$1`,[f.readingId])).toEqual(before);
+      const totals=await testDb!.execute(sql`select sum(c.pages)::float8 as pages from ${countedPagesSql()} c where c.reading_id=${f.readingId}::uuid`);
+      expect(totals[0].pages).toBe(100);
+      expect(await value(`select start_percent::float8 from reading_sessions where id=$1`,[second.session_id])).toBe(50);
+    });
+
+    it.each([50,51])("stops stale work when Undo interleaves after the first batch of %i rows",async(count)=>{
+      const f=await fixture();const records=Array.from({length:count},()=>sessionExportRecord(f.readingId,f.workId,f.editionId));
+      const created=await upload(toCSV(records,SESSION_EXPORT_COLUMNS));
+      const original=atomicModule.atomic;let interleaved=false;
+      const spy=vi.spyOn(atomicModule,"atomic").mockImplementation(async(build)=>{
+        const result=await original(build);
+        if(!interleaved && result.length===55) {
+          interleaved=true;
+          expect(await undoReadingImport({importId:created.importId})).toMatchObject({sessionsRemoved:50});
+        }
+        return result;
+      });
+      try {await expect(commitReadingImport({importId:created.importId})).rejects.toThrow("changed through Undo");}
+      finally {spy.mockRestore();}
+      expect(interleaved).toBe(true);
+      expect(await value(`select status from imports where id=$1`,[created.importId])).toBe("undone");
+      expect(await value(`select count(*)::int from reading_sessions where id=any($1::uuid[])`,[records.map(r=>r.session_id)])).toBe(0);
+      expect(await value(`select count(*)::int from reading_import_rows where import_id=$1 and written->'history' is not null`,[created.importId])).toBe(0);
+    });
+
+    it("uses UTC snapshots across different connection timezones and clears only its own journal keys",async()=>{
+      const f=await fixture(),source=sessionExportRecord(f.readingId,f.workId,f.editionId);
+      const created=await upload(toCSV([source],SESSION_EXPORT_COLUMNS));
+      const original=atomicModule.atomic;let zone="Asia/Tokyo";
+      const spy=vi.spyOn(atomicModule,"atomic").mockImplementation(async(build)=>{
+        const result=await original((d)=>[d.execute(sql`select set_config('TimeZone',${zone},true)`),...build(d)]);
+        return result.slice(1);
+      });
+      try {
+        expect(await commitReadingImport({importId:created.importId})).toMatchObject({sessions:1});
+        await q(`update reading_import_rows set written=written || '{"retainedEvidence":{"value":"keep"}}'::jsonb where import_id=$1`,[created.importId]);
+        zone="America/New_York";
+        expect(await undoReadingImport({importId:created.importId})).toMatchObject({sessionsRemoved:1,sessionsKept:0});
+      } finally {spy.mockRestore();}
+      expect(await value(`select written->'retainedEvidence' from reading_import_rows where import_id=$1`,[created.importId])).toEqual({value:"keep"});
+      expect(await value(`select written->'history' from reading_import_rows where import_id=$1`,[created.importId])).toBeNull();
+    });
+
+    it("retries after a later atomic chunk fails without duplicating the first 50 sessions",async()=>{
+      const f=await fixture();
+      const records=Array.from({length:51},(_,i)=>({...sessionExportRecord(f.readingId,f.workId,f.editionId),note:i===50?"stop here":"ok"}));
+      const created=await upload(toCSV(records,SESSION_EXPORT_COLUMNS));
+      await q(`create function public.durtal_test_reject_restore() returns trigger language plpgsql as $$ begin if new.note='stop here' then raise exception 'synthetic interrupted chunk'; end if; return new; end $$`);
+      await q(`create trigger reject_restore before insert on reading_sessions for each row execute function public.durtal_test_reject_restore()`);
+      try {await expect(commitReadingImport({importId:created.importId})).rejects.toThrow("synthetic interrupted chunk");}
+      finally {await q(`drop trigger reject_restore on reading_sessions`);await q(`drop function public.durtal_test_reject_restore()`);}
+      expect(await value(`select count(*)::int from reading_import_rows where import_id=$1 and written->'history'->>'created'='true'`,[created.importId])).toBe(50);
+      expect(await commitReadingImport({importId:created.importId})).toMatchObject({sessions:1});
+      expect(await value(`select count(*)::int from reading_import_rows where import_id=$1 and written->'history'->>'created'='true'`,[created.importId])).toBe(51);
+    });
+  });
+
 });

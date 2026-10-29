@@ -4,6 +4,7 @@ import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { NextRequest } from "next/server";
 import { sql } from "drizzle-orm";
+import { ParquetReader } from "@dsnp/parquetjs";
 import * as schema from "@/lib/db/schema";
 
 // Explicit opt-in only: never load DATABASE_URL or any live environment files.
@@ -191,8 +192,30 @@ describe.skipIf(!url)("the reading exports with PostgreSQL", () => {
     for (const entity of ["reading-sessions", "reading-notes", "goodreads"]) expect((await exportFile(entity)).status).toBe(200);
     // The Goodreads file is for importing: no byte order mark
     expect((await exportFile("goodreads")).text).toBe(GOODREADS_EXPORT_HEADER.join(","));
-    // Parquet with no rows has nothing to write
-    expect((await exportFile("readings", { all: true }, "parquet")).status).toBe(404);
+    // Parquet and JSON with no rows are still files (SLN-894): the columns, no rows
+    const res = await exportRoute(
+      new NextRequest("http://localhost/api/export", { method: "POST", body: JSON.stringify({ entity: "readings", format: "parquet", all: true }) }),
+    );
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-disposition")).toMatch(/filename="durtal-readings-all-\d{4}-\d{2}-\d{2}\.parquet"/);
+    const empty = await ParquetReader.openBuffer(Buffer.from(await res.arrayBuffer()));
+    expect(Object.keys(empty.schema.fields)).toEqual([...READING_EXPORT_COLUMNS]);
+    expect(Number(empty.getRowCount())).toBe(0);
+    expect(JSON.parse((await exportFile("readings", { all: true }, "json")).text)).toEqual([]);
+  });
+
+  it("uses stored author components only for the Goodreads Author l-f cell", async () => {
+    const b = await book("Stored author names", { goodreadsId: "000123" });
+    await reading(b, { status: "finished", finished_on: "2025-01-09", finished_precision: "day" });
+    const [header, before] = parseCsv((await exportFile("goodreads")).text);
+    expect(header).toEqual([...GOODREADS_EXPORT_HEADER]);
+    await q(`update authors set sort_name = ' ', first_name = ' María ', last_name = ' de la Cruz '
+      where id in (select author_id from work_authors where work_id = $1)`, [b.workId]);
+    const result = await exportFile("goodreads");
+    expect(result.status).toBe(200);
+    const expected = [...before];
+    expected[header.indexOf("Author l-f")] = "de la Cruz, María";
+    expect(parseCsv(result.text)).toEqual([header, expected]);
   });
 
   it("imports its own Goodreads file back with nothing written", async () => {
@@ -257,6 +280,24 @@ describe.skipIf(!url)("the reading exports with PostgreSQL", () => {
     expect(rows.filter((row) => row.reading_id === openId).map((row) => row.pages_counted)).toEqual([60, 0]);
   });
 
+  it("keeps session exports in start order when end order differs, without changing counted pages", async () => {
+    const b = await book("Overlapping sittings");
+    const r = await reading(b, { status: "reading", start_percent: 0, total_pages: 300 });
+    // Starts A, B, C; finishes B, C, A. C has no start and uses its creation time.
+    const a = await session(r, { read_on: "2026-01-02", started_at: "2026-01-02T08:00:00Z", ended_at: "2026-01-02T12:00:00Z", created_at: "2026-01-02T14:00:00Z", end_percent: 70, pages_total: 300 });
+    const second = await session(r, { read_on: "2026-01-02", started_at: "2026-01-02T09:00:00Z", ended_at: "2026-01-02T10:00:00Z", created_at: "2026-01-02T13:00:00Z", end_percent: 40, pages_total: 300 });
+    const noStart = await session(r, { read_on: "2026-01-02", ended_at: "2026-01-02T11:00:00Z", created_at: "2026-01-02T10:30:00Z", end_percent: 50, pages_total: 300 });
+    // Counting still follows finishes: B adds 40%, C adds 10%, then A adds 20%.
+    const expected = [[a, 60], [second, 120], [noStart, 30]];
+    for (const native of [false, true]) {
+      const rows = await sessionExportRows([r], native);
+      expect(rows.map((row) => [row.session_id, row.pages_counted])).toEqual(expected);
+    }
+    const [header, ...rows] = parseCsv((await exportFile("reading-sessions")).text);
+    expect(rows.map((row) => row[header.indexOf("session_id")])).toEqual([a, second, noStart]);
+    expect(rows.map((row) => row[header.indexOf("pages_counted")])).toEqual(["60", "120", "30"]);
+  });
+
   it("guards a title or a passage that starts with = in every spreadsheet export, the works export too", async () => {
     const { formula } = await library();
     const guarded = (text: string, cell: string) => text.split(/\r?\n/).some((line) => line.split(",").includes(`'${cell}`));
@@ -268,6 +309,50 @@ describe.skipIf(!url)("the reading exports with PostgreSQL", () => {
     expect(guarded(goodreads, "=Equals")).toBe(false);
     expect(goodreads.split("\n").some((line) => line.split(",").includes("=Equals"))).toBe(true);
     expect(guarded((await exportFile("works", { ids: [formula.workId] })).text, "=Equals")).toBe(true);
+  });
+
+  it("writes JSON and Parquet typed, with null for a missing value (SLN-894)", async () => {
+    const { openId } = await library();
+    const json = await exportFile("readings", { all: true }, "json");
+    expect(json.type).toBe("application/json; charset=utf-8");
+    const rows = JSON.parse(json.text) as Record<string, unknown>[];
+    const open = rows.find((row) => row.reading_id === openId)!;
+    expect(Object.keys(open)).toEqual([...READING_EXPORT_COLUMNS]);
+    expect(open).toMatchObject({ current_percent: 44.5, current_page: 133, started_on: { precision: "day", start: { year: 2026, month: 1, day: 2 } }, finished_on: null, rating: null, pages_read: 60 });
+    const notes = JSON.parse((await exportFile("reading-notes", { all: true }, "json")).text) as Record<string, unknown>[];
+    expect(notes[0]).toMatchObject({ page: 12, end_page: 13, page_roman: false, favourite: false, chapter: null });
+    // CSV still says yes or no
+    expect(parseCsv((await exportFile("reading-notes")).text)[1][NOTE_EXPORT_COLUMNS.indexOf("favourite")]).toBe("no");
+    const res = await exportRoute(
+      new NextRequest("http://localhost/api/export", { method: "POST", body: JSON.stringify({ entity: "reading-sessions", format: "parquet", all: true }) }),
+    );
+    const reader = await ParquetReader.openBuffer(Buffer.from(await res.arrayBuffer()));
+    const type = (name: string) => (reader.schema.fields[name] as { originalType?: string; primitiveType?: string }).originalType ?? reader.schema.fields[name].primitiveType;
+    expect([type("day"), type("end_percent"), type("duration_seconds"), type("work_title")]).toEqual(["DATE", "DOUBLE", "INT64", "UTF8"]);
+    const cursor = reader.getCursor();
+    const first = (await cursor.next()) as Record<string, unknown>;
+    expect(first.day).toBeInstanceOf(Date);
+  });
+
+  it("takes signed microseconds directly from PostgreSQL while preserving legacy timestamp cells", async () => {
+    const b = await book("Exact clocks");
+    const r = await reading(b, { status: "finished" });
+    const sessionId = await session(r, { read_on: "1970-01-01", time_zone: "UTC", started_at: "1969-12-31T23:59:59.999999Z", ended_at: "1970-01-01T00:00:00.123456Z" });
+    await q(`insert into reading_notes(work_id, reading_id, kind, body, created_at) values ($1, $2, 'note', 'Exact note', '1969-12-31T23:59:59.999999Z')`, [b.workId, r]);
+    const before = await written();
+    const exact = await q(`select (extract(epoch from started_at)*1000000)::bigint::text as micros, to_json(started_at)#>>'{}' as legacy from reading_sessions where id=$1`, [sessionId]);
+    expect(exact[0].micros).toBe("-1");
+    const raw = await sessionExportRows(null, true);
+    expect(raw.find((row) => row.session_id === sessionId)?.started_at).toBe("-1");
+    const sessions = JSON.parse((await exportFile("reading-sessions", { all: true }, "json")).text);
+    expect(sessions.find((row: { session_id: string }) => row.session_id === sessionId)).toMatchObject({
+      started_at: "1969-12-31T23:59:59.999999Z", ended_at: "1970-01-01T00:00:00.123456Z", day: "1970-01-01", time_zone: "UTC",
+    });
+    const legacy = parseCsv((await exportFile("reading-sessions")).text);
+    expect(legacy[1][legacy[0].indexOf("started_at")]).toBe(exact[0].legacy);
+    const notes = JSON.parse((await exportFile("reading-notes", { all: true }, "json")).text);
+    expect(notes[0].created_at).toBe("1969-12-31T23:59:59.999999Z");
+    expect(await written()).toEqual(before);
   });
 
   it("exports what the journal's and the commonplace book's filters show, and the commonplace book as Markdown", async () => {

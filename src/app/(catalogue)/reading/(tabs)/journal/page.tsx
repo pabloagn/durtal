@@ -93,7 +93,7 @@ async function JournalResults({ params }: { params: ListSearchParams }) {
             the counts on a phone, its label starts at their text edge; at the
             end of their line the margin only narrows the gap */}
         <div className="-ml-2.5">
-          <ExportMenu entity="readings" ids={{ filters: exportFilters(search) }} noun="readings" align="end" side="bottom" />
+          <ExportMenu entity="readings" ids={{ filters: exportFilters(search) }} align="end" side="bottom" />
         </div>
       </div>
       {/* A deleted row's focus moves on to the next row (FocusKeeper, SLN-1074) */}

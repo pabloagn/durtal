@@ -189,6 +189,47 @@ describe.skipIf(!url)("the write routes SLN-311 left out, with PostgreSQL", () =
       expect((await refused.json()).error).toMatch(/Invalid format/);
     });
 
+    it("POST /api/export people: every person by sort name, with their roles across the collections (SLN-894)", async () => {
+      const filmId = await value(`select id from works where title = 'Stalker'`);
+      const tarkovsky = await value(
+        `insert into authors(name, slug, sort_name) values ('Andrei Tarkovsky', 'andrei-tarkovsky', 'Tarkovsky, Andrei') returning id`,
+      );
+      await q(`insert into work_credits(work_id, person_id, role_id) values ($1, $2, 'film.director')`, [filmId, tarkovsky]);
+      await q(`insert into work_authors(work_id, author_id, role, sort_order) values ($1, $2, 'co_author', 1)`, [bookId, tarkovsky]);
+      await q(`insert into authors(name, slug, sort_name) values ('Ödön von Horváth', 'odon-von-horvath', 'Horváth, Ödön')`);
+      const res = await exportOf({ entity: "authors", format: "json", all: true });
+      expect(res.headers.get("Content-Disposition")).toMatch(/filename="durtal-people-all-\d{4}-\d{2}-\d{2}\.json"/);
+      const people = (await res.json()) as Record<string, unknown>[];
+      expect(people.map((p) => [p.name, p.roles, p.works_count])).toEqual([
+        ["Clarice Lispector", ["Author"], 1],
+        ["Ödön von Horváth", [], 0],
+        ["Andrei Tarkovsky", ["Co-author", "Director"], 1],
+      ]);
+      expect(people[0]).toMatchObject({ sort_name: null, birth_year: null, bio: null });
+      // A selection keeps a person of any collection
+      const one = await exportOf({ entity: "authors", format: "csv", ids: [tarkovsky] });
+      expect(one.headers.get("Content-Disposition")).toMatch(/filename="durtal-andrei-tarkovsky-\d{4}-\d{2}-\d{2}\.csv"/);
+      expect(await one.text()).toContain("Co-author; Director");
+    });
+
+    it("POST /api/export people: two roles on one book count once while nonbook roles stay visible", async () => {
+      // The fixture already credits this person as the book's author.
+      await q(`insert into work_authors(work_id, author_id, role, sort_order) values ($1, $2, 'co_author', 1)`, [bookId, authorId]);
+      const filmId = await value(`select id from works where title = 'Stalker'`);
+      await q(`insert into work_credits(work_id, person_id, role_id) values ($1, $2, 'film.director')`, [filmId, authorId]);
+      const before = await counts();
+
+      const all = await (await exportOf({ entity: "authors", format: "json", all: true })).json() as Record<string, unknown>[];
+      expect(all.find((person) => person.name === "Clarice Lispector")).toMatchObject({
+        roles: ["Author", "Co-author", "Director"],
+        works_count: 1,
+      });
+      const selected = await (await exportOf({ entity: "authors", format: "json", ids: [authorId] })).json();
+      expect(selected).toHaveLength(1);
+      expect(selected[0]).toMatchObject({ roles: ["Author", "Co-author", "Director"], works_count: 1 });
+      expect(await counts()).toEqual(before);
+    });
+
     it("POST /api/export refuses an unknown entity, ids that are not UUIDs and no selection", async () => {
       expect((await exportOf({ entity: "planets", format: "csv", all: true })).status).toBe(400);
       expect((await exportOf({ entity: "works", format: "csv", ids: ["nope"] })).status).toBe(400);

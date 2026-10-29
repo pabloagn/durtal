@@ -6,6 +6,7 @@ import { z } from "zod";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { atomic } from "@/lib/db/atomic";
+import { registerGoodreadsIdentity } from "@/lib/catalogue/goodreads-identity";
 import { catalogueIdentifiers, sourceRecords } from "@/lib/db/schema";
 import {
   ownerColumns,
@@ -45,6 +46,8 @@ export async function registerCatalogueIdentifier(
   input: z.input<typeof identifierSchema>,
 ) {
   const { owner, provider, externalId } = identifierSchema.parse(input);
+  if (provider === "goodreads" && (owner.kind === "book" || owner.kind === "edition"))
+    return registerGoodreadsIdentity({ kind: owner.kind, id: owner.id }, externalId);
   const [row] = await db
     .insert(catalogueIdentifiers)
     .values({ ...ownerColumns(owner), provider, externalId })

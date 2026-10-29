@@ -19,10 +19,11 @@ import {
   undoReadingImport,
 } from "@/lib/actions/catalogue-client";
 import { refusalMessage } from "@/lib/actions/refusal";
-import { rowsChanged, undoRemoves } from "@/lib/reading/import/action-words";
+import { rowsChanged, undoDescription, commitResultWords } from "@/lib/reading/import/action-words";
 import type { ImportDecision } from "@/lib/reading/import/match-rules";
 import type { ImportNoteView } from "@/lib/reading/import/notes";
 import type { RowLineKind, RowView } from "@/lib/reading/import/row-view";
+import { DELIMITED_IMPORT_MESSAGE, DURTAL_FILE_NAMES, type DurtalExportKind, delimitedUploadFormat } from "@/lib/reading/import/formats";
 
 /*
  * The reading import's buttons (SLN-450): small client islands on server
@@ -82,7 +83,7 @@ export function ImportUpload() {
   async function send(file: File | undefined) {
     if (!file) return;
     setError(null);
-    if (!/\.csv$/i.test(file.name)) return refuse("Only CSV files can be imported: a Goodreads, StoryGraph or Durtal export");
+    if (!delimitedUploadFormat(file.name, file.type)) return refuse(DELIMITED_IMPORT_MESSAGE);
     if (file.size === 0) return refuse("This file is empty");
     if (file.size > MAX_BYTES) return refuse("This file is over 10 MB. Export a smaller one.");
     setBusy(true);
@@ -90,7 +91,12 @@ export function ImportUpload() {
       const form = new FormData();
       form.append("file", file);
       const res = await fetch("/api/reading/import", { method: "POST", body: form });
-      const body = (await res.json().catch(() => ({}))) as { importId?: string; error?: string };
+      const body = (await res.json().catch(() => ({}))) as { importId?: string; error?: string; kind?: string; entity?: string };
+      if (res.ok && body.kind === "empty") {
+        toast.success(`This Durtal ${DURTAL_FILE_NAMES[body.entity as DurtalExportKind] ?? "export"} file has no rows. Nothing needed importing.`);
+        setBusy(false);
+        return;
+      }
       if (!res.ok || !body.importId) throw new Error(body.error ?? "The file could not be imported");
       router.push(`/reading/import/${body.importId}`);
     } catch (err) {
@@ -123,18 +129,18 @@ export function ImportUpload() {
       </div>
       <h2 className="type-item-title">Import reading history</h2>
       <p className="mt-2 max-w-md text-sm leading-relaxed text-fg-secondary">
-        A Goodreads or StoryGraph export, or a Durtal reading CSV. You see every row and its book before anything is written.
+        A Goodreads or StoryGraph export, or a Durtal readings, sessions, or quotes and notes CSV or TSV. You see every row and its book before anything is written.
       </p>
       <Button variant="primary" className={`mt-5 ${coarse}`} busy={busy} onClick={() => input.current?.click()} data-import-choose="">
-        Choose a CSV file
+        Choose a CSV or TSV file
       </Button>
       <input
         ref={input}
         type="file"
-        accept=".csv,text/csv"
+        accept=".csv,.tsv,text/csv,text/tab-separated-values"
         className="sr-only"
         tabIndex={-1}
-        aria-label="CSV file"
+        aria-label="CSV or TSV file"
         data-import-file=""
         onChange={(e) => void send(e.target.files?.[0])}
       />
@@ -514,18 +520,7 @@ export function CommitImport({ importId, label, disabled }: { importId: string; 
         run(
           () => commitReadingImport({ importId }),
           (r) => {
-            const { written, present, refused, queued, notes } = r as { written: number; present: number; refused: number; queued: number; notes: number };
-            toast.success(
-              [
-                `${written} ${written === 1 ? "reading" : "readings"} written`,
-                present ? `${present} already in Durtal` : null,
-                refused ? `${refused} refused` : null,
-                queued ? `${queued} ${queued === 1 ? "book" : "books"} added to Up next` : null,
-                notes ? `${notes} ${notes === 1 ? "note" : "notes"} imported` : null,
-              ]
-                .filter(Boolean)
-                .join(" · "),
-            );
+            toast.success(commitResultWords(r as Parameters<typeof commitResultWords>[0]));
           },
           "The import did not finish. Try again.",
         );
@@ -544,20 +539,26 @@ export function UndoImport({
   queued = 0,
   notes = 0,
   goodreadsIds = 0,
+  pendingClaims = 0,
+  ratings = 0,
+  sessions = 0,
   size = "md",
 }: {
   importId: string;
   readings: number;
   queued?: number;
   notes?: number;
-  /** The Goodreads ids it recorded on editions matched by ISBN; most imports record none (SLN-956) */
+  /** New identifiers recorded by this import, with guarded ownership. */
   goodreadsIds?: number;
+  pendingClaims?: number;
+  ratings?: number;
+  sessions?: number;
   size?: "sm" | "md";
 }) {
   const { pending, run } = useAction();
   const [asking, setAsking] = useState(false);
   const trigger = useRef<HTMLButtonElement>(null);
-  const removes = undoRemoves({ readings, queued, notes, goodreadsIds });
+  const description = undoDescription({ readings, queued, notes, goodreadsIds, pendingClaims, ratings, sessions });
   return (
     <>
       <Button ref={trigger} variant="ghost" size={size} busy={pending} onClick={() => setAsking(true)} className={coarse} data-import-undo={importId}>
@@ -567,10 +568,7 @@ export function UndoImport({
       {asking && (
         <Dialog open onClose={() => setAsking(false)} title="Undo this import" className="max-w-md" expandable={false}>
           <p className="text-sm text-fg-secondary">
-            This removes {removes.slice(0, -1).join(", ")}
-            {removes.length > 1 ? ", and " : ""}
-            {removes[removes.length - 1]}. Readings{notes ? " and notes" : ""} you edited since, and Up next items you moved or edited, are kept. You can import it
-            again later.
+            {description}
           </p>
           <div className="flex justify-end gap-2 pt-4">
             <Button variant="ghost" onClick={() => setAsking(false)} className={coarse}>
@@ -589,13 +587,15 @@ export function UndoImport({
                     setAsking(false);
                     // Undo goes once nothing is left to remove: focus goes to the import's status
                     keepFocus(() => summaryLine() ?? document.querySelector<HTMLElement>(`[data-import-item="${importId}"] a`), trigger.current);
-                    const { removed, kept, queueRemoved, queueKept, notesRemoved, notesKept } = r as {
+                    const { removed, kept, queueRemoved, queueKept, notesRemoved, notesKept, identifiersKept, sessionsRemoved = 0, sessionsKept = 0 } = r as {
                       removed: number;
                       kept: number;
                       queueRemoved: number;
                       queueKept: number;
                       notesRemoved: number;
                       notesKept: number;
+                      identifiersKept: number;
+                      sessionsRemoved?: number; sessionsKept?: number;
                     };
                     toast.success(
                       [
@@ -603,8 +603,11 @@ export function UndoImport({
                         kept ? `${kept} edited after the import and kept` : null,
                         queueRemoved ? `${queueRemoved} ${queueRemoved === 1 ? "book" : "books"} taken off Up next` : null,
                         queueKept ? `${queueKept} Up next ${queueKept === 1 ? "item was" : "items were"} moved or edited after the import and ${queueKept === 1 ? "was" : "were"} kept` : null,
+                        sessionsRemoved ? `${sessionsRemoved} sessions removed` : null,
+                        sessionsKept ? `${sessionsKept} changed sessions kept` : null,
                         notesRemoved ? `${notesRemoved} ${notesRemoved === 1 ? "note" : "notes"} removed` : null,
                         notesKept ? `${notesKept} ${notesKept === 1 ? "note was" : "notes were"} edited after the import and ${notesKept === 1 ? "was" : "were"} kept` : null,
+                        identifiersKept ? `${identifiersKept} Goodreads ${identifiersKept === 1 ? "ID was" : "IDs were"} kept because ownership changed, was shared, or could not be verified` : null,
                       ]
                         .filter(Boolean)
                         .join(" · "),
