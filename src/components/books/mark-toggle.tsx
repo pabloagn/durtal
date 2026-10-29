@@ -78,14 +78,17 @@ export function MarkToggle({
     window.clearTimeout(closeTimer.current);
   }, []);
 
-  function open() {
+  const open = useCallback(() => {
     clearTimers();
     const rect = button.current?.getBoundingClientRect();
     if (!rect) return;
     // Fixed card in a portal, so the hero's overflow never clips it
+    const height = card.current?.getBoundingClientRect().height || 180;
     const below = rect.bottom + 6;
-    const top =
-      below + 180 > window.innerHeight ? Math.max(8, rect.top - 186) : below;
+    const top = Math.max(8, Math.min(
+      below + height > window.innerHeight - 8 ? rect.top - height - 6 : below,
+      window.innerHeight - height - 8,
+    ));
     setPosition({
       left: Math.max(
         8,
@@ -93,7 +96,7 @@ export function MarkToggle({
       ),
       top,
     });
-  }
+  }, [clearTimers]);
 
   const close = useCallback(() => {
     clearTimers();
@@ -135,17 +138,20 @@ export function MarkToggle({
         close();
     }
     function moved(event: Event) {
-      if (!card.current?.contains(event.target as Node)) close();
+      if (card.current?.contains(event.target as Node)) return;
+      const active = document.activeElement;
+      if (card.current?.contains(active) || (active === button.current && button.current?.matches(":focus-visible"))) open();
+      else close();
     }
     document.addEventListener("pointerdown", outside);
     window.addEventListener("scroll", moved, true);
-    window.addEventListener("resize", close);
+    window.addEventListener("resize", moved);
     return () => {
       document.removeEventListener("pointerdown", outside);
       window.removeEventListener("scroll", moved, true);
-      window.removeEventListener("resize", close);
+      window.removeEventListener("resize", moved);
     };
-  }, [position, close]);
+  }, [position, close, open]);
 
   const action = marked ? mark.unmarkAction : mark.markAction;
 
