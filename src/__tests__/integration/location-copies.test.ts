@@ -301,7 +301,7 @@ describe.skipIf(!url)("book copies and their locations with PostgreSQL", () => {
       values (${reading.id},${editionId},'print','2026-10-01','Europe/Amsterdam',0,5) returning id`;
     const notes = await c`insert into reading_notes(work_id,reading_id,edition_id,kind,body) values
       (${workId},${reading.id},${editionId},'quote','A kept passage'),(${workId},${reading.id},${editionId},'note','A thought') returning id`;
-    const [publisher] = await c`insert into publishing_houses(name) values ('Deletion test publisher') returning id`;
+    const [publisher] = await c`insert into publishing_houses(name,slug) values ('Deletion test publisher','deletion-test-publisher') returning id`;
     await c`insert into edition_publishers(edition_id,publisher_id) values (${editionId},${publisher.id})`;
     const [image] = await c`insert into media(work_id,type,s3_key) values (${workId},'gallery','qa/delete-summary.webp') returning id`;
     const [ebook] = await c`insert into ebooks(title,import_source,instance_id,match_state) values ('Digital text','folder',${copy.id},'linked') returning id`;
