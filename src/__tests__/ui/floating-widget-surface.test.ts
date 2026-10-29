@@ -80,6 +80,8 @@ it("keeps a mark card open when the pointer leaves while its controls have focus
   const change = [...card.querySelectorAll<HTMLButtonElement>("button")].find(n => n.textContent === "Change date")!;
   act(() => change.focus());
   act(() => card.dispatchEvent(new PointerEvent("pointerout", { bubbles: true, relatedTarget: document.body })));
+  act(() => window.dispatchEvent(new Event("scroll")));
+  act(() => window.dispatchEvent(new Event("resize")));
   await act(() => new Promise(resolve => setTimeout(resolve, 200)));
   expect(document.querySelector('[role="group"]')).toBe(card);
 });
