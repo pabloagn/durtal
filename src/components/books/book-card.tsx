@@ -115,7 +115,6 @@ function CoverImage({
       <source srcSet={srcSet} sizes={sizes} />
       <FadeImage
         key={retries}
-        src={withMediaWidth(retrySrc, 400)}
         alt={alt}
         loading={priority ? "eager" : "lazy"}
         fetchPriority={priority ? "high" : undefined}
@@ -123,6 +122,10 @@ function CoverImage({
         className="protected-image cover-image"
         style={mediaImageStyle(crop)}
         onError={() => {
+          if (retries + 1 >= maxRetries) {
+            setRetries(maxRetries);
+            return;
+          }
           // Retry after a short delay — the server was likely just overloaded
           setTimeout(() => setRetries((r) => r + 1), 500 * (retries + 1));
         }}
