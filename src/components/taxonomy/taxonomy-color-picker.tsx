@@ -1,5 +1,7 @@
 "use client";
 
+import { IDENTIFIER_INPUT_ATTRIBUTES } from "@/lib/ui/input-attributes";
+
 import { useState, useRef, useEffect, useLayoutEffect, useCallback } from "react";
 import { X } from "lucide-react";
 
@@ -177,6 +179,7 @@ export function TaxonomyColorPicker({
           <div className="flex items-center gap-1.5">
             <input
               type="text"
+              {...IDENTIFIER_INPUT_ATTRIBUTES}
               value={customHex}
               onChange={(e) => setCustomHex(e.target.value)}
               onKeyDown={(e) => {
@@ -186,7 +189,7 @@ export function TaxonomyColorPicker({
                 }
               }}
               placeholder="#a1b2c3"
-              className="h-7 min-w-0 flex-1 pointer-coarse:h-11 rounded-sm border border-glass-border bg-bg-primary/80 px-2 font-mono text-xs text-fg-primary placeholder:text-fg-muted transition-colors focus:border-accent-primary focus:outline-none"
+              className="h-7 min-w-0 flex-1 pointer-coarse:h-11 rounded-sm border border-glass-border bg-bg-primary/80 px-2 font-mono text-xs pointer-coarse:text-sm text-fg-primary placeholder:text-fg-muted transition-colors focus:border-accent-primary focus:outline-none"
             />
             <button
               type="button"

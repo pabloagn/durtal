@@ -1,5 +1,7 @@
 "use client";
 
+import { SEARCH_INPUT_ATTRIBUTES } from "@/lib/ui/input-attributes";
+
 import { useState, useEffect, useRef, useCallback, useId } from "react";
 import { Plus, Loader2, Search } from "lucide-react";
 import Image from "next/image";
@@ -325,8 +327,8 @@ export function WorkSearchStep({
           className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-fg-muted"
           strokeWidth={1.5}
         />
-        <input
-          type="text"
+        <input {...SEARCH_INPUT_ATTRIBUTES}
+          type="search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search by title..."

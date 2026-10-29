@@ -1,5 +1,7 @@
 "use client";
 
+import { SEARCH_INPUT_ATTRIBUTES } from "@/lib/ui/input-attributes";
+
 import { memo, useDeferredValue, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { icons } from "lucide-react";
 
@@ -215,7 +217,7 @@ export default function IconPickerPanel({
   return (
     <div className="flex max-h-[min(440px,calc(100vh-16px))] flex-col">
       <div className="flex items-center gap-2 border-b border-glass-border p-2">
-        <input
+        <input {...SEARCH_INPUT_ATTRIBUTES} type="search"
           ref={input}
           value={query}
           onChange={(e) => setQuery(e.target.value)}

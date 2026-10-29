@@ -1,5 +1,7 @@
 "use client";
 
+import { Input } from "@/components/ui/input";
+
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { searchScore } from "@/lib/utils/search-text";
@@ -49,13 +51,13 @@ export function MultiSelectSection({
         )}
       </div>
       {items.length > 8 && (
-        <input
-          type="text"
+        <Input
+          type="search"
           aria-label={`Filter ${title.toLowerCase()}`}
           placeholder={`Filter ${title.toLowerCase()}...`}
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
-          className="mb-2 h-7 w-full rounded-sm border border-glass-border bg-bg-primary px-2 text-xs text-fg-primary placeholder:text-fg-muted focus:border-accent-primary focus:outline-none pointer-coarse:h-11"
+          containerClassName="mb-2"
         />
       )}
       {items.length === 0 ? (

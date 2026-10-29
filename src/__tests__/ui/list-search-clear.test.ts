@@ -95,3 +95,13 @@ it("does not clear the current field when opening the clear link with a modifier
   ));
   expect(input.value).toBe("missing");
 });
+
+
+it.each(["entity", "organization", "ebooks"])("gives %s searches a search keyboard without autocorrect", (kind) => {
+  render(kind);
+  expect(field().type).toBe("search");
+  expect(field().getAttribute("enterkeyhint")).toBe("search");
+  expect(field().getAttribute("autocorrect")).toBe("off");
+  expect(field().getAttribute("autocapitalize")).toBe("none");
+  expect(field().getAttribute("spellcheck")).toBe("false");
+});

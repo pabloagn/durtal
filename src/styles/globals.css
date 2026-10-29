@@ -1526,3 +1526,8 @@ dialog::backdrop {
   .book-ambient-desktop { display: none; }
   .book-ambient-coarse { display: block; }
 }
+
+/* Search fields keep the app's shape and its own clear control. */
+input[type="search"] { -webkit-appearance: none; appearance: none; }
+input[type="search"]::-webkit-search-decoration,
+input[type="search"]::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; }

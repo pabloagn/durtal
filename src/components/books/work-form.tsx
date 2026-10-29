@@ -1,5 +1,7 @@
 "use client";
 
+import { SEARCH_INPUT_ATTRIBUTES } from "@/lib/ui/input-attributes";
+
 import { useSaveReason } from "@/components/shared/save-reason";
 import { useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { Plus, Loader2 } from "lucide-react";
@@ -530,9 +532,9 @@ export function WorkForm({
 
               {showAuthorAdd ? (
                 <div className="rounded-sm border border-glass-border bg-bg-primary p-3">
-                  <input
+                  <input {...SEARCH_INPUT_ATTRIBUTES}
                     autoFocus
-                    type="text"
+                    type="search"
                     role="combobox"
                     aria-label="Author's name"
                     data-credit-search=""

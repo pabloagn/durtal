@@ -8,6 +8,7 @@ import {
   type KeyboardEvent,
 } from "react";
 import { Search, MapPin, Loader2, X } from "lucide-react";
+import { SEARCH_INPUT_ATTRIBUTES } from "@/lib/ui/input-attributes";
 import type { GooglePlaceResult } from "@/app/api/venues/search-places/route";
 import { isComposing } from "@/lib/shortcuts/shortcuts";
 
@@ -185,8 +186,9 @@ export function GooglePlacesSearch({
           )}
         </span>
         <input
+          {...SEARCH_INPUT_ATTRIBUTES}
           ref={inputRef}
-          type="text"
+          type="search"
           value={query}
           onChange={(e) => handleInputChange(e.target.value)}
           onKeyDown={handleKeyDown}
@@ -200,7 +202,7 @@ export function GooglePlacesSearch({
           aria-expanded={isOpen}
           aria-haspopup="listbox"
           role="combobox"
-          className="h-8 pointer-coarse:h-11 w-full rounded-sm border border-glass-border bg-bg-primary/80 py-0 pl-9 pr-8 text-sm text-fg-primary placeholder:text-fg-muted transition-all duration-150 focus:border-accent-primary focus:outline-none disabled:cursor-not-allowed disabled:opacity-40"
+          className="h-8 pointer-coarse:h-11 w-full rounded-sm border border-glass-border bg-bg-primary/80 py-0 pl-9 pr-8 text-xs pointer-coarse:text-sm text-fg-primary placeholder:text-fg-muted transition-all duration-150 focus:border-accent-primary focus:outline-none disabled:cursor-not-allowed disabled:opacity-40"
         />
         {showClear && (
           <button

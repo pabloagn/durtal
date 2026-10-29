@@ -1,5 +1,7 @@
 "use client";
 
+import { Input } from "@/components/ui/input";
+
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -73,7 +75,7 @@ function PositionField({
     });
   }
   return (
-    <input
+    <Input
       aria-label={`Position of ${book.title}`}
       data-tooltip="Position in the series (e.g. 1, 2, 2.5)"
       value={value}
@@ -91,7 +93,8 @@ function PositionField({
           setValue(book.position ?? "");
         }
       }}
-      className="h-7 w-12 shrink-0 rounded-sm border border-glass-border bg-bg-primary/80 text-center font-mono text-xs text-fg-primary placeholder:text-fg-muted focus:border-accent-primary focus:outline-none pointer-coarse:h-11"
+      containerClassName="w-16 shrink-0"
+      className="text-center font-mono"
     />
   );
 }

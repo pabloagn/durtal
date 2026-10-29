@@ -289,7 +289,7 @@ export function MatchAgainDialog({
           {/* Search input */}
           <div className="flex gap-2">
             <div className="flex-1">
-              <Input
+              <Input type="search"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={handleKeyDown}

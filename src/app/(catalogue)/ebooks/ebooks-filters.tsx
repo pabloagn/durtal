@@ -1,4 +1,6 @@
 "use client";
+
+import { Input } from "@/components/ui/input";
 import { useEffect, useRef, useState } from "react";
 import { useListSearchClear } from "@/lib/hooks/use-list-search-clear";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -140,7 +142,7 @@ export function EbooksFilters({
           size={14}
           className="absolute left-3 top-1/2 -translate-y-1/2 text-fg-secondary"
         />
-        <input
+        <Input
           ref={input}
           type="search"
           maxLength={200}
@@ -152,7 +154,7 @@ export function EbooksFilters({
           value={query}
           // The browser's own clear button is hidden for the one below, whose X
           // mirrors the search glyph 12px in from the edge (SLN-789)
-          className={`h-8 w-full rounded-sm border border-glass-border bg-bg-primary pl-9 text-sm text-fg-primary placeholder:text-fg-muted focus:border-accent-primary focus:outline-none pointer-coarse:h-11 [&::-webkit-search-cancel-button]:hidden ${
+          className={`pl-9 ${
             query ? "pr-8 pointer-coarse:pr-11" : "pr-3"
           }`}
           onChange={(event) => {
