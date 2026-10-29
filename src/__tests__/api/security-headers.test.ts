@@ -80,6 +80,7 @@ describe("every answer's headers", () => {
         "x-content-type-options": "nosniff",
         "referrer-policy": "strict-origin-when-cross-origin",
         "x-frame-options": "SAMEORIGIN",
+        "x-robots-tag": "noindex, nofollow",
       });
     }
   });

@@ -80,6 +80,19 @@ class ReleaseTests(unittest.TestCase):
         with self.assertRaisesRegex(release.Refusal, 'hash changed'):
             release.executable(str(path), '0' * 64)
 
+    def test_node_floor_matches_pdf_and_sqlite_runtime_requirements(self):
+        path = self.root / 'node-floor'
+        path.write_text('executable'); path.chmod(0o700)
+        for version in ('v22.0.0', 'v22.12.9', 'v21.13.0', 'v23.0.0', 'v24.0.0'):
+            with self.subTest(version=version), patch.object(release, 'run', return_value=version.encode()):
+                with self.assertRaisesRegex(release.Refusal, 'Node 22.13'):
+                    release.node_identity(str(path))
+        for version in ('v22.13.0', 'v22.23.3'):
+            with self.subTest(version=version), patch.object(release, 'run', return_value=version.encode()):
+                self.assertEqual(release.node_identity(str(path))['version'], version)
+        package = json.loads((Path(__file__).resolve().parents[2] / 'package.json').read_text())
+        self.assertEqual(package['engines']['node'], '>=22.13 <23')
+
     def test_build_never_runs_without_explicit_heavy_gate(self):
         with patch.object(release, 'run') as run:
             with self.assertRaisesRegex(release.Refusal, 'allow-build'):

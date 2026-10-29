@@ -130,8 +130,9 @@ def executable(path, expected_hash=None):
 def node_identity(path, expected_hash=None):
     identity = executable(path, expected_hash)
     version = run([identity['path'], '--version'], env=clean_environment()).decode().strip()
-    if not re.fullmatch(r'v22\.\d+\.\d+', version):
-        raise Refusal('Release build and runtime require Node 22')
+    match = re.fullmatch(r'v22\.(\d+)\.\d+', version)
+    if not match or int(match[1]) < 13:
+        raise Refusal('Release build and runtime require Node 22.13 or later in the 22.x series')
     return {**identity, 'version': version}
 
 

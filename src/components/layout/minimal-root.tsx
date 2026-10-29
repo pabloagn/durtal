@@ -9,6 +9,7 @@ export const documentMetadata: Metadata = {
     template: "%s | Durtal",
   },
   description: "Personal book catalogue and library index",
+  robots: { index: false, follow: false },
 };
 
 /** A complete document that needs neither catalogue data nor browser storage. */

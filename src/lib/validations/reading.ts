@@ -143,7 +143,16 @@ export const undoSchema = z.object({
   restoreEnd: positionSchema.nullable(),
   repause: z.boolean(),
   timer: z
-    .object({ pausedAt: z.string().nullable(), pausedSeconds: z.number().int().min(0).max(86_400), fixedSessionId: z.uuid().nullable() })
+    .object({
+      pausedAt: z.string().nullable(), pausedSeconds: z.number().int().min(0).max(86_400), fixedSessionId: z.uuid().nullable(),
+      before: z.object({
+        position: z.object({ page: page.nullable(), percent: percent.nullable(), minutes: minutes.nullable(), chapter: chapter.nullable() }),
+        start: z.object({ page: page.nullable(), percent: percent.nullable(), minutes: minutes.nullable() }),
+        lastReadAt: z.iso.datetime().nullable(),
+        editionId: z.uuid().nullable(), format: z.enum(READING_FORMATS), pagesTotal: total.nullable(),
+        note: z.string().max(2000).nullable(),
+      }).optional(),
+    })
     .nullable()
     .optional(),
 });

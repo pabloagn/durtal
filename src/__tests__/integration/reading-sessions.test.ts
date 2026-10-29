@@ -226,6 +226,101 @@ describe.skipIf(!url)("reading sessions and the timer with PostgreSQL", () => {
       await expect(undoStopTimer({ sessionId, fingerprint: stop2.reading.fingerprint, undo: stop2.undo })).rejects.toThrow("A timer is running for La Curée");
     });
 
+    it.each([
+      ["real page timer", 60, 25, null, "print", "pages", false],
+      ["legacy page timer", 60, 25, null, "print", "pages", true],
+      ["explicit zero", 0, 0, null, "print", "pages", false],
+      ["unknown position", null, null, null, "print", "pages", false],
+      ["audio position", null, 25, 60, "audio", "minutes", false],
+    ] as const)("restores the exact pre-stop position and timer start: %s", async (_name, page, percent, minutes, format, unit, legacy) => {
+      const a = await started();
+      await q(`update readings set start_page=null,start_percent=null,start_minutes=null,
+        current_page=$2,current_percent=$3,current_minutes=$4,current_chapter='Before',
+        format=$5,unit=$6,total_pages=case when $5='audio' then null else 240 end,
+        total_minutes=case when $5='audio' then 240 else null end where id=$1`,
+      [a.reading.id, page, percent, minutes, format, unit]);
+      const before = (await loadReading(a.reading.id))!;
+      const unrelated = await started("Unrelated");
+      const unrelatedBefore = (await loadReading(unrelated.reading.id))!;
+      const { sessionId } = await startTimer({ readingId: a.reading.id });
+      await backdate(sessionId, 2);
+      if (legacy) await q(`update reading_sessions set start_page=null,start_percent=null,start_minutes=null where id=$1`, [sessionId]);
+      const [timerBefore] = await q(`select * from reading_sessions where id=$1`, [sessionId]);
+      const stop = await stopTimer({ sessionId, ...(unit === "minutes" ? { minutes: 61 } : { page: 61 }) });
+      expect(stop.reading.currentPage ?? stop.reading.currentMinutes).toBe(61);
+      expect(stop.session.durationSeconds).toBeGreaterThanOrEqual(119);
+      if (!legacy) expect([stop.session.startPage, stop.session.startPercent, stop.session.startMinutes]).toEqual([page, percent, minutes]);
+      const restored = await undoStopTimer({ sessionId, fingerprint: stop.reading.fingerprint, undo: stop.undo });
+      expect([restored.currentPage, restored.currentPercent, restored.currentMinutes, restored.currentChapter])
+        .toEqual([before.currentPage, before.currentPercent, before.currentMinutes, before.currentChapter]);
+      expect([restored.startPage, restored.startPercent, restored.startMinutes]).toEqual([null,null,null]);
+      expect(restored.lastReadAt).toEqual(before.lastReadAt);
+      const [timerAfter] = await q(`select * from reading_sessions where id=$1`, [sessionId]);
+      expect([timerAfter.id,timerAfter.started_at,timerAfter.start_page,timerAfter.start_percent,timerAfter.start_minutes,timerAfter.paused_at,timerAfter.paused_seconds])
+        .toEqual([timerBefore.id,timerBefore.started_at,timerBefore.start_page,timerBefore.start_percent,timerBefore.start_minutes,timerBefore.paused_at,timerBefore.paused_seconds]);
+      expect(timerAfter.ended_at).toBeNull();
+      expect(timerAfter.duration_seconds).toBeNull();
+      expect((await loadReading(unrelated.reading.id))!).toEqual(unrelatedBefore);
+    });
+
+    it("maps a timer origin into another edition and restores its original details on Undo", async () => {
+      const a = await started();
+      await q(`update readings set start_page=null,start_percent=null,start_minutes=null,
+        total_pages=240,current_page=60,current_percent=25,current_minutes=null where id=$1`, [a.reading.id]);
+      const other = await value(`insert into editions(work_id,title,language,page_count) values ($1,'Other edition','en',480) returning id`, [a.workId]);
+      const { sessionId } = await startTimer({ readingId: a.reading.id });
+      await backdate(sessionId, 2);
+      const stopped = await stopTimer({ sessionId, editionId: other, page: 122, note: "Added while stopping" });
+      expect(stopped.session).toMatchObject({ editionId: other, startPage: 120, endPage: 122, startPercent: 25, pagesTotal: 480 });
+      const restored = await undoStopTimer({ sessionId, fingerprint: stopped.reading.fingerprint, undo: stopped.undo });
+      expect(restored.currentPage).toBe(60);
+      const [row] = await q(`select s.*, s.start_percent::float8 as start_percent from reading_sessions s where id=$1`, [sessionId]);
+      expect(row).toMatchObject({ edition_id: a.editionId, start_page: 60, start_percent: 25, pages_total: 240, format: "print", note: null, ended_at: null });
+    });
+
+    it("restores a paused timer and the previous log after undoing a correction", async () => {
+      const a = await started();
+      await log(a.reading.id, { page: 200 });
+      const before = (await loadReading(a.reading.id))!;
+      const { sessionId } = await startTimer({ readingId: a.reading.id });
+      await backdate(sessionId, 3);
+      await pauseTimer({ sessionId });
+      const [timerBefore] = await q(`select * from reading_sessions where id=$1`, [sessionId]);
+      const stopped = await stopTimer({ sessionId, page: 180, goingBack: "fix_last_log" });
+      const restored = await undoStopTimer({ sessionId, fingerprint: stopped.reading.fingerprint, undo: stopped.undo });
+      expect(restored.currentPage).toBe(200);
+      expect(restored.lastReadAt).toEqual(before.lastReadAt);
+      const rows = await sessionsOf(a.reading.id);
+      expect(rows.find((r) => r.source === "manual")).toMatchObject({ start_page: 100, end_page: 200 });
+      const [timerAfter] = await q(`select * from reading_sessions where id=$1`, [sessionId]);
+      expect([timerAfter.start_page, timerAfter.start_percent, timerAfter.paused_at, timerAfter.paused_seconds])
+        .toEqual([timerBefore.start_page, timerBefore.start_percent, timerBefore.paused_at, timerBefore.paused_seconds]);
+    });
+
+    it("refuses an Undo after a later progress edit and leaves every row unchanged", async () => {
+      const a = await started();
+      const { sessionId } = await startTimer({ readingId: a.reading.id });
+      await backdate(sessionId, 2);
+      const stopped = await stopTimer({ sessionId, page: 140 });
+      await log(a.reading.id, { page: 150 });
+      const before = await value(`select jsonb_build_object('reading',to_jsonb(r),'sessions',(select jsonb_agg(to_jsonb(s) order by s.id) from reading_sessions s where s.reading_id=r.id))::text from readings r where id=$1`, [a.reading.id]);
+      await expect(undoStopTimer({ sessionId, fingerprint: stopped.reading.fingerprint, undo: stopped.undo })).rejects.toThrow("changed elsewhere");
+      expect(await value(`select jsonb_build_object('reading',to_jsonb(r),'sessions',(select jsonb_agg(to_jsonb(s) order by s.id) from reading_sessions s where s.reading_id=r.id))::text from readings r where id=$1`, [a.reading.id])).toBe(before);
+    });
+
+    it("still recomputes starts when preceding logs are corrected or deleted", async () => {
+      const a = await started();
+      const logged = await log(a.reading.id, { page: 150 });
+      const { sessionId } = await startTimer({ readingId: a.reading.id });
+      await backdate(sessionId, 2);
+      await stopTimer({ sessionId, page: 170 });
+      await updateSession({ sessionId: logged.session.id, fingerprint: await fp(a.reading.id), end: { page: 160 } });
+      expect(await value<number>(`select start_page from reading_sessions where id=$1`, [sessionId])).toBe(160);
+      await deleteSession({ sessionId: logged.session.id, fingerprint: await fp(a.reading.id) });
+      expect(await value<number>(`select start_page from reading_sessions where id=$1`, [sessionId])).toBe(100);
+      expect((await loadReading(a.reading.id))!.currentPage).toBe(170);
+    });
+
     it("refuses to pause, finish, abandon or delete a reading while its timer runs", async () => {
       const a = await started();
       await startTimer({ readingId: a.reading.id });
