@@ -78,7 +78,7 @@ pnpm lint                   # ESLint
 pnpm test                   # Vitest without the database suites (names each one it skips)
 pnpm test:local             # Every suite, against a disposable PostgreSQL 16 (Docker)
 pnpm db:generate            # Generate Drizzle migration from schema changes
-pnpm db:migrate             # Apply pending migrations to Neon
+pnpm db:migrate             # Local command; live releases use updated main and docs/11
 pnpm db:studio              # Open Drizzle Studio (database browser)
 
 # Python ingestion scripts
@@ -92,9 +92,9 @@ docker build -t durtal .    # Build production image
 docker compose up -d        # Start local dev services (if any)
 
 # Task runner
-task dev                    # Start Next.js dev server
+task dev                    # Start Next.js dev server on localhost:3100
 task build                  # Production build
-task lint                   # Lint + typecheck
+task lint                   # Lint, typecheck and knip
 task ingest                 # Run full ingestion pipeline
 task ingest:dry             # Dry run ingestion
 ```
@@ -126,6 +126,8 @@ Key constraints:
 ## Changelog Convention
 
 For each implementation task, create: `changelog/NNNN_TASK_kebab-case-description.md`
+
+Numbers can leave gaps. Before using one, take the next number in your range and check that origin/main and the open pull requests don't already have it.
 
 Format:
 ```markdown

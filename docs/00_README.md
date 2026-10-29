@@ -106,7 +106,7 @@ See [12_DEVELOPMENT.md](12_DEVELOPMENT.md) for the full command reference.
 | [03_DESIGN_LANGUAGE.md](03_DESIGN_LANGUAGE.md) | Color palette, typography, spatial system, component patterns, iconography |
 | [04_ROUTES_AND_VIEWS.md](04_ROUTES_AND_VIEWS.md) | Application routes, page-by-page UI descriptions, navigation |
 | [05_API_REFERENCE.md](05_API_REFERENCE.md) | REST API endpoints: methods, parameters, payloads, responses |
-| [06_SERVER_ACTIONS.md](06_SERVER_ACTIONS.md) | Server-side business logic: every action by module |
+| [06_SERVER_ACTIONS.md](06_SERVER_ACTIONS.md) | Server-side business logic: actions whose rules or refusals matter, by module |
 | [07_STORAGE.md](07_STORAGE.md) | S3 medallion architecture, cover and media pipelines |
 | [08_EXTERNAL_INTEGRATIONS.md](08_EXTERNAL_INTEGRATIONS.md) | Google Books, Open Library, Nominatim geocoding, Wikidata, museums |
 | [09_INGESTION_PIPELINE.md](09_INGESTION_PIPELINE.md) | Python ETL: source files, field mappings, execution order |

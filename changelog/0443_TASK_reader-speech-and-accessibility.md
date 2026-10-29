@@ -74,3 +74,14 @@ Still gated: measured PDF text/capability recovery from SLN-502; independent spe
 - Inspected SLN-502 producer `1ee0c65279d29a6cb405a4e6695081256f51a209` read-only. Its text preserves exact UTF-16 offsets, and glyph quads come from actual pdf.js TextLayer Range measurements converted into PDF user units. Missing measured coverage produces a null locator. The producer is not independently approved and its public text/offset methods, leases and teardown wiring are not mounted here. No upstream PDF source was merged and no competing geometry API was created.
 
 Before QUIET-494 was requested, **45 tests passed, 0 failed, 0 skipped across five affected suites**, and the scoped TypeScript check passed for that intermediate source. Earlier checkpoint `1640c284` had 163 passing lightweight cases across 13 suites. Subsequent additions (the engine enumeration cancellation cases, selection-toolbar readiness case, initial-selection preservation and foreground focus-ring token) have **not been run**. Root requested all local tests, static checks, browsers, builds and font processing pause for SLN-494 measurements. This committed source snapshot is reviewable but does not carry a final validated test count. All native/full/heavy acceptance and deployment remain pending.
+
+
+## Historical checkpoint moved from the development guide (29 October 2026)
+
+The following preserves the earlier source checkpoint and its outstanding acceptance at that time; it is not a new completion claim.
+
+### Reader speech source validation boundary (SLN-508)
+
+Checkpoint `1640c284` passed 163 lightweight cases across 13 affected suites using existing dependencies. The subsequent accessibility/selection mounting passed 45 cases across five suites and scoped TypeScript before the root's QUIET-494 window. Follow-up engine enumeration and selection readiness tests are committed but unrun. Resume tests, scoped types/lint/formatting and full acceptance only after root releases the quiet window; a source-only commit is not final test acceptance.
+
+The remaining acceptance includes approved PDF/decorations/presentation/note runtimes, native Chromium/Firefox/WebKit at 1440/768/390, full accessibility and interaction audits, trusted touch, 200% zoom/text spacing, real speech/turn/section/idle measurements, the full zero-skip DB suite, project static/build/CI gates and root-authorized deployment. Test-double speech callbacks and happy-dom frame assertions establish source behavior only. Keep physical device/screen-reader proof separate. Do not run these against the primary checkout or manual port 3100, and do not install dependencies for a gated checkpoint.

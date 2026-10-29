@@ -7,7 +7,7 @@ The project uses Nix flakes to provide a reproducible development environment. A
 **Option A (recommended)**: Install [Nix](https://nixos.org/) with flakes enabled, then `direnv allow` in the project root. Everything else is automatic.
 
 **Option B**: Install manually:
-- Node.js 22
+- Node.js 22.13 or later in the 22.x series
 - pnpm 10
 - Python 3.12
 - uv (Python package manager)
@@ -137,10 +137,10 @@ All commands can be run via `task <name>`:
 | Command | Description |
 |---|---|
 | `task install` | Install all dependencies (pnpm + uv) |
-| `task dev` | Start Next.js dev server (Turbopack) |
+| `task dev` | Start Next.js dev server (Turbopack) on `http://localhost:3100` |
 | `task build` | Production build |
 | `task start` | Start production server |
-| `task lint` | ESLint + TypeScript type check |
+| `task lint` | Lint, typecheck and knip |
 | `task format` | Format code with Prettier |
 | `task typecheck` | TypeScript type check only |
 | `task db:generate` | Generate Drizzle migration from schema changes |
@@ -169,6 +169,13 @@ The Taskfile loads `.env.local` and `.env` automatically (`dotenv` directive).
 | `pnpm start` | Start production server |
 | `pnpm lint` | Run ESLint |
 | `pnpm typecheck` | Run `tsc --noEmit` |
+| `pnpm deadcode` | `knip --include files,dependencies,unlisted` |
+| `pnpm test:watch` | `vitest` |
+| `pnpm ebooks:match` | `tsx --tsconfig tsconfig.json scripts/ebooks/match.ts` |
+| `pnpm ebooks:calibre-snapshot` | `tsx --tsconfig tsconfig.json scripts/ebooks/calibre-snapshot.ts` |
+| `pnpm ebooks:import-existing` | `tsx --tsconfig tsconfig.json scripts/ebooks/import-existing.ts` |
+| `pnpm ebooks:reading-import` | `tsx --tsconfig tsconfig.json scripts/ebooks/reading-import.ts` |
+| `pnpm ebooks:upload-service` | `tsx --tsconfig tsconfig.json scripts/ebooks/upload-service.ts` |
 | `pnpm format` | Format with Prettier |
 | `pnpm format:check` | Check formatting |
 | `pnpm test` | Vitest. Skips the database suites and names each one it skipped |
@@ -179,7 +186,7 @@ The Taskfile loads `.env.local` and `.env` automatically (`dotenv` directive).
 | `pnpm db:studio` | `drizzle-kit studio` |
 | `pnpm ebooks:ingest` | Plan, apply, resume or undo an e-book ingestion (`docs/09_INGESTION_PIPELINE.md`, eBook ingestion). `--preview PORT` runs it against a running preview's database and S3 folder (`scripts/qa/preview-local.py --start --port PORT --s3-dir DIR`) |
 | `pnpm ebooks:reconcile` | Reconcile folders, the catalogue and the bucket; read-only. `--preview PORT` as above |
-| `pnpm ebooks:verify` | Verify every stored e-book file against its row (`docs/07_STORAGE.md`, Verification) |
+| `pnpm ebooks:verify` | Verify every stored e-book file against its row (`docs/07_STORAGE.md`, Promotion, recovery and verification) |
 
 ---
 
@@ -190,7 +197,7 @@ The Taskfile loads `.env.local` and `.env` automatically (`dotenv` directive).
 1. **Modify schema** in `src/lib/db/schema/*.ts`
 2. **Generate migration**: `task db:generate` (creates SQL file in `src/lib/db/migrations/`)
 3. **Review migration**: Inspect the generated SQL
-4. **Apply migration**: locally, `pnpm test:local` and `preview-local.py` apply it to their disposable databases; live, it goes through the release's backup, rehearsal and `live_migrate.py migrate` (docs/11, Release order)
+4. **Rehearse and release**: locally, `pnpm test:local` and `preview-local.py` use disposable databases. Follow [Release order](11_DEPLOYMENT.md#release-order) for the live backup, restore/rehearsal, journal numbering, main-only migration and switch; do not substitute a direct migration command.
 5. **Update docs**: Update `docs/02_DATA_MODEL.md` to match the schema, and `docs/01_ARCHITECTURE.md` if the change is architectural
 
 For rapid development:
@@ -298,69 +305,11 @@ Point these at a running preview.
 
 ## Dependencies
 
-### Node.js (Runtime)
+The authoritative Node runtime/development dependencies and versions are in [package.json](../package.json), with the resolved graph in [pnpm-lock.yaml](../pnpm-lock.yaml). Python dependencies and development groups are in [pyproject.toml](../pyproject.toml), resolved by [uv.lock](../uv.lock). Keep package changes in those manifests rather than a second version table here.
 
-| Package | Version | Purpose |
-|---|---|---|
-| `next` | ^16.2 | Application framework |
-| `react` / `react-dom` | ^19.2 | UI library |
-| `tailwindcss` | ^4.2 | Utility-first CSS |
-| `drizzle-orm` | ^0.45 | Database ORM |
-| `drizzle-kit` | ^0.31 | Schema migrations |
-| `@neondatabase/serverless` | ^1.0 | Neon PostgreSQL driver |
-| `@aws-sdk/client-s3` | ^3.1019 | S3 operations |
-| `@aws-sdk/s3-request-presigner` | ^3.1019 | Pre-signed URLs |
-| `sharp` | ^0.34 | Image processing |
-| `zod` | ^4.3 | Schema validation |
-| `cmdk` | ^1.1 | Command palette |
-| `lucide-react` | ^1.7 | Icons |
-| `sonner` | ^2.0 | Toast notifications |
-| `nuqs` | ^2.8 | URL search params state |
-| `csv-parse` | ^6.2 | CSV parsing for imports |
-| `isbn3` | ^2.0 | ISBN validation |
-| `leaflet` / `react-leaflet` | ^1.9 / ^5.0 | Map component for locations |
-| `@zip.js/zip.js` | ^2.23 | Reading e-book zips (EPUB, CBZ, FB2Z) by range, without loading the whole file |
-| `htmlparser2` | ^10.1 | Parsing OPF, NCX, XHTML and FB2 for metadata and text counts |
-| `pdfjs-dist` | 6.4.299 (exact) | PDF metadata, text and first-page covers (the legacy build in Node) |
-| `@napi-rs/canvas` | ^1.0 | The canvas pdf.js draws a PDF's first page on |
+Two runtime dependencies need special handling:
 
-### Node.js (Development)
+- `pdfjs-dist` is pinned exactly to 6.4.299. Its worker, fonts and decoders are vendored into public assets by `scripts/vendor-pdfjs.mjs`; server inspection uses its legacy build.
+- `@napi-rs/canvas` supplies native PDF rendering. Standalone/Docker builds preserve the platform binding and run the PDF smoke check through `scripts/prepare-native-pdf.mjs`.
 
-| Package | Version | Purpose |
-|---|---|---|
-| `typescript` | ^5.9 | Type system |
-| `eslint` / `eslint-config-next` | ^10.1 / ^16.2 | Linting |
-| `prettier` | ^3.8 | Formatting |
-| `@types/node` | ^25.5 | Node type definitions |
-| `@types/react` / `@types/react-dom` | ^19.2 | React type definitions |
-| `@types/leaflet` | ^1.9 | Leaflet type definitions |
-| `dotenv` | ^17.3 | .env loading |
-| `postgres` | ^3.4 | PostgreSQL client (development) |
-
-### Python
-
-| Package | Version | Purpose |
-|---|---|---|
-| `pandas` | >=2.2 | Data manipulation |
-| `openpyxl` | >=3.1 | Excel reading |
-| `pyarrow` | >=15.0 | Parquet reading |
-| `psycopg2-binary` | >=2.9 | PostgreSQL connection |
-| `pydantic` / `pydantic-settings` | >=2.6 / >=2.0 | Validation |
-| `click` | >=8.1 | CLI interface |
-| `rich` | >=13.7 | Console formatting |
-| `textual` | >=3.0 | Terminal UI framework |
-| `typer` | >=0.15 | CLI helpers |
-| `httpx` | >=0.27 | HTTP client |
-| `pillow` | >=10.3 | Image processing |
-| `boto3` | >=1.34 | S3 client |
-| `python-dotenv` | >=1.0 | .env loading |
-| `isbnlib` | >=3.10 | ISBN handling |
-
-Python dev dependencies: `pytest` (>=8.0), `ruff` (>=0.5.0), `basedpyright` (>=1.12.0).
-
-
-### Reader speech source validation boundary (SLN-508)
-
-Checkpoint `1640c284` passed 163 lightweight cases across 13 affected suites using existing dependencies. The subsequent accessibility/selection mounting passed 45 cases across five suites and scoped TypeScript before the root's QUIET-494 window. Follow-up engine enumeration and selection readiness tests are committed but unrun. Resume tests, scoped types/lint/formatting and full acceptance only after root releases the quiet window; a source-only commit is not final test acceptance.
-
-The remaining acceptance includes approved PDF/decorations/presentation/note runtimes, native Chromium/Firefox/WebKit at 1440/768/390, full accessibility and interaction audits, trusted touch, 200% zoom/text spacing, real speech/turn/section/idle measurements, the full zero-skip DB suite, project static/build/CI gates and root-authorized deployment. Test-double speech callbacks and happy-dom frame assertions establish source behavior only. Keep physical device/screen-reader proof separate. Do not run these against the primary checkout or manual port 3100, and do not install dependencies for a gated checkpoint.
+The foliate-js source under `src/vendor/foliate-js/` is vendored separately; its recorded revision and local patches are in `src/vendor/foliate-js/VENDORED.md`.

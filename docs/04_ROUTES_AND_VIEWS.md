@@ -36,6 +36,11 @@
 /reading/year/[year]        One year's review, made to print
 /reading/import             Import reading history: upload, past imports
 /reading/import/[id]        One import's preview, decisions, commit and undo
+/ebooks                     E-book library
+/ebooks/upload              Upload or replace e-book files
+/ebooks/offline             Manage e-books saved on this device
+/offline                    Offline app entry and recovery
+/reader/offline             Offline reader entry
 /ebooks/highlights          Every highlight, note and bookmark, grouped by eBook
 /ebooks/runs                eBooks: ingestion runs, newest first
 /ebooks/review              Decide unlinked eBooks; bounded sections and filter URLs
@@ -56,6 +61,7 @@
 /settings                   Settings: General (defaults for new records)
 /settings/display           Settings: lists, sidebar (this browser)
 /settings/reader            Settings: reader typography (this browser)
+/settings/reading/ebooks    Settings: e-book reading and delivery defaults
 /settings/reading           Settings: reading day, week start, rhythm, goals,
                             timer check
 /settings/integrations      Settings: live checks of outside services
@@ -1109,7 +1115,7 @@ A film, perfume or painting page tags its record in place with every family that
 `/reader` permanently redirects (308) to `/ebooks`, keeping `q`.
 The reader's Back fallback is `/ebooks/[ebookId]`.
 
-The e-book reader (SLN-492), in the shell's full-viewport branch: no sidebar, no timer chip, no tab row. A full page load (the Read button is a plain link), because the page brings its own Content-Security-Policy (`src/proxy.ts`). The page (`src/app/reader/[ebookId]/page.tsx`) reads everything in one query (`readReaderBook`, `src/lib/ebooks/delivery/reader-book.ts`): the e-book, its readable files (stored or verified, no DRM, a format the reader opens, in the order EPUB, KEPUB, AZW3, MOBI, AZW, FB2, FBZ, PDF, CBZ), the file to open (`?file=` when it names one of them, else the preferred file, else the first), this device's place in it, its history across files, the newest other-device place, and the delivery URL. It runs the reader's plug-ins' loaders (`plugins.ts`) beside that query. An inline script asks for the book's first byte ranges as the HTML arrives (docs/07, Reading e-books by range), and the reading font is preloaded. Opens EPUB, KEPUB, MOBI, AZW, AZW3, FB2, FBZ, CBZ and PDF.
+The e-book reader (SLN-492), in the shell's full-viewport branch: no sidebar, no timer chip, no tab row. A full page load (the Read button is a plain link), because the page brings its own Content-Security-Policy (`src/proxy.ts`). The page (`src/app/reader/[ebookId]/page.tsx`) reads everything in one query (`readReaderBook`, `src/lib/ebooks/delivery/reader-book.ts`): the e-book, its readable files (stored or verified, no DRM, a format the reader opens, in the order EPUB, KEPUB, AZW3, MOBI, AZW, FB2, FBZ, PDF, CBZ), the file to open (`?file=` when it names one of them, else the preferred file, else the first), this device's place in it, its history across files, the newest other-device place, and the delivery URL. It runs the reader's plug-ins' loaders (`plugins.ts`) beside that query. An inline script asks for the book's first byte ranges as the HTML arrives (docs/07, Legacy compatibility and delivery), and the reading font is preloaded. Opens EPUB, KEPUB, MOBI, AZW, AZW3, FB2, FBZ, CBZ and PDF.
 
 - **Top bar** (`glass-bar`): Back (to the page the reader came from when it is in Durtal, else the linked book's page, else `/library`), the title with the current chapter, Contents (`t`), Settings (`s`), Reader shortcuts (`?`) and Full screen (`f`, only where the Fullscreen API exists, so never on an iPhone). **Bottom bar** (`glass-bar`): chapter, print page/Location, percent and chapter time, with the scrubber, Go to and Header and footer below. Both show on open and hide together after 3 seconds of reading or on a page turn; they come back on a tap in the middle, when the pointer nears the top or bottom edge, or when focus moves into them. An open navigation surface or Peek holds them visible. Hidden bars are `inert`.
 - **Contents (SLN-499)**: `ReaderSidePanel`, a left drawer with an inner scrolling tree, modal below 1024px and non-modal above. Roots and the current chapter's ancestors expand on open; the engine supplies the exact current fragment even when chapters share a spine file. Arrow keys use a roving tree stop; Enter or Space jumps and closes after paint. Rows show print page or percent. Without usable contents, list only linear sections, using their first heading, title or Section N.
