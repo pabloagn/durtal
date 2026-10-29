@@ -127,8 +127,9 @@ export function ReadingProvider({ data, children }: { data: ReadingPageData; chi
             changed();
           } catch (err) {
             showError(err, changed);
+            return false;
           }
-        });
+        }, "Back in Up next");
       } else {
         const { place } = await addToQueue({ workId: data.workId });
         changed();

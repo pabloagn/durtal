@@ -66,8 +66,9 @@ export function NoteControls({ note, book, edition = null }: { note: NoteEdit; b
           });
         } catch (err) {
           showError(err, changed);
+          return false;
         }
-      });
+      }, "Entry restored");
     } catch (err) {
       showError(err, changed);
     }

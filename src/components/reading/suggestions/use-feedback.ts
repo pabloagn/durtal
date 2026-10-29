@@ -31,8 +31,9 @@ export function useSuggestionFeedback() {
           router.refresh();
         } catch (err) {
           showError(err, () => router.refresh());
+          return false;
         }
-      });
+      }, "Previous suggestion feedback restored");
       return true;
     } catch (err) {
       showError(err, () => router.refresh());

@@ -176,8 +176,9 @@ export function LogProgressDialog({ data, row, request, onClose, changed, open }
           changed();
         } catch (err) {
           showError(err, changed);
+          return false;
         }
-      });
+      }, "Timer restored");
       // "Stop it and start this one"
       const next = timerContext?.pendingStart;
       if (next) {
@@ -235,8 +236,9 @@ export function LogProgressDialog({ data, row, request, onClose, changed, open }
           changed();
         } catch (err) {
           showError(err, changed);
+          return false;
         }
-      });
+      }, "Progress restored");
       if (result.reachedEnd) open({ kind: "finish", readingId: r.id, finishedOn: readOn, reachedEnd: true });
     } catch (err) {
       showError(err, changed);

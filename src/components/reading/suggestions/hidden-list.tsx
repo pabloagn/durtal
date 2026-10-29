@@ -54,8 +54,9 @@ export function HiddenList({ rows }: { rows: HiddenRow[] }) {
             router.refresh();
           } catch (err) {
             showError(err, () => router.refresh());
+            return false;
           }
-        });
+        }, "Previous suggestion feedback restored");
     } catch (err) {
       release(row.workId);
       showError(err, () => router.refresh());
