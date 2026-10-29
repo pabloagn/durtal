@@ -754,4 +754,20 @@ describe.skipIf(!url)("shared people and domain-scoped credits", () => {
     expect(await getWorkCredits(work.book)).toHaveLength(0);
   });
 
+  it("also names and protects object- and formulation-level credits on the shared delete path", async () => {
+    const p = await person("Specialist credits", ["painting", "perfume"]);
+    await c`insert into painting_details(work_id) values (${work.painting})`;
+    await c`insert into perfume_details(work_id) values (${work.perfume})`;
+    const [object] = await c`insert into art_objects(work_id,kind,ownership) values (${work.painting},'original','unknown') returning id`;
+    const [variant] = await c`insert into perfume_variants(work_id) values (${work.perfume}) returning id`;
+    await c`insert into art_object_credits(object_id,person_id) values (${object.id},${p.id})`;
+    await c`insert into perfume_variant_perfumers(variant_id,person_id) values (${variant.id},${p.id})`;
+    expect(await getPersonDeletionRefusal(p.id)).toBe("Credited on 1 painting and 1 perfume. Remove those credits first.");
+    await expect(deletePerson(p.id)).rejects.toThrow("Remove their film, painting and perfume credits first.");
+    await expect(deleteAuthor(p.id)).rejects.toThrow("Remove their film, painting and perfume credits first.");
+    expect(await getPerson(p.id)).toBeDefined();
+    expect(await c`select id from art_object_credits where person_id=${p.id}`).toHaveLength(1);
+    expect(await c`select id from perfume_variant_perfumers where person_id=${p.id}`).toHaveLength(1);
+  });
+
 });
