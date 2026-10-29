@@ -142,8 +142,9 @@ export function AuthorMergeDialog({
         </div>
 
         {/* Search */}
-        <input {...SEARCH_INPUT_ATTRIBUTES}
+        <input
           ref={searchRef}
+          {...SEARCH_INPUT_ATTRIBUTES}
           type="search"
           value={search}
           onChange={(e) => setSearch(e.target.value)}

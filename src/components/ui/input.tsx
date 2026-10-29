@@ -40,7 +40,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
           appearance === "open"
             ? "input-open -mx-2 w-[calc(100%+1rem)] px-[calc(0.5rem-1px)] text-lg"
             : "w-full border-glass-border bg-bg-primary/80 px-3 text-xs pointer-coarse:text-sm"
-        } ${props.type === "search" ? "appearance-none [&::-webkit-search-cancel-button]:appearance-none [&::-webkit-search-decoration]:appearance-none" : ""} ${className}`}
+        } ${props.type === "search" ? "appearance-none [&::-webkit-search-cancel-button]:appearance-none [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:appearance-none" : ""} ${className}`}
         {...(props.type === "search" ? SEARCH_INPUT_ATTRIBUTES : {})}
         {...props}
         aria-describedby={describedBy}

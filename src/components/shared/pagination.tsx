@@ -362,6 +362,7 @@ export function Pagination({
           <Select
             id={`${id}-size`}
             data-pager-control="size"
+            className="font-sans"
             value={String(perPage)}
             onChange={(e) => changeSize(Number(e.target.value))}
             options={sizes.map((size) => ({ value: String(size), label: String(size) }))}
