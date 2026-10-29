@@ -306,7 +306,7 @@ export async function stopTimer(input: StopTimerInput) {
   return result;
 }
 
-/** The 10-second Undo of a stop: the timer runs again and the position follows the other sessions */
+/** The 10-second Undo of a stop: the timer runs again at the saved pre-stop position */
 export async function undoStopTimer(input: z.input<typeof undoStopTimerSchema>) {
   const data = undoStopTimerSchema.parse(input);
   const end = data.undo.restoreEnd;

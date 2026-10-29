@@ -181,9 +181,10 @@ export async function discardTimerRow(sessionId: string) {
 /**
  * Undoes a stop: the session runs again (its end cleared, its pause put
  * back), the log a "fix my last log" changed gets its end back, and the
- * position follows the other sessions.
+ * exact pre-stop place is restored. Older clients use the other sessions.
  */
 export async function undoStop(sessionId: string, fingerprint: string, undo: UndoProgress) {
+  if (undo.sessionId !== sessionId) throw new ExpectedActionError("This Undo belongs to another timer");
   const running = await runningTimer();
   if (running) throw new ExpectedActionError(`A timer is running for ${running.title}`);
   const [row] = await db.select().from(readingSessions).where(eq(readingSessions.id, sessionId));
@@ -195,8 +196,14 @@ export async function undoStop(sessionId: string, fingerprint: string, undo: Und
   const fixedId = undo.timer?.fixedSessionId ?? null;
   const now = new Date();
   const pausedAt = undo.timer?.pausedAt ? new Date(undo.timer.pausedAt) : null;
+  const before = undo.timer?.before;
+  const originalStart = before ? {
+    startPage: before.start.page, startPercent: before.start.percent, startMinutes: before.start.minutes,
+    editionId: before.editionId, format: before.format, pagesTotal: before.pagesTotal, note: before.note,
+  } : {};
   const runningAgain: Session = {
     ...row,
+    ...originalStart,
     endedAt: null,
     durationSeconds: null,
     endPage: null,
@@ -219,7 +226,7 @@ export async function undoStop(sessionId: string, fingerprint: string, undo: Und
       d.execute(assertSql(sql`not exists (select 1 from reading_sessions where source = 'timer' and ended_at is null)`, "A timer is running for another book")),
       d
         .update(readingSessions)
-        .set({ endedAt: null, durationSeconds: null, endPage: null, endPercent: null, endMinutes: null, endChapter: null, pausedAt, pausedSeconds: runningAgain.pausedSeconds, updatedAt: now })
+        .set({ ...originalStart, endedAt: null, durationSeconds: null, endPage: null, endPercent: null, endMinutes: null, endChapter: null, pausedAt, pausedSeconds: runningAgain.pausedSeconds, updatedAt: now })
         .where(eq(readingSessions.id, row.id)),
       ...(fixedId && undo.restoreEnd
         ? [
@@ -230,6 +237,13 @@ export async function undoStop(sessionId: string, fingerprint: string, undo: Und
           ]
         : []),
       ...recomputeQueries(d, { ...reading, status }, remaining, now),
+      // The reopened timer contributes no ended session. Its Undo must restore
+      // the saved place, including unknown values, rather than recompute zero.
+      ...(before ? [d.update(readings).set({
+        currentPage: before.position.page, currentPercent: before.position.percent,
+        currentMinutes: before.position.minutes, currentChapter: before.position.chapter,
+        lastReadAt: before.lastReadAt ? new Date(before.lastReadAt) : null,
+      }).where(eq(readings.id, reading.id))] : []),
       ...(status !== reading.status
         ? [
             d.update(readings).set({ status, updatedAt: now }).where(eq(readings.id, reading.id)),

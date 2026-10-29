@@ -34,6 +34,7 @@ export const metadata: Metadata = {
     template: "%s | Durtal",
   },
   description: "Personal book catalogue and library index",
+  robots: { index: false, follow: false },
 };
 
 export default async function RootLayout({

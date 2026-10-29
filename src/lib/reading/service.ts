@@ -148,6 +148,7 @@ export function planPositions(reading: Reading, ordered: Session[]) {
   let position: Pos = { ...startPosition(reading), chapter: null };
   if (reading.startPage == null && reading.startPercent == null && reading.startMinutes == null)
     position = { page: reading.totalPages ? 0 : null, percent: 0, minutes: reading.totalMinutes ? 0 : null, chapter: null };
+  let hasPriorPosition = false;
   for (const s of ordered) {
     if (!sessionHasPosition(s)) {
       starts.set(s.id, { startPage: null, startPercent: null, startMinutes: null });
@@ -158,11 +159,20 @@ export function planPositions(reading: Reading, ordered: Session[]) {
       }
       continue;
     }
+    // With no original reading start or earlier positioned log, the timer's
+    // captured origin is the only known start. Do not invent pages before it.
+    const capturedTimerOrigin = s.source === "timer" && !hasPriorPosition
+      && reading.startPage == null && reading.startPercent == null && reading.startMinutes == null;
+    hasPriorPosition = true;
     const sameEdition = s.editionId === prevEdition;
     // A reader sitting starts where the reader opened, or where it read on from a
     // short jump: the pages it jumped over were not read (SLN-677).
     const opened = s.source === "reader" && s.startPercent != null && prev.percent != null && s.startPercent > prev.percent;
-    starts.set(s.id, opened ? {
+    starts.set(s.id, capturedTimerOrigin ? {
+      startPage: sameEdition ? s.startPage : s.pagesTotal && s.startPercent != null ? Math.round(s.startPercent / 100 * s.pagesTotal) : null,
+      startPercent: s.startPercent,
+      startMinutes: s.format === reading.format ? s.startMinutes : null,
+    } : opened ? {
       startPercent: s.startPercent,
       startPage: s.pagesTotal ? Math.round((s.startPercent! / 100) * s.pagesTotal) : null,
       startMinutes: null,
@@ -374,6 +384,16 @@ export interface UndoProgress {
     pausedAt: string | null;
     pausedSeconds: number;
     fixedSessionId: string | null;
+    /** Exact pre-stop values; optional for Undo messages from older clients. */
+    before?: {
+      position: { page: number | null; percent: number | null; minutes: number | null; chapter: string | null };
+      start: { page: number | null; percent: number | null; minutes: number | null };
+      lastReadAt: string | null;
+      editionId: string | null;
+      format: ReadingFormat;
+      pagesTotal: number | null;
+      note: string | null;
+    };
   } | null;
 }
 
@@ -489,6 +509,12 @@ export async function recordProgress(
       else mode = latest && latest.readOn === readOn ? "fix" : "went_back";
     }
     const resumed = reading.status === "paused";
+    const beforeTimerStop = timer ? {
+      position: { ...current, chapter: reading.currentChapter },
+      start: { page: timer.startPage, percent: timer.startPercent, minutes: timer.startMinutes },
+      lastReadAt: reading.lastReadAt?.toISOString() ?? null,
+      editionId: timer.editionId, format: timer.format, pagesTotal: timer.pagesTotal, note: timer.note,
+    } : undefined;
     let session: Session;
     let next: Session[];
     let undo: UndoProgress;
@@ -530,7 +556,7 @@ export async function recordProgress(
       if (timerRow) {
         // The timer starts and ends at the corrected position: 0 pages, its time still counts
         next = sessionOrder([...next, timerRow]);
-        undo = { ...undo, sessionId: timerRow.id, timer: { pausedAt: timer!.pausedAt?.toISOString() ?? null, pausedSeconds: timer!.pausedSeconds, fixedSessionId: latest!.id } };
+        undo = { ...undo, sessionId: timerRow.id, timer: { pausedAt: timer!.pausedAt?.toISOString() ?? null, pausedSeconds: timer!.pausedSeconds, fixedSessionId: latest!.id, before: beforeTimerStop } };
       }
     } else if (timerRow) {
       session = timerRow;
@@ -539,7 +565,7 @@ export async function recordProgress(
         sessionId: session.id,
         restoreEnd: null,
         repause: resumed,
-        timer: { pausedAt: timer!.pausedAt?.toISOString() ?? null, pausedSeconds: timer!.pausedSeconds, fixedSessionId: null },
+        timer: { pausedAt: timer!.pausedAt?.toISOString() ?? null, pausedSeconds: timer!.pausedSeconds, fixedSessionId: null, before: beforeTimerStop },
       };
     } else {
       session = {
