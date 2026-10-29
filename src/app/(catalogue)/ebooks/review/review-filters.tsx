@@ -12,12 +12,13 @@ import { isComposing } from "@/lib/shortcuts/shortcuts";
  * Esc closes the choices and focus goes back to Filter, and Clear all unsets
  * them (the search and the queue's own scope stay).
  */
-export function ReviewFilters({ search, filters, active }: {
+export function ReviewFilters({ search, filters, active, onClear }: {
   search: ReactNode;
   /** The choices and Apply, each a cell of the form's grid from `sm` up */
   filters: ReactNode;
   /** How many choices are set, shown on Filter */
   active: number;
+  onClear?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const panel = useId();
@@ -67,6 +68,7 @@ export function ReviewFilters({ search, filters, active }: {
           <button
             type="button"
             onClick={() => {
+              if (onClear) { onClear(); return; }
               choices.current?.querySelectorAll("select").forEach((select) => { select.value = ""; });
               choices.current?.closest("form")?.requestSubmit();
             }}

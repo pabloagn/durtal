@@ -108,9 +108,11 @@ function projectRow(raw: RawRow): ReviewQueueRow {
       sourcePath: typeof fileRow.source_path === "string" ? fileRow.source_path : null,
     })) };
 }
-export async function loadReviewQueue(conn: Db, params: ReviewParams): Promise<ReviewQueue> {
+export async function loadReviewQueue(conn: Db, params: ReviewParams): Promise<ReviewQueue & { languages: string[] }> {
   const filter = reviewFilterSql(params.filters);
-  const [countRow] = resultRows<Record<ReviewSectionKey, number>>(await conn.execute(sql`select
+  const [countRow] = resultRows<Record<ReviewSectionKey, number> & { languages: string[] }>(await conn.execute(sql`select
+    array(select distinct e.language ${from} where e.language is not null
+      and (${sql.join(REVIEW_SECTIONS.map(({ key }) => reviewSectionSql(key)), sql` or `)}) order by e.language) as languages,
     ${sql.join(REVIEW_SECTIONS.map(({ key }) => sql`count(*) filter(where ${reviewSectionSql(key)})::integer as ${sql.identifier(key)}`), sql`, `)}
     ${from} where ${filter}`));
   const counts = Object.fromEntries(REVIEW_SECTIONS.map(({ key }) => [key, Number(countRow?.[key] ?? 0)])) as ReviewQueue["counts"];
@@ -138,9 +140,9 @@ export async function loadReviewQueue(conn: Db, params: ReviewParams): Promise<R
         coalesce(e.title_sort,e.title),e.id limit ${REVIEW_PAGE_SIZE} offset ${(page - 1) * REVIEW_PAGE_SIZE}`));
     sections.push({ key, rows: rows.map(projectRow) });
   }
-  return { counts, sections, page };
+  return { counts, sections, page, languages: countRow?.languages ?? [] };
 }
-export async function getReviewQueue(params: ReviewParams): Promise<ReviewQueue> {
+export async function getReviewQueue(params: ReviewParams): Promise<ReviewQueue & { languages: string[] }> {
   return withReadOnlyPlanningConnection(serverEnv().DATABASE_URL, (conn) => loadReviewQueue(conn, params),
     { isolationLevel: "repeatable read" });
 }

@@ -1,3 +1,4 @@
+import { parsePagination } from "@/lib/utils/pagination";
 import { z } from "zod/v4";
 import { EBOOK_FORMATS } from "@/lib/ebooks/formats";
 import { normalizeLanguage } from "@/lib/utils/language";
@@ -5,8 +6,7 @@ import { REVIEW_SECTIONS, type ReviewSectionKey } from "./types";
 
 /** One section at a time, a page of rows at a time, so the page stays within its weight budget (SLN-684) */
 export const REVIEW_PAGE_SIZE = 20;
-export const REVIEW_MAX_PAGE = 1000;
-const page = z.coerce.number().int().min(1).max(REVIEW_MAX_PAGE).default(1);
+export const REVIEW_MAX_PAGE = Math.floor(2_147_483_647 / REVIEW_PAGE_SIZE) + 1;
 const sectionKey = z.enum(REVIEW_SECTIONS.map(({ key }) => key) as [ReviewSectionKey, ...ReviewSectionKey[]]);
 const language = z.string().trim().min(1).max(100).transform((value, context) => {
   const canonical = normalizeLanguage(value);
@@ -47,7 +47,7 @@ export function parseReviewParams(raw: Record<string, string | string[] | undefi
   const filters = reviewFiltersSchema.parse(Object.fromEntries(
     ["q", "language", "format", "hasIsbn", "work", "run", "author", "series"].map((key) => [key, single(key)]),
   ));
-  return { filters, section: sectionKey.optional().parse(single("section")) ?? null, page: page.parse(single("page")) };
+  return { filters, section: sectionKey.optional().parse(single("section")) ?? null, page: parsePagination({ page: raw.page }, { defaultPerPage: REVIEW_PAGE_SIZE, allowedPerPage: [REVIEW_PAGE_SIZE] }).page };
 }
 export function reviewParamsSearch(params: ReviewParams): URLSearchParams {
   const result = new URLSearchParams();
