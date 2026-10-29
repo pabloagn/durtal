@@ -65,3 +65,21 @@ it("an icon picker waits for a newer surface before closing and restores its tri
   expect(document.querySelector('[aria-label="Collection icon"]')).toBeNull();
   expect(document.activeElement).toBe(button);
 });
+
+
+it("keeps a mark card open when the pointer leaves while its controls have focus", async () => {
+  act(() => root.render(h(MarkToggle, {
+    mark: WORK_MARKS[0], icon: Star, tone: "text-fg-primary", marked: true,
+    date: "2026-10-01", onToggle: vi.fn(), onDateChange: vi.fn(),
+  })));
+  const button = host.querySelector("button")!;
+  const original = button.matches.bind(button);
+  vi.spyOn(button, "matches").mockImplementation(selector => selector === ":focus-visible" || original(selector));
+  act(() => button.focus());
+  const card = document.querySelector<HTMLElement>('[role="group"]')!;
+  const change = [...card.querySelectorAll<HTMLButtonElement>("button")].find(n => n.textContent === "Change date")!;
+  act(() => change.focus());
+  act(() => card.dispatchEvent(new PointerEvent("pointerout", { bubbles: true, relatedTarget: document.body })));
+  await act(() => new Promise(resolve => setTimeout(resolve, 200)));
+  expect(document.querySelector('[role="group"]')).toBe(card);
+});
