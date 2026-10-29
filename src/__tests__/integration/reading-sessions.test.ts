@@ -53,7 +53,10 @@ import {
   updateSession,
 } from "@/lib/actions/reading";
 import { updateAppSettings } from "@/lib/actions/settings";
-import { FUTURE_SESSION, loadReading } from "@/lib/reading/service";
+import { yearNumbers } from "@/lib/reading/stats";
+import { readingApiStats } from "@/lib/reading/api-stats";
+import { pagesPerHour } from "@/lib/reading/pace";
+import { FUTURE_SESSION, loadReading, pagesOnDay } from "@/lib/reading/service";
 import { readingDay } from "@/lib/reading/dates";
 import { countedPagesSql } from "@/lib/reading/summary";
 
@@ -276,6 +279,51 @@ describe.skipIf(!url)("reading sessions and the timer with PostgreSQL", () => {
       expect(restored.currentPage).toBe(60);
       const [row] = await q(`select s.*, s.start_percent::float8 as start_percent from reading_sessions s where id=$1`, [sessionId]);
       expect(row).toMatchObject({ edition_id: a.editionId, start_page: 60, start_percent: 25, pages_total: 240, format: "print", note: null, ended_at: null });
+    });
+
+    it("counts only progress past a captured timer origin when the reading start is unknown", async () => {
+      const a = await started("Known timer origin", 240);
+      await q(`update readings set start_page=null,start_percent=null,start_minutes=null,current_page=60,current_percent=25,current_minutes=null where id=$1`, [a.reading.id]);
+      const { sessionId } = await startTimer({ readingId: a.reading.id });
+      await backdate(sessionId, 2);
+      const stopped = await stopTimer({ sessionId, page: 61 });
+      expect(stopped.session).toMatchObject({ startPage: 60, endPage: 61, pagesRead: 1 });
+      expect(await counted(a.reading.id)).toBe(1);
+      expect(await pagesOnDay(a.reading.id, stopped.session.readOn)).toBe(1);
+      expect((await yearNumbers(null)).pages).toBe(1);
+      expect((await yearNumbers(Number(stopped.session.readOn.slice(0,4)))).pages).toBe(1);
+      expect((await readingApiStats()).pagesThisYear).toBe(1);
+      const pace = await getPaceContext([a.reading.id]);
+      expect(pagesPerHour(pace.readings[a.reading.id], pace.priors).pages).toBeCloseTo(1, 1);
+    });
+
+    it.each([["known",60,60,61,1],["zero",0,0,1,1],["unknown",null,null,1,1]] as const)("keeps the existing %s-start counting rule", async (_name,start,current,end,pages) => {
+      const a=await started("Counting baseline",240);
+      await q(`update readings set start_page=$2,start_percent=$3,start_minutes=null,current_page=$4,current_percent=$5,current_minutes=null where id=$1`,[a.reading.id,start,start===null?null:start/240*100,current,current===null?null:current/240*100]);
+      const {sessionId}=await startTimer({readingId:a.reading.id});await backdate(sessionId,2);
+      await stopTimer({sessionId,page:end});expect(await counted(a.reading.id)).toBe(pages);
+    });
+
+    it("counts an alternate edition against its own pages and leaves page-less audio at zero", async () => {
+      const a=await started("Edition counts",240);
+      await q(`update readings set start_page=null,start_percent=null,start_minutes=null,current_page=60,current_percent=25,current_minutes=null where id=$1`,[a.reading.id]);
+      const other=await value(`insert into editions(work_id,title,language,page_count) values ($1,'Other','en',480) returning id`,[a.workId]);
+      const {sessionId}=await startTimer({readingId:a.reading.id});await backdate(sessionId,2);
+      await stopTimer({sessionId,editionId:other,page:122});expect(await counted(a.reading.id)).toBe(2);
+      const b=await started("Audio counts",null);
+      await q(`update readings set format='audio',unit='minutes',total_pages=null,total_minutes=240,start_page=null,start_percent=null,start_minutes=null,current_page=null,current_percent=25,current_minutes=60 where id=$1`,[b.reading.id]);
+      const timer=await startTimer({readingId:b.reading.id});await backdate(timer.sessionId,2);
+      await stopTimer({sessionId:timer.sessionId,minutes:61});expect(await counted(b.reading.id)).toBe(0);
+    });
+
+    it("does not count pages twice after a timer goes back or overlaps an earlier log", async () => {
+      const a=await started();await log(a.reading.id,{page:200});
+      const timer=await startTimer({readingId:a.reading.id});await backdate(timer.sessionId,2);
+      await stopTimer({sessionId:timer.sessionId,page:220});expect(await counted(a.reading.id)).toBe(120);
+      const back=await startTimer({readingId:a.reading.id});await backdate(back.sessionId,2);
+      await stopTimer({sessionId:back.sessionId,page:180,goingBack:'went_back'});expect(await counted(a.reading.id)).toBe(120);
+      const again=await startTimer({readingId:a.reading.id});await backdate(again.sessionId,2);
+      await stopTimer({sessionId:again.sessionId,page:219});expect(await counted(a.reading.id)).toBe(120);
     });
 
     it("restores a paused timer and the previous log after undoing a correction", async () => {

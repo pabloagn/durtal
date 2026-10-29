@@ -99,7 +99,8 @@ export function rereadSql(readingAlias: string) {
  * (null for a finished reading without sessions), day, day_precision, format
  * and pages (float8, not rounded). Callers filter by period, sum, then round.
  * A session counts only past the furthest point reached before it, as a share
- * of the page total it was logged against; the running timer and sessions
+ * of the page total it was logged against. A timer also excludes the place
+ * already reached when it began; the running timer and sessions
  * without an end share or a page total count nothing. A finished reading with
  * no sessions counts its pages from its start page, in its finish period.
  */
@@ -108,6 +109,7 @@ export function countedPagesSql() {
     select s.reading_id, r.work_id, s.id as session_id, s.read_on as day, 'day'::text as day_precision, s.format,
       greatest(0, coalesce(s.end_percent::float8, 0)
         - greatest(coalesce(r.start_percent::float8, 0),
+          case when s.source = 'timer' then coalesce(s.start_percent::float8, 0) else 0 end,
           coalesce(max(s.end_percent::float8) over (partition by s.reading_id
             order by s.read_on, coalesce(s.ended_at, s.started_at, s.created_at), s.created_at, s.id
             rows between unbounded preceding and 1 preceding), 0)))
