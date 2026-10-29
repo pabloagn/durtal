@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { EBOOK_FORMATS, formatLabel } from "@/lib/ebooks/formats";
-import { languageName } from "@/lib/utils/language";
+import { languageName, normalizeLanguage } from "@/lib/utils/language";
 import { useListSearchClear } from "@/lib/hooks/use-list-search-clear";
 import { isComposing } from "@/lib/shortcuts/shortcuts";
 import { ReviewFilters } from "./review-filters";
@@ -47,8 +47,9 @@ export function InstantReviewFilters({ languages }: { languages: string[] }) {
   useListSearchClear(input, (shouldNavigate) => { setQuery(""); if (shouldNavigate) sendQuery("", 0); });
   const active = ["language", "format", "hasIsbn"].filter((key) => values.has(key)).length;
   const languageChoices: { value: string; label: string; disabled?: boolean }[] = languages.map((value) => ({ value, label: languageName(value) ?? value }))
-    .sort((a, b) => a.label.localeCompare(b.label));
-  const selectedLanguage = values.get("language");
+    .sort((a, b) => a.label.localeCompare(b.label, "en"));
+  const rawLanguage = values.get("language");
+  const selectedLanguage = rawLanguage ? normalizeLanguage(rawLanguage) ?? rawLanguage : null;
   // Keep a stale URL filter visible, but only languages in the queue can be selected.
   if (selectedLanguage && !languages.includes(selectedLanguage)) languageChoices.unshift({
     value: selectedLanguage, label: `${languageName(selectedLanguage) ?? selectedLanguage} (no eBooks to review)`, disabled: true,
@@ -66,7 +67,7 @@ export function InstantReviewFilters({ languages }: { languages: string[] }) {
       onChange={(event) => { setQuery(event.target.value); if (!composing.current) sendQuery(event.target.value); }}
       onKeyDown={(event) => { if (event.key === "Enter" && !isComposing(event)) { event.preventDefault(); sendQuery(query, 0); } }} />}
       filters={<>
-        <Select label="Language" name="language" value={values.get("language") ?? ""}
+        <Select label="Language" name="language" value={selectedLanguage ?? ""}
           options={[{ value: "", label: "All languages" }, ...languageChoices]} onChange={(event) => change("language", event.target.value)} />
         <Select label="Format" name="format" value={values.get("format") ?? ""}
           options={[{ value: "", label: "All formats" }, ...EBOOK_FORMATS.map((value) => ({ value, label: formatLabel(value) }))]} onChange={(event) => change("format", event.target.value)} />
