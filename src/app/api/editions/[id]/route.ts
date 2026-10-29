@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { z } from "zod/v4";
 import { db } from "@/lib/db";
 import { editions } from "@/lib/db/schema";
+import { createEditionSchema } from "@/lib/validations/editions";
 import { updateEdition } from "@/lib/actions/editions";
 import {
   UUID_RE,
@@ -16,11 +17,12 @@ const patchEditionSchema = z
   .object({
     title: z.string().trim().min(1).optional(),
     subtitle: z.string().trim().nullable().optional(),
+    publicationYear: createEditionSchema.shape.publicationYear,
   })
   .strict();
 
 /**
- * PATCH /api/editions/[id] — rename an edition, as the Edit edition dialog
+ * PATCH /api/editions/[id] — rename an edition or correct its publication year, as the Edit edition dialog
  * does (activity log included). Other fields stay as they are.
  */
 export async function PATCH(
@@ -47,7 +49,7 @@ export async function PATCH(
     await updateEdition(id, input);
     const edition = await db.query.editions.findFirst({
       where: eq(editions.id, id),
-      columns: { id: true, title: true, subtitle: true, workId: true },
+      columns: { id: true, title: true, subtitle: true, workId: true, publicationYear: true },
     });
     return NextResponse.json(edition);
   } catch (err) {
