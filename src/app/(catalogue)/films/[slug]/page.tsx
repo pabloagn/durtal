@@ -375,7 +375,7 @@ export default async function FilmPage({
         />
 
         {/* The still behind the poster and title */}
-        <div className={still ? "relative z-[1] -mx-6 -mt-6 mb-8" : "relative z-[1] mb-8"}>
+        <div className={still ? "relative z-[1] -mx-4 -mt-6 mb-8 md:-mx-6" : "relative z-[1] mb-8"}>
           {still && (
             <div className="absolute inset-0 -z-0 overflow-hidden">
               <FadeImage
@@ -396,7 +396,7 @@ export default async function FilmPage({
             </div>
           )}
 
-          <div className={still ? "relative z-10 px-6 pt-6 pb-2" : ""}>
+          <div className={still ? "relative z-10 px-4 pt-6 pb-2 md:px-6" : ""}>
             <BackLink href="/films">Back to films</BackLink>
 
             <header className="flex flex-col gap-6 sm:flex-row">
