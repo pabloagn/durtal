@@ -9,17 +9,20 @@ export function RouteFallback({
   title,
   description,
   children,
+  heading = "h2",
 }: {
   title: string;
   description: string;
   children: ReactNode;
+  heading?: "h1" | "h2";
 }) {
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center px-4 py-6 text-center">
       {/* The heading's own row takes min-content in a centred column, which
           set one word to a line: give it the column's width */}
       <div className="w-full max-w-xl">
-        <SectionHeading title={title} />
+        {heading === "h1" ? <h1 className="mb-4 type-section-title [overflow-wrap:break-word]">{title}</h1>
+          : <SectionHeading title={title} />}
       </div>
       <p className="max-w-sm text-sm leading-relaxed text-fg-secondary">
         {description}

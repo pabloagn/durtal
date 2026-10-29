@@ -14,12 +14,12 @@ describe("a file the reader could not open (SLN-685)", () => {
 describe("a locked file, in plain words (SLN-685)", () => {
   it("names the lock and what to do", () => {
     expect(lockedFileMessage("adobe-adept")).toBe(
-      "This file is locked with Adobe DRM; Durtal can't open it. Replace it with a DRM-free copy.",
+      "This file is locked with Adobe DRM; Durtal can’t open it. Replace it with a DRM-free copy.",
     );
     expect(lockName("kindle")).toBe("Kindle DRM");
     expect(lockName("unknown")).toBe("DRM");
     expect(lockedFileMessage("pdf-password")).toBe(
-      "This file is locked with a password; Durtal can't open it. Replace it with a copy that has no password.",
+      "This file is locked with a password; Durtal can’t open it. Replace it with a copy that has no password.",
     );
   });
 });

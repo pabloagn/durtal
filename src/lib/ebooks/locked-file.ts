@@ -19,6 +19,6 @@ export function lockName(drm: string): string {
 /** Why a locked file cannot be read, and what to do instead */
 export function lockedFileMessage(drm: string): string {
   return drm === "pdf-password"
-    ? "This file is locked with a password; Durtal can't open it. Replace it with a copy that has no password."
-    : `This file is locked with ${lockName(drm)}; Durtal can't open it. Replace it with a DRM-free copy.`;
+    ? "This file is locked with a password; Durtal can’t open it. Replace it with a copy that has no password."
+    : `This file is locked with ${lockName(drm)}; Durtal can’t open it. Replace it with a DRM-free copy.`;
 }

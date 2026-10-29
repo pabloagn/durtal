@@ -19,6 +19,8 @@ import {
   isEbookFileDownloadable,
   isEbookFileNativeReadable,
 } from "@/lib/ebooks/conditions";
+import { formatDate } from "@/lib/utils/format";
+import { identifierLabel } from "@/lib/ebooks/identifier-label";
 import { formatLabel } from "@/lib/ebooks/formats";
 import { openFailureOf } from "@/lib/ebooks/open-failure";
 import { lockName, lockedFileMessage } from "@/lib/ebooks/locked-file";
@@ -144,9 +146,9 @@ export default async function EbookPage({ params, searchParams }: Props) {
     status: file.drm
       ? `Locked with ${lockName(file.drm)}, cannot be opened`
       : (file.status === "stored" || file.status === "verified") && openFailureOf(file.metadata)
-        ? `Damaged: did not open on ${openFailureOf(file.metadata)!.at.slice(0, 10)}`
+        ? `Damaged: did not open on ${formatDate(openFailureOf(file.metadata)!.at.slice(0, 10))}`
       : file.status === "verified"
-        ? `Verified${file.verifiedAt ? ` ${file.verifiedAt.slice(0, 10)}` : ""}`
+        ? `Verified${file.verifiedAt ? ` ${formatDate(file.verifiedAt.slice(0, 10))}` : ""}`
         : file.status === "missing"
           ? "Missing from storage"
           : file.status === "quarantined"
@@ -205,7 +207,7 @@ export default async function EbookPage({ params, searchParams }: Props) {
                 {ebook.series && (
                   <RecordField label="Series">
                     {ebook.series}
-                    {ebook.seriesIndex ? ` · ${ebook.seriesIndex}` : ""}
+                    {ebook.seriesIndex != null ? `\u00a0·\u00a0${ebook.seriesIndex}` : ""}
                   </RecordField>
                 )}
                 {ebook.language && (
@@ -222,7 +224,7 @@ export default async function EbookPage({ params, searchParams }: Props) {
                   </RecordField>
                 )}
                 <RecordField label="Added">
-                  {ebook.createdAt.slice(0, 10)}
+                  {formatDate(ebook.createdAt.slice(0, 10))}
                 </RecordField>
               </RecordFields>
             </RecordGroup>
@@ -235,7 +237,7 @@ export default async function EbookPage({ params, searchParams }: Props) {
                     </RecordField>
                   ))}
                   {identifiers.map(({ scheme, value }, index) => (
-                    <RecordField key={index} label={scheme}>
+                    <RecordField key={index} label={identifierLabel(scheme)}>
                       <span className="[overflow-wrap:anywhere]">{value}</span>
                     </RecordField>
                   ))}
@@ -271,8 +273,8 @@ export default async function EbookPage({ params, searchParams }: Props) {
             {unavailable && (
               <p className="mt-3 text-sm text-fg-primary">
                 {unavailable.status === "missing"
-                  ? `This ${formatLabel(unavailable.format)} file is missing from storage; Durtal can't open it.`
-                  : `This ${formatLabel(unavailable.format)} file is damaged; Durtal can't open it.`}{" "}
+                  ? `This ${formatLabel(unavailable.format)} file is missing from storage; Durtal can’t open it.`
+                  : `This ${formatLabel(unavailable.format)} file is damaged; Durtal can’t open it.`}{" "}
                 <Link href={replaceHref(unavailable.id)} className="touch-hit text-command">Replace file…</Link>
               </p>
             )}

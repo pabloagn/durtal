@@ -28,7 +28,7 @@ const RESTART_WINDOW_MS = 120_000;
 const AUTO_ADD_TRIES = 20;
 /** Plain words for what went wrong; never a schema dump (SLN-672) */
 function problem(error: unknown): string {
-  if (error instanceof z.ZodError || error instanceof SyntaxError) return "The server's answer was not understood. Reload the page and try again.";
+  if (error instanceof z.ZodError || error instanceof SyntaxError) return "The server’s answer was not understood. Reload the page and try again.";
   if (error instanceof DOMException && error.name === "AbortError") return "Paused. Choose Resume to carry on.";
   if (error instanceof DOMException && error.name === "TimeoutError") return "The server took too long to answer. Try again.";
   return error instanceof Error ? error.message : "Something went wrong. Try again.";

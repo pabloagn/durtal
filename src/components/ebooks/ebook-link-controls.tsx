@@ -102,12 +102,12 @@ export function EbookLinkControls({ row }: { row: ReviewQueueRow }) {
     <div className="mt-3 flex flex-wrap gap-2">
       {unlinked && <>
         <Button size="sm" disabled={disabled} onClick={() => open("choose")}>Choose a book…</Button>
-        <Button size="sm" disabled={disabled} onClick={() => open("new")}>New book</Button>
-        <Button size="sm" variant="ghost" disabled={disabled} onClick={() => open("exclude")}><Archive aria-hidden strokeWidth={1.5} />Set aside</Button>
+        <Button size="sm" disabled={disabled} onClick={() => open("new")}>New book…</Button>
+        <Button size="sm" variant="ghost" disabled={disabled} onClick={() => open("exclude")}><Archive aria-hidden strokeWidth={1.5} />Set aside…</Button>
       </>}
       {row.state === "pending" && <>
-        <Button size="sm" disabled={disabled} onClick={() => open("keep")}>Keep as eBook</Button>
-        <Button size="sm" variant="ghost" disabled={disabled} onClick={() => open("rematch")}><RefreshCw aria-hidden strokeWidth={1.5} />Match again</Button>
+        <Button size="sm" disabled={disabled} onClick={() => open("keep")}>Keep as eBook…</Button>
+        <Button size="sm" variant="ghost" disabled={disabled} onClick={() => open("rematch")}><RefreshCw aria-hidden strokeWidth={1.5} />Match again…</Button>
       </>}
       {(row.state === "standalone" || row.state === "excluded") &&
         <Button size="sm" disabled={disabled} onClick={() => open("restore")}>Restore to review…</Button>}
