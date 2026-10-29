@@ -2,6 +2,7 @@
 import { afterEach, beforeAll, beforeEach, expect, it, vi } from "vitest";
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
+import { renderToString } from "react-dom/server";
 
 // Review of #408: a blank cover shows the title's first letter or digit, and
 // none for a title with neither ("!!!"), which left the cover's link with no
@@ -85,7 +86,7 @@ it("falls back to the cover letter after at most two failed requests", () => {
 });
 
 
-it("does not add another retry after an eager cover's preload and image request", () => {
+it("does not add another retry after an eager cover fails", () => {
   vi.useFakeTimers();
   try {
     card({ title: "Missing cover", coverUrl: "/api/s3/read?key=missing.webp", coverPriority: true });
@@ -93,4 +94,16 @@ it("does not add another retry after an eager cover's preload and image request"
     expect(host.querySelector("img")).toBeNull();
     expect(host.querySelector(".cover-letter")?.textContent).toBe("M");
   } finally { vi.useRealTimers(); }
+});
+
+it("serves priority covers eagerly without a duplicate speculative preload", () => {
+  const html = renderToString(createElement(BookCard, {
+    workId: "w1", slug: "w1", title: "A cover", authorName: "A. Writer",
+    instanceCount: 0, rating: null, ebook: null,
+    coverUrl: "/api/s3/read?key=cover.webp", coverPriority: true,
+  }));
+  expect(html).toContain('<picture class="contents">');
+  expect(html).toContain('loading="eager"');
+  expect(html).toContain('fetchPriority="high"');
+  expect(html).not.toContain('rel="preload"');
 });
