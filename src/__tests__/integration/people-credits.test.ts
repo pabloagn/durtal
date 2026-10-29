@@ -758,8 +758,8 @@ describe.skipIf(!url)("shared people and domain-scoped credits", () => {
     const p = await person("Specialist credits", ["painting", "perfume"]);
     await c`insert into painting_details(work_id) values (${work.painting})`;
     await c`insert into perfume_details(work_id) values (${work.perfume})`;
-    const [object] = await c`insert into art_objects(work_id,kind,ownership) values (${work.painting},'original','unknown') returning id`;
-    const [variant] = await c`insert into perfume_variants(work_id) values (${work.perfume}) returning id`;
+    const [object] = await c`insert into art_objects(work_id,kind,ownership,attribution_override) values (${work.painting},'original','unknown',true) returning id`;
+    const [variant] = await c`insert into perfume_variants(work_id,perfumers_override) values (${work.perfume},true) returning id`;
     await c`insert into art_object_credits(object_id,person_id) values (${object.id},${p.id})`;
     await c`insert into perfume_variant_perfumers(variant_id,person_id) values (${variant.id},${p.id})`;
     expect(await getPersonDeletionRefusal(p.id)).toBe("Credited on 1 painting and 1 perfume. Remove those credits first.");
