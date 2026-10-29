@@ -232,7 +232,7 @@ export default async function PublisherPage({
     <>
       <CopyShortcuts name={p.name} />
       {/* Backdrop and header, like the author page */}
-      <div className={background ? "relative -mx-6 -mt-6 mb-8" : ""}>
+      <div className={background ? "relative -mx-4 -mt-6 mb-8 md:-mx-6" : ""}>
         {background && (
           <FullBleedLayer className="-z-0">
             <FadeImage
@@ -254,7 +254,7 @@ export default async function PublisherPage({
             />
           </FullBleedLayer>
         )}
-        <div className={background ? "relative z-10 px-6 pt-6 pb-2" : ""}>
+        <div className={background ? "relative z-10 px-4 pt-6 pb-2 md:px-6" : ""}>
           <BackLink href="/publishers">Back to publishers</BackLink>
           <PublisherHeader
             id={p.id}
