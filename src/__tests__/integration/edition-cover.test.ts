@@ -197,6 +197,15 @@ describe.skipIf(!url)("an edition's own cover with PostgreSQL (SLN-638)", () => 
     expect(deletes()).toEqual([]);
   });
 
+  it("explains a stale switch to the book cover and preserves the edition's cover", async () => {
+    const { first } = await book();
+    await withOwnCover(first.id);
+    const before = await row(first.id);
+    await expect(showBookCover(first.id, "0".repeat(64))).rejects.toThrow(COVER_CHANGED);
+    expect(await row(first.id)).toEqual(before);
+    expect(deletes()).toEqual([]);
+  });
+
   it("switches to the book's cover and puts the edition's own cover back", async () => {
     const { first, second } = await book();
     const old = await withOwnCover(first.id);

@@ -147,7 +147,9 @@ describe.skipIf(!url)("hunting with PostgreSQL", () => {
     await expect(
       bulkUpdateHuntAssessment([original.id, "invalid"], assessment),
     ).rejects.toThrow();
-    await expect(bulkUpdateHuntAssessment([], assessment)).rejects.toThrow();
+    await expect(bulkUpdateHuntAssessment([], assessment)).rejects.toThrow("Too small");
+    await expect(bulkUpdateHuntAssessment(["00000000-0000-4000-a000-000000000999"], assessment))
+      .rejects.toThrow("Book not found: this action only accepts existing books");
     await expect(
       bulkUpdateHuntAssessment([original.id], {
         ...assessment,
