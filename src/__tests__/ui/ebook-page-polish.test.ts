@@ -13,7 +13,7 @@ describe("e-book page presentation (SLN-1040)", () => {
   });
 
   it.each([["isbn13", "ISBN-13"], ["ISBN-10", "ISBN-10"], ["doi", "DOI"],
-    ["mobi-asin", "Kindle ASIN"], ["calibre", "Calibre"], ["custom_id", "Custom id"]])(
+    ["mobi-asin", "Kindle ASIN"], ["custom_id", "Custom id"]])(
     "names the %s identifier as %s", (scheme, label) => {
       expect(identifierLabel(scheme)).toBe(label);
     },

@@ -2,7 +2,7 @@
 const LABELS: Record<string, string> = {
   isbn: "ISBN", isbn10: "ISBN-10", "isbn-10": "ISBN-10", isbn13: "ISBN-13", "isbn-13": "ISBN-13",
   asin: "ASIN", "mobi-asin": "Kindle ASIN", doi: "DOI", uuid: "UUID", uri: "URI", url: "URL",
-  oclc: "OCLC", lccn: "LCCN", issn: "ISSN", calibre: "Calibre", google: "Google Books",
+  oclc: "OCLC", lccn: "LCCN", issn: "ISSN", google: "Google Books",
   goodreads: "Goodreads", openlibrary: "Open Library",
 };
 
