@@ -1,4 +1,6 @@
 "use client";
+
+import { SEARCH_INPUT_ATTRIBUTES } from "@/lib/ui/input-attributes";
 import { useCallback, useId, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { MoreHorizontal, NotebookPen, Trash2 } from "lucide-react";
@@ -232,6 +234,7 @@ export function AnnotationsPanel({
         {counts[tab] > 0 && <>
           <input
             type="search"
+            {...SEARCH_INPUT_ATTRIBUTES}
             aria-label={imagesOnly ? "Filter bookmarks" : "Filter highlights and notes"}
             // The count rides the field, so the tabs keep to one line in a 320px panel
             placeholder={`Find in ${counts[tab]} ${counts[tab] === 1 ? tab.slice(0, -1) : tab}`}

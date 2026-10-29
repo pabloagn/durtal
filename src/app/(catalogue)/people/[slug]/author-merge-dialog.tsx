@@ -1,5 +1,7 @@
 "use client";
 
+import { SEARCH_INPUT_ATTRIBUTES } from "@/lib/ui/input-attributes";
+
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { X, ArrowRight } from "lucide-react";
@@ -140,9 +142,9 @@ export function AuthorMergeDialog({
         </div>
 
         {/* Search */}
-        <input
+        <input {...SEARCH_INPUT_ATTRIBUTES}
           ref={searchRef}
-          type="text"
+          type="search"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search for duplicates..."

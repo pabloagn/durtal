@@ -85,7 +85,7 @@ export function BookPicker({
   return (
     <Dialog open onClose={onClose} title={title ?? TITLES[purpose]} className="max-w-lg" expandable={false}>
       <div className="space-y-3">
-        <Input
+        <Input type="search"
           aria-label="Search books"
           placeholder="Title or author"
           value={query}

@@ -102,7 +102,7 @@ export function AddSeriesBooksDialog({
       expandable={false}
     >
       <div className="space-y-3">
-        <Input
+        <Input type="search"
           ref={inputRef}
           aria-label="Search books to add"
           placeholder="Search title or author…"

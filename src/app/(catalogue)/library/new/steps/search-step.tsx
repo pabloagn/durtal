@@ -1,5 +1,7 @@
 "use client";
 
+import { Input } from "@/components/ui/input";
+
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Search, Plus, ArrowRight, Loader2 } from "lucide-react";
 import type { useDebouncedSearch } from "@/lib/hooks/use-debounced-search";
@@ -92,8 +94,8 @@ export function SearchStep({
         {/* Search input */}
         <div className="relative">
           <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-fg-muted" />
-          <input
-            type="text"
+          <Input
+            type="search"
             placeholder="Title, author or ISBN"
             aria-label="Search by title, author, or ISBN"
             data-shortcut-search=""
@@ -101,7 +103,7 @@ export function SearchStep({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             onKeyDown={handleSearchKeyDown}
-            className="h-9 w-full rounded-sm border border-glass-border bg-bg-primary pl-9 pr-9 text-sm text-fg-primary placeholder:text-fg-muted transition-colors focus:border-accent-primary focus:outline-none pointer-coarse:h-11"
+            className="pl-9 pr-9"
             autoFocus
           />
           {isSearching && (

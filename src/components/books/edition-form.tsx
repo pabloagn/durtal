@@ -1,5 +1,7 @@
 "use client";
 
+import { IDENTIFIER_INPUT_ATTRIBUTES } from "@/lib/ui/input-attributes";
+
 import { useSaveReason } from "@/components/shared/save-reason";
 import {
   FormSection as Section,
@@ -359,6 +361,8 @@ export function EditionForm({
         <FormColumns>
           <Input
             label="ISBN-13"
+            {...IDENTIFIER_INPUT_ATTRIBUTES}
+            inputMode="numeric"
             id="ed-isbn13"
             value={values.isbn13}
             onChange={(e) => update("isbn13", e.target.value)}
@@ -368,6 +372,8 @@ export function EditionForm({
           />
           <Input
             label="ISBN-10"
+            {...IDENTIFIER_INPUT_ATTRIBUTES}
+            autoCapitalize="characters"
             id="ed-isbn10"
             value={values.isbn10}
             onChange={(e) => update("isbn10", e.target.value)}
@@ -380,6 +386,7 @@ export function EditionForm({
           <FormColumns>
             <Input
               label="ASIN"
+            {...IDENTIFIER_INPUT_ATTRIBUTES}
               id="ed-asin"
               value={values.asin}
               onChange={(e) => update("asin", e.target.value)}
@@ -387,6 +394,7 @@ export function EditionForm({
             />
             <Input
               label="LCCN"
+            {...IDENTIFIER_INPUT_ATTRIBUTES}
               id="ed-lccn"
               value={values.lccn}
               onChange={(e) => update("lccn", e.target.value)}
@@ -396,6 +404,8 @@ export function EditionForm({
           <FormColumns>
             <Input
               label="OCLC"
+            {...IDENTIFIER_INPUT_ATTRIBUTES}
+            inputMode="numeric"
               id="ed-oclc"
               value={values.oclc}
               onChange={(e) => update("oclc", e.target.value)}
@@ -403,6 +413,7 @@ export function EditionForm({
             />
             <Input
               label="Open Library key"
+            {...IDENTIFIER_INPUT_ATTRIBUTES}
               id="ed-ol-key"
               value={values.openLibraryKey}
               onChange={(e) => update("openLibraryKey", e.target.value)}
@@ -412,6 +423,7 @@ export function EditionForm({
           <FormColumns>
             <Input
               label="Google Books ID"
+            {...IDENTIFIER_INPUT_ATTRIBUTES}
               id="ed-gb-id"
               value={values.googleBooksId}
               onChange={(e) => update("googleBooksId", e.target.value)}
@@ -419,6 +431,8 @@ export function EditionForm({
             />
             <Input
               label="Goodreads ID"
+            {...IDENTIFIER_INPUT_ATTRIBUTES}
+            inputMode="numeric"
               id="ed-gr-id"
               value={values.goodreadsId}
               onChange={(e) => update("goodreadsId", e.target.value)}

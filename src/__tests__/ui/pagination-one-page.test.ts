@@ -37,8 +37,8 @@ function render(props: Partial<Parameters<typeof Pagination>[0]>) {
   act(() => root.render(createElement(Pagination, { page: 1, perPage: 48, total: 9, noun: "books", ...props })));
   return {
     text: host.textContent ?? "",
-    links: [...host.querySelectorAll("a, button")].map((el) => el.getAttribute("aria-label") ?? el.textContent),
-    size: host.querySelector("select"),
+    links: [...host.querySelectorAll('a, button:not([role="combobox"])')].map((el) => el.getAttribute("aria-label") ?? el.textContent),
+    size: host.querySelector('[data-pager-control="size"]'),
   };
 }
 
