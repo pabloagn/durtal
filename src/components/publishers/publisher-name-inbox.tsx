@@ -370,6 +370,7 @@ export function PublisherNameInbox({
                   variant="ghost"
                   size="sm"
                   disabled={pending}
+                  className="-ml-2.5"
                   onClick={() =>
                     run(async () => {
                       await restorePublisherName(n.key);
