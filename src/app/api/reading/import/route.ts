@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { crossOriginRefusal } from "@/lib/api/same-origin";
 import { errorResponse } from "@/lib/api/rest";
-import { DELIMITED_IMPORT_MESSAGE, delimitedUploadFormat, ImportFileError } from "@/lib/reading/import/formats";
-import { emptyDurtalExport } from "@/lib/reading/import/parse";
+import { IMPORT_UPLOAD_MESSAGE, importUploadFormat, ImportFileError } from "@/lib/reading/import/formats";
+import { emptyImportFile } from "@/lib/reading/import/empty-file";
 import { detectDelimiter } from "@/lib/reading/import/csv";
 import { createReadingImport, safeFileName, setBronzeKey } from "@/lib/reading/import/store";
 import { bronzeImportKey } from "@/lib/s3/keys";
@@ -15,7 +15,9 @@ import { MAX_IMPORT_BYTES } from "@/lib/validations/reading-import";
  * One reading history file as multipart `file`: a Goodreads, StoryGraph or
  * Durtal reading CSV/TSV of at most 10 MB. Parses, matches and stores the import and its
  * rows in one write, then keeps the raw file in S3 when it can. Answers
- * `{ importId }`; the preview is `/reading/import/<importId>`. A route, not a
+ * `{ importId }`; the preview is `/reading/import/<importId>`. Recognized empty
+ * exports return `{ kind: "empty", rows: 0 }` without a preview or retained copy.
+ * Populated JSON and Parquet remain unsupported here. A route, not a
  * server action: a full Goodreads export passes the action body limit.
  */
 export async function POST(req: NextRequest) {
@@ -29,20 +31,22 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "The file did not arrive intact. Please choose it again." }, { status: 400 });
     }
     const file = form.get("file");
-    if (!(file instanceof File)) return NextResponse.json({ error: "Choose a CSV or TSV file to import" }, { status: 400 });
+    if (!(file instanceof File)) return NextResponse.json({ error: "Choose a file to import" }, { status: 400 });
     if (file.size > MAX_IMPORT_BYTES) return NextResponse.json({ error: "This file is over 10 MB. Export a smaller one." }, { status: 400 });
-    if (!delimitedUploadFormat(file.name, file.type)) return NextResponse.json({ error: DELIMITED_IMPORT_MESSAGE }, { status: 400 });
+    const format = importUploadFormat(file.name, file.type);
+    if (!format) return NextResponse.json({ error: IMPORT_UPLOAD_MESSAGE }, { status: 400 });
     const bytes = new Uint8Array(await file.arrayBuffer());
-    const text = new TextDecoder("utf-8").decode(bytes);
+
 
     try {
-      const entity = emptyDurtalExport(text);
-      if (entity) return NextResponse.json({ kind: "empty", entity, source: "durtal", rows: 0 }, { status: 200 });
+      const empty = await emptyImportFile(bytes, format);
+      if (empty) return NextResponse.json({ kind: "empty", ...empty, rows: 0 }, { status: 200 });
     } catch (err) {
       if (err instanceof ImportFileError) return NextResponse.json({ error: err.message }, { status: 400 });
       throw err;
     }
 
+    const text = new TextDecoder("utf-8").decode(bytes);
     let created: Awaited<ReturnType<typeof createReadingImport>>;
     try {
       created = await createReadingImport({ text, fileName: file.name });

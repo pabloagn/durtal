@@ -23,7 +23,7 @@ import { rowsChanged, undoDescription, commitResultWords } from "@/lib/reading/i
 import type { ImportDecision } from "@/lib/reading/import/match-rules";
 import type { ImportNoteView } from "@/lib/reading/import/notes";
 import type { RowLineKind, RowView } from "@/lib/reading/import/row-view";
-import { DELIMITED_IMPORT_MESSAGE, DURTAL_FILE_NAMES, type DurtalExportKind, delimitedUploadFormat } from "@/lib/reading/import/formats";
+import { IMPORT_UPLOAD_MESSAGE, DURTAL_FILE_NAMES, type DurtalExportKind, importUploadFormat } from "@/lib/reading/import/formats";
 
 /*
  * The reading import's buttons (SLN-450): small client islands on server
@@ -83,7 +83,7 @@ export function ImportUpload() {
   async function send(file: File | undefined) {
     if (!file) return;
     setError(null);
-    if (!delimitedUploadFormat(file.name, file.type)) return refuse(DELIMITED_IMPORT_MESSAGE);
+    if (!importUploadFormat(file.name, file.type)) return refuse(IMPORT_UPLOAD_MESSAGE);
     if (file.size === 0) return refuse("This file is empty");
     if (file.size > MAX_BYTES) return refuse("This file is over 10 MB. Export a smaller one.");
     setBusy(true);
@@ -91,9 +91,10 @@ export function ImportUpload() {
       const form = new FormData();
       form.append("file", file);
       const res = await fetch("/api/reading/import", { method: "POST", body: form });
-      const body = (await res.json().catch(() => ({}))) as { importId?: string; error?: string; kind?: string; entity?: string };
+      const body = (await res.json().catch(() => ({}))) as { importId?: string; error?: string; kind?: string; entity?: string; source?: string };
       if (res.ok && body.kind === "empty") {
-        toast.success(`This Durtal ${DURTAL_FILE_NAMES[body.entity as DurtalExportKind] ?? "export"} file has no rows. Nothing needed importing.`);
+        const name = body.source === "goodreads" ? "Goodreads" : body.source === "export" ? "export" : `Durtal ${DURTAL_FILE_NAMES[body.entity as DurtalExportKind] ?? "export"}`;
+        toast.success(`This ${name} file has no rows. Nothing needed importing.`);
         setBusy(false);
         return;
       }
@@ -137,7 +138,7 @@ export function ImportUpload() {
       <input
         ref={input}
         type="file"
-        accept=".csv,.tsv,text/csv,text/tab-separated-values"
+        accept=".csv,.tsv,.json,.parquet,text/csv,text/tab-separated-values,application/json,application/vnd.apache.parquet"
         className="sr-only"
         tabIndex={-1}
         aria-label="CSV or TSV file"
