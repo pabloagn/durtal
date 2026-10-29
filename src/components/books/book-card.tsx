@@ -81,12 +81,9 @@ function CoverImage({
   crop?: CoverCrop | null;
   priority?: boolean;
 }) {
-  const [retries, setRetries] = useState(0);
-  // Eager covers can be requested again during hydration, so do not add a
-  // cache-busting retry. Lazy covers get one retry for a transient failure.
-  const maxRetries = priority ? 1 : 2;
+  const [failed, setFailed] = useState(false);
 
-  if (retries >= maxRetries) {
+  if (failed) {
     return (
       <>
         <CoverPlaceholder title={alt} />
@@ -95,34 +92,21 @@ function CoverImage({
     );
   }
 
-  // Append retry count to bust the browser's failed-request cache
-  const retrySrc = retries > 0 ? `${src}&_r=${retries}` : src;
-
-  // While it retries, the letter shows under the image
   return (
     <>
-      {retries > 0 && <CoverPlaceholder title={alt} />}
       {/* One resized source avoids WebKit fetching a failed candidate again
           as layout settles. The picture also prevents a separate React
           preload; visible covers still load eagerly at high priority. */}
       <picture className="contents">
-      <source srcSet={withMediaWidth(retrySrc, 800)} />
+      <source srcSet={withMediaWidth(src, 800)} />
       <FadeImage
-        key={retries}
         alt={alt}
         loading={priority ? "eager" : "lazy"}
         fetchPriority={priority ? "high" : undefined}
         decoding="async"
         className="protected-image cover-image"
         style={mediaImageStyle(crop)}
-        onError={() => {
-          if (retries + 1 >= maxRetries) {
-            setRetries(maxRetries);
-            return;
-          }
-          // Retry after a short delay — the server was likely just overloaded
-          setTimeout(() => setRetries((r) => r + 1), 500 * (retries + 1));
-        }}
+        onError={() => setFailed(true)}
       />
       </picture>
     </>
