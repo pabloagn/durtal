@@ -1854,6 +1854,7 @@ class FoliateEngine implements ReaderEngine {
     if (!view || this.#destroyed) throw new Error("The book is closed.");
     if (owner?.signal.aborted)
       throw new DOMException("Cancelled", "AbortError");
+    for (const content of view.renderer.getContents()) clearNavigatedNotes(content.doc);
     this.#pdfTarget = this.#isPdf() && "v" in target && target.fileHash === this.#source?.sha256 && target.pdf?.rects?.length
       ? structuredClone(target) : null;
     this.#pageTarget = null;
@@ -2012,7 +2013,6 @@ class FoliateEngine implements ReaderEngine {
     // Notes stay out of the ordinary chapter flow. An explicit jump must reveal
     // its target before the renderer measures it; a later jump hides it again.
     const anchor = resolved.anchor;
-    for (const content of view.renderer.getContents()) clearNavigatedNotes(content.doc);
     await view.renderer.goTo({
       ...resolved,
       anchor: anchor ? (doc: Document) => {

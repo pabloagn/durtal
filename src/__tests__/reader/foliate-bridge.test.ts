@@ -1178,4 +1178,7 @@ it("reveals a hidden note before the renderer measures its navigation anchor, th
   });
   await engine.goTo({ href: "note" });
   await engine.goTo({ href: "chapter" });
+  await engine.goTo({ href: "note" });
+  await engine.goTo({ fraction: 0.5 });
+  expect(note.hasAttribute("data-durtal-note-target")).toBe(false);
 });
