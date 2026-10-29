@@ -266,10 +266,12 @@ describe.skipIf(!url)(
       expect(elsewhere?.descriptor.bookPercent).toBe(40);
       expect(elsewhere?.descriptor.bookPlace?.deviceId).toBe(phone);
       // Twelve books opened since are not "continue", and do not push it out
+      const openedIds: string[] = [];
       for (let i = 0; i < 12; i++) {
         const sha = createHash("sha256").update(`opened ${i}`).digest("hex");
         const [opened] = await client!`insert into ebooks(title, import_source, search_text)
           values (${`Opened ${i}`}, 'folder', ${`opened ${i}`}) returning id`;
+        openedIds.push(String(opened.id));
         const [openedFile] = await client!`insert into ebook_files(ebook_id, sha256, s3_key, format, size_bytes, content_type, status)
           values (${opened.id}, ${sha}, ${ebookFileKey(sha, "epub")}, 'epub', ${bytes.length}, 'application/epub+zip', 'stored') returning id`;
         await client!`insert into ebook_positions(ebook_id, file_id, device_id, device_label, locator, progression, furthest_progression, chapter, client_updated_at)
@@ -278,6 +280,11 @@ describe.skipIf(!url)(
       const continuing = await getContinueReading(device, database!);
       expect(continuing.some((item) => item.ebook.title.startsWith("Opened "))).toBe(false);
       expect(continuing.find((item) => item.ebook.id === ebook.id)?.descriptor.anchor?.deviceId).toBe(phone);
+      // Recent unreadable files must not crowd an older readable book out of the twelve.
+      await client!`update ebook_positions set locator = locator || '{"sectionIndex":1,"progression":0.5,"totalProgression":0.5}'::jsonb,
+        progression = 0.5, furthest_progression = 0.5 where ebook_id = any(${openedIds}::uuid[])`;
+      await client!`update ebook_files set status = 'missing' where ebook_id = any(${openedIds}::uuid[])`;
+      expect((await getContinueReading(device, database!)).find((item) => item.ebook.id === ebook.id)?.descriptor.anchor?.deviceId).toBe(phone);
       await client!`delete from ebook_positions where ebook_id = ${ebook.id} and device_id = ${phone}`;
       const reading = await place(1, 0.4, 0.5);
       expect(reading?.bookTitle).toBe("Là-bas");
