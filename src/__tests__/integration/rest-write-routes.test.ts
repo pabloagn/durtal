@@ -268,6 +268,22 @@ describe.skipIf(!url)("REST write routes with PostgreSQL", () => {
   });
 
   describe("works", () => {
+    it("corrects original language and year without rewriting an English edition or personal fields", async () => {
+      await db.update(schema.works).set({ originalLanguage: "en", originalYear: 2015, rating: 4.5, notes: "Keep this note" }).where(eq(schema.works.id, workId));
+      await db.update(schema.editions).set({ language: "en", publicationYear: 2015 }).where(eq(schema.editions.id, editionId));
+      const res = await answer(await patchWork(request("PATCH", "/x", { originalLanguage: "ca", originalYear: 1980 }), params(workId)));
+      expect(res.status).toBe(200);
+      expect(res.body).toMatchObject({ originalLanguage: "ca", originalYear: 1980, title: "Against Nature", catalogueStatus: "wanted" });
+      expect(await workRow()).toMatchObject({ originalLanguage: "ca", originalYear: 1980, rating: 4.5, notes: "Keep this note", slug: "against-nature" });
+      expect(await db.query.editions.findFirst({ where: eq(schema.editions.id, editionId) })).toMatchObject({ language: "en", publicationYear: 2015 });
+      expect((await patchWork(request("PATCH", "/x", { originalYear: 1980.5 }), params(workId))).status).toBe(400);
+      expect((await patchWork(request("PATCH", "/x", { originalLanguage: "English", originalYear: 1900 }), params(workId))).status).toBe(400);
+      expect((await workRow()).originalYear).toBe(1980);
+      await patchWork(request("PATCH", "/x", { originalYear: null }), params(workId));
+      expect((await workRow()).originalYear).toBeNull();
+      expect((await workRow()).originalLanguage).toBe("ca");
+    });
+
     it("renames a work, and its slug follows", async () => {
       const res = await answer(await patchWork(request("PATCH", "/x", { title: "À rebours" }), params(workId)));
       expect(res.status).toBe(200);
@@ -330,13 +346,25 @@ describe.skipIf(!url)("REST write routes with PostgreSQL", () => {
   });
 
   describe("editions", () => {
+    it("corrects the edition year without changing its book, title or language", async () => {
+      await db.update(schema.editions).set({ publicationYear: 2009, language: "en" }).where(eq(schema.editions.id, editionId));
+      const res = await answer(await patchEdition(request("PATCH", "/x", { publicationYear: 2010 }), params(editionId)));
+      expect(res.status).toBe(200);
+      expect(res.body).toMatchObject({ id: editionId, publicationYear: 2010, title: "Against Nature", workId });
+      expect(await db.query.editions.findFirst({ where: eq(schema.editions.id, editionId) })).toMatchObject({ language: "en", publicationYear: 2010, workId });
+      expect((await patchEdition(request("PATCH", "/x", { publicationYear: 2101 }), params(editionId))).status).toBe(400);
+      expect((await patchEdition(request("PATCH", "/x", { publicationYear: 2010.5 }), params(editionId))).status).toBe(400);
+      await patchEdition(request("PATCH", "/x", { subtitle: "An English edition" }), params(editionId));
+      expect(await db.query.editions.findFirst({ where: eq(schema.editions.id, editionId) })).toMatchObject({ publicationYear: 2010, language: "en" });
+    });
+
     it("renames an edition and its subtitle", async () => {
       const res = await answer(
         await patchEdition(request("PATCH", "/x", { title: "À rebours", subtitle: "Penguin Classics" }), params(editionId)),
       );
       expect(res).toEqual({
         status: 200,
-        body: { id: editionId, title: "À rebours", subtitle: "Penguin Classics", workId },
+        body: { id: editionId, title: "À rebours", subtitle: "Penguin Classics", workId, publicationYear: null },
       });
     });
 

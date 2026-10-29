@@ -206,18 +206,20 @@ The same allowlisted `ebooks` array as the list route is included.
 
 ### `PATCH /api/works/[id]`
 
-Change a work's title, catalogue status or rating (as the Edit dialog does, with the activity log) and add recommenders. Needs the token.
+Change a work's title, original language/year, catalogue status or rating (as the Edit dialog does, with the activity log) and add recommenders. Needs the token.
 
 **Body** (all optional):
 
 | Field | Type | Description |
 |---|---|---|
 | `title` | string | New title |
+| `originalLanguage` | string | Lowercase two- or three-letter language code for the original work; does not change edition languages |
+| `originalYear` | integer or null | Original publication year, −3000 to 2100; `null` clears an unknown year |
 | `catalogueStatus` | string | `tracked`, `shortlisted`, `wanted`, `on_order`, `accessioned`, `deaccessioned` |
 | `addRecommenderIds` | uuid[] | Recommenders to add. Existing recommenders stay. |
 | `rating` | number or null | 0.5 to 5 in half steps; `null` clears the rating |
 
-**Response** `200`: `{ "id", "title", "slug", "catalogueStatus", "rating", "recommenderIds", "recommendersAdded" }`. A new title gives the work a new slug. An unknown recommender id returns `404` (`"Recommender not found"`), and nothing in the request is written.
+**Response** `200`: `{ "id", "title", "slug", "originalLanguage", "originalYear", "catalogueStatus", "rating", "recommenderIds", "recommendersAdded" }`. A new title gives the work a new slug. An unknown recommender id returns `404` (`"Recommender not found"`), and nothing in the request is written.
 
 ### `POST /api/works/refresh-slugs`
 
@@ -233,11 +235,11 @@ Gives every work whose slug no longer fits its title and primary author the slug
 
 ### `PATCH /api/editions/[id]`
 
-Rename an edition, as the Edit Edition dialog does (activity log included). Other fields stay as they are. Needs the token.
+Rename an edition or correct its publication year, as the Edit Edition dialog does (activity log included). Other fields stay as they are. Needs the token.
 
-**Body** (all optional): `{ "title": "string", "subtitle": "string or null" }`
+**Body** (all optional): `{ "title": "string", "subtitle": "string or null", "publicationYear": "integer or null" }`. The year must be between −3000 and 2100; `null` clears it.
 
-**Response** `200`: `{ "id", "title", "subtitle", "workId" }`. `404` when the edition does not exist.
+**Response** `200`: `{ "id", "title", "subtitle", "workId", "publicationYear" }`. `404` when the edition does not exist.
 
 ### `POST /api/editions/[id]/cover`
 

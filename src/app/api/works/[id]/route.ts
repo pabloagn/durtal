@@ -5,7 +5,7 @@ import { db } from "@/lib/db";
 import { recommenders } from "@/lib/db/schema";
 import { getWork, updateWork } from "@/lib/actions/works";
 import { addWorkRecommenders } from "@/lib/actions/recommenders";
-import { createWorkSchema } from "@/lib/validations/works";
+import { createWorkSchema, updateWorkSchema } from "@/lib/validations/works";
 import {
   UUID_RE,
   errorResponse,
@@ -44,6 +44,8 @@ export async function GET(_req: NextRequest, { params }: Params) {
 const patchWorkSchema = z
   .object({
     title: z.string().trim().min(1).optional(),
+    originalLanguage: z.string().regex(/^[a-z]{2,3}$/, "Use a language code").optional(),
+    originalYear: updateWorkSchema.shape.originalYear,
     catalogueStatus: createWorkSchema.shape.catalogueStatus.unwrap().optional(),
     addRecommenderIds: z.array(z.uuid()).optional(),
     rating: RATING_SCHEMA,
@@ -52,7 +54,7 @@ const patchWorkSchema = z
 
 /**
  * PATCH /api/works/[id] — change a work's title (the slug follows), catalogue
- * status or rating, as the Edit dialog does (activity log included), and add
+ * original language/year, status or rating, as the Edit dialog does (activity log included), and add
  * recommenders.
  */
 export async function PATCH(req: NextRequest, { params }: Params) {
@@ -64,7 +66,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     if (!UUID_RE.test(id)) {
       return NextResponse.json({ error: "Invalid ID format" }, { status: 400 });
     }
-    const { title, catalogueStatus, addRecommenderIds, rating } =
+    const { title, originalLanguage, originalYear, catalogueStatus, addRecommenderIds, rating } =
       patchWorkSchema.parse(await readJson(req));
     if (!(await getWork(id))) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -80,9 +82,11 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       }
     }
 
-    if (title || catalogueStatus || rating !== undefined) {
+    if (title || originalLanguage !== undefined || originalYear !== undefined || catalogueStatus || rating !== undefined) {
       await updateWork(id, {
         ...(title ? { title } : {}),
+        ...(originalLanguage !== undefined ? { originalLanguage } : {}),
+        ...(originalYear !== undefined ? { originalYear } : {}),
         ...(catalogueStatus ? { catalogueStatus } : {}),
         ...(rating !== undefined ? { rating } : {}),
       });
@@ -96,6 +100,8 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       id,
       title: work?.title,
       slug: work?.slug,
+      originalLanguage: work?.originalLanguage,
+      originalYear: work?.originalYear,
       catalogueStatus: work?.catalogueStatus,
       rating: work?.rating ?? null,
       recommenderIds: work?.workRecommenders.map((wr) => wr.recommender.id),
