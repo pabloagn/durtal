@@ -29,6 +29,13 @@ describe("bounded queue query composition", () => {
     expect(rowQuery.sql).toContain("ebook_match_candidates");
     expect(rowQuery.sql).toContain("jsonb_agg"); expect(rowQuery.params).toContain(20);
   });
+  it("returns queue languages with the same count query, without filtering them to the selected language", async () => {
+    const execute = vi.fn().mockResolvedValueOnce([{ languages: ["en", "fr"], not_in_durtal: 0 }]);
+    const queue = await loadReviewQueue({ execute } as unknown as Db, parseReviewParams({ language: "fr" }));
+    expect(queue.languages).toEqual(["en", "fr"]);
+    expect(execute).toHaveBeenCalledTimes(1);
+    expect(compile(execute.mock.calls[0][0]).sql).toContain("select distinct e.language");
+  });
   it("opens the named section at its page, and the last page for one past the end (SLN-684)", async () => {
     const counts = Object.fromEntries(REVIEW_SECTIONS.map(({ key }) => [key, key === "not_in_durtal" ? 60 : key === "duplicate" ? 3 : 0]));
     const execute = vi.fn().mockResolvedValueOnce([counts]).mockResolvedValueOnce([rawRow()]);

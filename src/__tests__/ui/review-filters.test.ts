@@ -2,6 +2,7 @@
 import { act, createElement } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { acquireSurface } from "@/lib/ui/surface-state";
 import { ReviewFilters } from "@/app/(catalogue)/ebooks/review/review-filters";
 
 // Main audit 2026-10-15: on a phone the review queue started at 914px, under
@@ -74,6 +75,25 @@ describe("ReviewFilters", () => {
     expect(toggle.getAttribute("aria-expanded")).toBe("false");
     expect(escape.defaultPrevented).toBe(true);
     expect(document.activeElement).toBe(toggle);
+  });
+
+  it("leaves the panel open when a nested dropdown owns Escape", async () => {
+    await render(0);
+    const toggle = host.querySelector("button")!;
+    await act(async () => toggle.click());
+    const closeDropdown = vi.fn();
+    const dropdown = acquireSurface(closeDropdown);
+    try {
+      await act(async () => host.querySelector("select")!.dispatchEvent(new KeyboardEvent("keydown", {
+        key: "Escape", bubbles: true, cancelable: true,
+      })));
+      expect(closeDropdown).toHaveBeenCalledTimes(1);
+      expect(toggle.getAttribute("aria-expanded")).toBe("true");
+    } finally { dropdown.release(); }
+    await act(async () => host.querySelector("select")!.dispatchEvent(new KeyboardEvent("keydown", {
+      key: "Escape", bubbles: true, cancelable: true,
+    })));
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
   });
 
   it("offers Clear all when a choice is set: it unsets the choices and submits", async () => {

@@ -19,8 +19,13 @@ describe("bounded review URLs", () => {
     // Another section starts at its first page
     expect(new URL(reviewPageHref(params, { section: "duplicate" }), "https://durtal.test").searchParams.get("page")).toBeNull();
   });
-  it.each(["0", "-1", "1001", "Infinity", "NaN", "2.5"])("refuses invalid page %s", (value) => {
-    expect(() => parseReviewParams({ page: value })).toThrow();
+  it.each(["abc", "0", "-1", "Infinity", "NaN", "2.5", "999999999999999999"])("falls back for page %s without dropping filters", (value) => {
+    const params = parseReviewParams({ page: value, q: "Nadja", language: "fr", format: "epub" });
+    expect(params.page).toBe(1);
+    expect(params.filters).toMatchObject({ q: "Nadja", language: "fr", format: "epub" });
+  });
+  it("allows large valid pages for the query to clamp", () => {
+    expect(parseReviewParams({ page: "5000", language: "fr" })).toMatchObject({ page: 5000, filters: { language: "fr" } });
   });
   it("refuses an unknown section and omits blank/default values", () => {
     expect(() => parseReviewParams({ section: "everything" })).toThrow();
