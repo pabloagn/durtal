@@ -65,6 +65,8 @@ import {
 } from "@/lib/actions/credits";
 import {
   getAuthors,
+  createAuthor,
+  findOrCreateAuthor,
   getAuthorCount,
   getAuthorBySlug,
   deleteAuthor,
@@ -220,7 +222,7 @@ describe.skipIf(!url)("shared people and domain-scoped credits", () => {
     await deleteAuthor(lone.id);
     expect(await getPerson(lone.id)).toBeFalsy();
     // With credits, the shared path refuses and nothing changes
-    await expect(deleteAuthor(director.id)).rejects.toThrow();
+    await expect(deleteAuthor(director.id)).rejects.toThrow("Remove this person's credits before deleting the identity");
     expect((await getPerson(director.id))?.id).toBe(director.id);
   });
   it("the People timeline counts works in every collection, as the table does", async () => {
@@ -566,7 +568,7 @@ describe.skipIf(!url)("shared people and domain-scoped credits", () => {
       { personId: p.id, roleId: "book.author" },
     ]);
     await c`insert into comments(entity_type,entity_id,content_html) values ('author',${p.id},'<p>Preserve</p>')`;
-    await expect(deletePerson(p.id)).rejects.toThrow();
+    await expect(deletePerson(p.id)).rejects.toThrow("Remove this person's credits before deleting the identity");
     // A book person with a film credit gets the credits sentence too (SLN-1168)
     expect(await actionResult(() => deleteAuthor(p.id))).toEqual({ ok: false, error: "Remove this person's credits before deleting the identity" });
     expect(await getPerson(p.id)).toBeDefined();
@@ -645,4 +647,75 @@ describe.skipIf(!url)("shared people and domain-scoped credits", () => {
       personId: target.id,
     });
   });
+  it("refuses a stale merge without losing either identity or their credits", async () => {
+    const source = await person("Source identity", ["book"]);
+    const target = await person("Target identity", ["film"]);
+    await replaceWorkCredits(work.book, [{ personId: source.id, roleId: "book.author" }]);
+    await replaceWorkCredits(work.film, [{ personId: target.id, roleId: "film.director" }]);
+    const preview = await getPersonMergePreview(source.id, target.id);
+    const beforeSource = await getPersonCredits(source.id);
+    const beforeTarget = await getPersonCredits(target.id);
+    await updatePerson(source.id, { bio: "A newer biography" });
+    const choices = Object.fromEntries(preview.fields.filter(field => field.conflict).map(field => [field.key, "target"]));
+    await expect(mergePeople({ sourceId: source.id, targetId: target.id, fingerprint: preview.fingerprint, choices }))
+      .rejects.toMatchObject({ name: "ExpectedActionError", message: "The records or their relationships changed. Review a fresh merge preview." });
+    expect(await getPerson(source.id)).toMatchObject({ id: source.id, bio: "A newer biography" });
+    expect(await getPerson(target.id)).toMatchObject({ id: target.id, bio: "Preserve biography" });
+    expect(await getPersonCredits(source.id)).toEqual(beforeSource);
+    expect(await getPersonCredits(target.id)).toEqual(beforeTarget);
+  });
+  it.each(["shared", "legacy"])("%s merge retains every distinct work and edition credit", async mode => {
+    const source = await person("Credit source", ["book", "film"]);
+    const target = await person("Credit target", ["book", "film"]);
+    await replaceWorkCredits(work.book, [
+      { personId: source.id, roleId: "book.author", creditedAs: "Source credit" },
+      { personId: target.id, roleId: "book.co_author", creditedAs: "Target credit" },
+    ]);
+    await replaceWorkCredits(work.film, [
+      { personId: source.id, roleId: "film.director" },
+      { personId: target.id, roleId: "film.cast", characters: ["Narrator"] },
+    ]);
+    await replaceEditionCredits(editionId, [
+      { personId: source.id, roleId: "book.edition.translator" },
+      { personId: target.id, roleId: "book.edition.editor" },
+    ]);
+    const worksBefore = [...await getWorkCredits(work.book), ...await getWorkCredits(work.film)];
+    const editionsBefore = await getEditionCredits(editionId);
+    if (mode === "legacy") await mergeAuthors(source.id, target.id);
+    else {
+      const preview = await getPersonMergePreview(source.id, target.id);
+      await mergePeople({ sourceId: source.id, targetId: target.id, fingerprint: preview.fingerprint,
+        choices: Object.fromEntries(preview.fields.filter(field => field.conflict).map(field => [field.key, "target"])) });
+    }
+    const worksAfter = [...await getWorkCredits(work.book), ...await getWorkCredits(work.film)];
+    const editionsAfter = await getEditionCredits(editionId);
+    type Credit = Pick<(typeof worksBefore)[number], "id" | "personId" | "roleId" | "creditedAs" | "attribution">;
+    const retained = (before: Credit[], after: Credit[]) => {
+      expect(after).toHaveLength(before.length);
+      expect(after.every(credit => credit.personId === target.id)).toBe(true);
+      expect(after.map(credit => credit.id).sort()).toEqual(before.map(credit => credit.id).sort());
+      for (const credit of before) expect(after.find(row => row.id === credit.id)).toMatchObject({
+        roleId: credit.roleId, creditedAs: credit.creditedAs, attribution: credit.attribution,
+      });
+    };
+    retained(worksBefore, worksAfter);
+    retained(editionsBefore, editionsAfter);
+    expect(await getPerson(source.id)).toBeUndefined();
+  });
+  it("reuses the same author across repeated, case-folded and accent-folded names", async () => {
+    const first = await findOrCreateAuthor("Péter Nádas");
+    expect((await findOrCreateAuthor("Péter Nádas")).id).toBe(first.id);
+    expect((await findOrCreateAuthor("PETER NADAS")).id).toBe(first.id);
+    expect(await c`select id from authors`).toEqual([{ id: first.id }]);
+  });
+  it("explains refusals from author creation, author edits, shared edits and legacy merges", async () => {
+    const existing = await person("Existing identity", ["book"]);
+    await expect(createAuthor({ name: "" })).rejects.toThrow("Name is required");
+    await expect(updateAuthor(existing.id, { name: "" })).rejects.toThrow("Name is required");
+    await expect(updatePerson(randomUUID(), { bio: "Cannot apply" })).rejects.toThrow("Person not found");
+    await expect(mergeAuthors(existing.id, existing.id)).rejects.toThrow("Choose two different records");
+    expect(await getPerson(existing.id)).toMatchObject({ name: "Existing identity", bio: "Preserve biography" });
+    expect(await c`select id from authors`).toEqual([{ id: existing.id }]);
+  });
+
 });
