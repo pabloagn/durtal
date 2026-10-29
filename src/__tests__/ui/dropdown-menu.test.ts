@@ -12,6 +12,7 @@ import { act, createElement as h, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { DropdownMenu, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { Dialog } from "@/components/ui/dialog";
+import { acquireSurface, hasOpenSurface } from "@/lib/ui/surface-state";
 
 beforeAll(() => {
   (
@@ -74,22 +75,69 @@ function Menu({ run }: { run: () => void }) {
 }
 
 describe("shared dropdown keyboard and focus", () => {
-  it("skips disabled actions, wraps arrow navigation, and returns focus on Escape", async () => {
+  it("includes unavailable actions in arrow navigation and returns focus on Escape", async () => {
     const run = vi.fn();
     act(() => root.render(h(Menu, { run })));
     act(() => trigger().click());
     await settle();
-    expect(document.activeElement).toBe(items()[1]);
-    key(items()[1], "End");
+    expect(document.activeElement).toBe(items()[0]);
+    key(items()[0], "End");
     expect(document.activeElement).toBe(items()[2]);
     key(items()[2], "ArrowDown");
-    expect(document.activeElement).toBe(items()[1]);
-    key(items()[1], "ArrowUp");
+    expect(document.activeElement).toBe(items()[0]);
+    key(items()[0], "ArrowUp");
     expect(document.activeElement).toBe(items()[2]);
     key(items()[2], "Escape");
     expect(host.querySelector('[role="menu"]')).toBeNull();
     expect(document.activeElement).toBe(trigger());
     expect(run).not.toHaveBeenCalled();
+  });
+  it("uses one Tab to close and restore its trigger, instead of tabbing through commands", async () => {
+    act(() => root.render(h(Menu, { run: () => {} })));
+    act(() => trigger().click()); await settle();
+    expect(items().every(item => item.tabIndex === -1)).toBe(true);
+    expect(hasOpenSurface()).toBe(true);
+    key(items()[0], "Tab");
+    expect(host.querySelector('[role="menu"]')).toBeNull();
+    expect(document.activeElement).toBe(trigger());
+    expect(hasOpenSurface()).toBe(false);
+  });
+  it("finds labels by typing without activating an unavailable command", async () => {
+    const run = vi.fn();
+    act(() => root.render(h(Menu, { run })));
+    act(() => trigger().click()); await settle();
+    key(items()[0], "e"); expect(document.activeElement).toBe(items()[1]);
+    key(items()[1], "d"); expect(document.activeElement).toBe(items()[1]);
+    key(items()[1], "Home"); expect(document.activeElement).toBe(items()[0]);
+    key(items()[0], "Enter");
+    expect(host.querySelector('[role="menu"]')).not.toBeNull();
+    expect(run).not.toHaveBeenCalled();
+  });
+  it("lets a newer surface own Escape even when focus is inside this menu", async () => {
+    const close = vi.fn();
+    act(() => root.render(h(Menu, { run: () => {} })));
+    act(() => trigger().click()); await settle();
+    const newer = acquireSurface(close);
+    key(items()[0], "Escape");
+    expect(close).toHaveBeenCalledOnce();
+    expect(host.querySelector('[role="menu"]')).not.toBeNull();
+    newer.release();
+    act(() => document.body.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true })));
+    expect(host.querySelector('[role="menu"]')).toBeNull();
+  });
+  it("closes only the menu when focus is on its containing surface", async () => {
+    const parentClose = vi.fn();
+    const parent = acquireSurface(parentClose);
+    try {
+      act(() => root.render(h(Menu, { run: () => {} })));
+      act(() => trigger().click()); await settle();
+      act(() => (document.activeElement as HTMLElement).blur());
+      key(document.body, "Escape");
+      expect(host.querySelector('[role="menu"]')).toBeNull();
+      expect(parentClose).not.toHaveBeenCalled();
+      key(document.body, "Escape");
+      expect(parentClose).toHaveBeenCalledOnce();
+    } finally { parent.release(); }
   });
   it("closes only itself on Escape inside a panel that closes on any Escape (the reader's side panels)", async () => {
     const closePanel = vi.fn();
