@@ -53,6 +53,7 @@ it("draws every blank cover with it", () => {
   for (const file of [
     "components/books/book-card.tsx",
     "components/books/edition-cover.tsx",
+    "components/ebooks/ebook-link-panel.tsx",
     "components/reading/reading-tiles.tsx",
     "components/reading/reading-section.tsx",
     "app/(catalogue)/collections/[id]/page.tsx",

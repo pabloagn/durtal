@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { setPreferredEbookFile } from "@/lib/actions/ebooks";
 import { DataTable } from "@/components/shared/data-table";
 import { formatBytes } from "@/lib/ebooks/run-text";
+import { formatDate } from "@/lib/utils/format";
 import { formatLabel } from "@/lib/ebooks/formats";
 export interface EbookFileData {
   id: string;
@@ -90,7 +91,7 @@ export function EbookFilesTable({
                   .join(" · ") || "—"}
               </span>
             );
-          if (column === "added") return file.added.slice(0, 10);
+          if (column === "added") return formatDate(file.added.slice(0, 10));
           if (column === "actions")
             return (
               // On touch a text command grows 44px tall around its line: a

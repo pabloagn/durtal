@@ -14,7 +14,7 @@ import type { DifferenceOutcome, DifferencesPage } from "@/lib/ebooks/difference
 import { languageName } from "@/lib/utils/language";
 
 type Choice = "keep" | "use";
-const CHOICES: Record<Choice, string> = { keep: "Keep Durtal's", use: "Use the file's" };
+const CHOICES: Record<Choice, string> = { keep: "Keep Durtal’s", use: "Use the file’s" };
 const key = (d: Pick<Difference, "ebookId" | "field">) => `${d.ebookId}:${d.field}`;
 const value = (d: Difference, side: string | null) => {
   if (side === null) return "None";
@@ -95,8 +95,8 @@ export function DifferencesSection({ page, step, links, moreHref }: {
           Confirm</Button>
         <Button size="sm" variant="ghost" disabled={busy} onClick={() => setConfirming(null)}>Cancel</Button>
       </> : <>
-        {keepAll.length > 1 && <Button size="sm" disabled={busy} onClick={() => setConfirming("keep")}>Keep Durtal's for these {keepAll.length}…</Button>}
-        {useAll.length > 1 && <Button size="sm" disabled={busy} onClick={() => setConfirming("use")}>Use the file's for these {useAll.length}…</Button>}
+        {keepAll.length > 1 && <Button size="sm" disabled={busy} onClick={() => setConfirming("keep")}>Keep Durtal’s for these {keepAll.length}…</Button>}
+        {useAll.length > 1 && <Button size="sm" disabled={busy} onClick={() => setConfirming("use")}>Use the file’s for these {useAll.length}…</Button>}
       </>}
     </div>}
     {notice && <p role="status" className="text-sm text-fg-secondary">{notice}</p>}

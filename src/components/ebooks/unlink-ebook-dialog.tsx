@@ -114,7 +114,7 @@ export function UnlinkEbookDialog({ target, initialMode, change = false, onClose
     onClose={close} expandable={false}>
     <div className="space-y-4">
       {!outcome && <p className="text-sm text-fg-secondary">{mode === "automatic_undo"
-        ? "This takes the eBook off the book it was linked to automatically. It can't if the eBook has changed since."
+        ? "This takes the eBook off the book it was linked to automatically. It can’t if the eBook has changed since."
         : change ? "This takes the eBook off its book, then you choose its new one. Copies and catalogue entries made only for the old link are removed."
           : "This takes the eBook off its book. Copies and catalogue entries made only for it are removed."}</p>}
       {!outcome && mode === "unlink" && <fieldset className="space-y-2" disabled={locked}>

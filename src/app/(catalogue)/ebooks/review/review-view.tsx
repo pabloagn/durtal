@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useReducer, useRef, useState, type ReactNode } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { prepareReviewUi, readReviewUi, confirmReviewUi, undoReviewUi } from "@/lib/actions/ebook-review-ui";
 import { ReviewRow, type ReviewRowAction } from "@/components/ebooks/review-row";
@@ -18,7 +19,7 @@ import { UnlinkEbookDialog } from "@/components/ebooks/unlink-ebook-dialog";
 import type { ReviewUnlinkMode, ReviewUnlinkTarget } from "@/lib/ebooks/review-queue/unlink-types";
 import type { WorkReviewOutcome } from "@/lib/ebooks/review/work-service";
 import { BookOpenText } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button, buttonClass } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { NoResults } from "@/components/shared/no-results";
 import { Select } from "@/components/ui/select";
@@ -350,7 +351,8 @@ function ReviewEmpty({ params }: { params: ReviewParams }) {
   const hasFilters = Object.values(rest).some(Boolean);
   if (!q && !hasFilters)
     return <EmptyState icon={BookOpenText} title="No eBooks to review"
-      description="eBooks you import come here to be matched with your books." />;
+      description="eBooks you import come here to be matched with your books." heading="h2"
+      action={<Link href="/ebooks/upload" className={buttonClass("primary")}>Upload eBooks</Link>} />;
   const clear = reviewParamsSearch({ filters: {}, section: params.section, page: 1 }).toString();
   return <NoResults noun="eBooks" search={q} hasFilters={hasFilters} clearHref={`/ebooks/review${clear ? `?${clear}` : ""}`} />;
 }

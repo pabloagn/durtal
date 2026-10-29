@@ -42,9 +42,12 @@ describe("Review queue empty state", () => {
     expect(clear()?.getAttribute("href")).toBe("/ebooks/review");
   });
 
-  it("with no filters, says there is nothing to review and offers no clear", async () => {
+  it("with no filters, offers one upload action and no clear", async () => {
     await render({});
-    expect(host.querySelector("h3")?.textContent).toBe("No eBooks to review");
+    expect(host.querySelector("h2")?.textContent).toBe("No eBooks to review");
+    const upload = [...host.querySelectorAll("a")].filter((link) => link.textContent === "Upload eBooks");
+    expect(upload).toHaveLength(1);
+    expect(upload[0].getAttribute("href")).toBe("/ebooks/upload");
     expect(clear()).toBeUndefined();
   });
 });
