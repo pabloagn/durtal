@@ -22,6 +22,8 @@ import { formatMoney } from "@/lib/utils/money";
 import { DEFAULT_CURRENCY } from "@/lib/constants/currencies";
 import { SectionHeading } from "@/components/shared/section-heading";
 import { EmptyState } from "@/components/ui/empty-state";
+import { CapAligned } from "@/components/shared/cap-aligned";
+import { OrderCreateDialog } from "./order-create-dialog";
 import { OrderDetailPanel } from "./order-detail-panel";
 import {
   PIPELINE_COLUMNS,
@@ -32,6 +34,7 @@ import {
   getPosterStyle,
   getAuthorName,
   formatDate,
+  orderCardLabel,
   formatSpend,
   type OrderItem,
   type ProvenanceStats,
@@ -231,7 +234,8 @@ export function ProvenanceShell({ activeOrders, stats }: ProvenanceShellProps) {
         icon={Package}
         heading="h2"
         title="No orders yet"
-        description="An order follows a book you buy from the shop to your shelves: placed, shipped and delivered. Start one with New order."
+        description="An order follows a book you buy from the shop to your shelves: placed, shipped and delivered."
+        action={<OrderCreateDialog />}
       />
     );
 
@@ -278,6 +282,7 @@ export function ProvenanceShell({ activeOrders, stats }: ProvenanceShellProps) {
           // A fixed id: the server and the browser make the same aria ids
           id="provenance-pipeline"
           sensors={sensors}
+          accessibility={{ screenReaderInstructions: { draggable: "Press Enter to open the order and change its status." } }}
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
         >
@@ -324,8 +329,9 @@ export function ProvenanceShell({ activeOrders, stats }: ProvenanceShellProps) {
                     key={order.id}
                     type="button"
                     data-order-card={order.id}
+                    aria-label={orderCardLabel(order)}
                     onClick={() => setSelectedOrder(order)}
-                    className="flex w-full items-center gap-3 rounded-sm border border-glass-border bg-bg-secondary/60 px-4 py-3 text-left transition-all hover:border-fg-muted/15 hover:bg-bg-secondary"
+                    className="flex w-full items-start gap-3 rounded-sm border border-glass-border bg-bg-secondary/60 px-4 py-3 text-left transition-all hover:border-fg-muted/15 hover:bg-bg-secondary"
                   >
                     <div className="relative h-10 w-7 shrink-0 overflow-hidden rounded-sm bg-bg-tertiary">
                       {posterUrl ? (
@@ -347,26 +353,29 @@ export function ProvenanceShell({ activeOrders, stats }: ProvenanceShellProps) {
                       )}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm text-fg-primary">
-                        {order.work.title}
-                      </p>
-                      <p className="truncate text-xs text-fg-secondary">
+                      <div className="flex items-start gap-3">
+                        <p className="min-w-0 flex-1 text-sm text-fg-primary [overflow-wrap:anywhere]">
+                          {order.work.title}
+                        </p>
+                        <CapAligned height={14} className="text-sm">
+                          <ChevronRight className="h-3.5 w-3.5 text-fg-muted" strokeWidth={1.5} />
+                        </CapAligned>
+                      </div>
+                      <p className="text-xs text-fg-secondary [overflow-wrap:anywhere]">
                         {authorName}
                       </p>
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        <Badge variant={STATUS_BADGE_VARIANT[order.status]}>
+                          {orderStatusLabel(order.status)}
+                        </Badge>
+                        <Badge variant="muted">
+                          {METHOD_LABELS[order.acquisitionMethod]}
+                        </Badge>
+                        <span className="font-mono text-micro text-fg-secondary">
+                          {formatDate(order.orderDate)}
+                        </span>
+                      </div>
                     </div>
-                    <Badge variant={STATUS_BADGE_VARIANT[order.status]}>
-                      {orderStatusLabel(order.status)}
-                    </Badge>
-                    <Badge variant="muted">
-                      {METHOD_LABELS[order.acquisitionMethod]}
-                    </Badge>
-                    <span className="font-mono text-micro text-fg-secondary">
-                      {formatDate(order.orderDate)}
-                    </span>
-                    <ChevronRight
-                      className="h-3.5 w-3.5 shrink-0 text-fg-muted"
-                      strokeWidth={1.5}
-                    />
                   </button>
                 );
               })}
@@ -387,8 +396,9 @@ export function ProvenanceShell({ activeOrders, stats }: ProvenanceShellProps) {
                     key={order.id}
                     type="button"
                     data-order-card={order.id}
+                    aria-label={orderCardLabel(order)}
                     onClick={() => setSelectedOrder(order)}
-                    className="flex w-full items-center gap-3 rounded-sm border border-glass-border bg-bg-secondary/60 px-4 py-3 text-left transition-all hover:border-fg-muted/15 hover:bg-bg-secondary"
+                    className="flex w-full items-start gap-3 rounded-sm border border-glass-border bg-bg-secondary/60 px-4 py-3 text-left transition-all hover:border-fg-muted/15 hover:bg-bg-secondary"
                   >
                     <div className="relative h-10 w-7 shrink-0 overflow-hidden rounded-sm bg-bg-tertiary">
                       {posterUrl ? (
@@ -410,24 +420,27 @@ export function ProvenanceShell({ activeOrders, stats }: ProvenanceShellProps) {
                       )}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm text-fg-primary">
-                        {order.work.title}
-                      </p>
-                      <p className="truncate text-xs text-fg-secondary">
+                      <div className="flex items-start gap-3">
+                        <p className="min-w-0 flex-1 text-sm text-fg-primary [overflow-wrap:anywhere]">
+                          {order.work.title}
+                        </p>
+                        <CapAligned height={14} className="text-sm">
+                          <ChevronRight className="h-3.5 w-3.5 text-fg-muted" strokeWidth={1.5} />
+                        </CapAligned>
+                      </div>
+                      <p className="text-xs text-fg-secondary [overflow-wrap:anywhere]">
                         {authorName}
                       </p>
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        <Badge variant={STATUS_BADGE_VARIANT[order.status]}>
+                          {orderStatusLabel(order.status)}
+                        </Badge>
+                        <Badge variant="muted">Auction</Badge>
+                        <span className="font-mono text-micro text-fg-secondary">
+                          {formatDate(order.orderDate)}
+                        </span>
+                      </div>
                     </div>
-                    <Badge variant={STATUS_BADGE_VARIANT[order.status]}>
-                      {orderStatusLabel(order.status)}
-                    </Badge>
-                    <Badge variant="muted">Auction</Badge>
-                    <span className="font-mono text-micro text-fg-secondary">
-                      {formatDate(order.orderDate)}
-                    </span>
-                    <ChevronRight
-                      className="h-3.5 w-3.5 shrink-0 text-fg-muted"
-                      strokeWidth={1.5}
-                    />
                   </button>
                 );
               })}

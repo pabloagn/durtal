@@ -241,7 +241,7 @@ export function OrderCreateDialog({
         open={open}
         onClose={handleClose}
         title="New order"
-        description={`Step ${step + 1} of ${STEP_LABELS.length} — ${STEP_LABELS[step]}`}
+        description={`Step ${step + 1} of ${STEP_LABELS.length}: ${STEP_LABELS[step]}`}
         className="max-w-3xl"
       >
         {/* Step indicator */}

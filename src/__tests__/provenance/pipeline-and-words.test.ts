@@ -37,7 +37,7 @@ describe("the provenance page", () => {
   it("shows one empty state, not four zeros and an empty board, with no order yet", () => {
     const page = render([], 0);
     expect(page.querySelector("h2")?.textContent).toBe("No orders yet");
-    expect(page.body.textContent).toContain("New order");
+    expect([...page.querySelectorAll("button")].some((button) => button.textContent?.includes("New order"))).toBe(true);
     expect(page.querySelector("[data-pipeline]")).toBeNull();
     expect(page.body.textContent).not.toMatch(/In transit|Total spent/);
   });
@@ -51,6 +51,8 @@ describe("the provenance page", () => {
     // The title and author wrap in full
     const card = page.querySelector('[data-pipeline-column="out_for_delivery"] button')!;
     expect(card.innerHTML).not.toMatch(/line-clamp|truncate/);
+    expect(card.getAttribute("aria-label")).toMatch(/^À rebours,.*out for delivery, ordered \d+ days ago$/);
+    expect(page.body.textContent).not.toContain("press space bar to pick up");
     // Stretched to its row's tallest, a card keeps its content at the top and its footer at the foot
     expect(card.className.split(" ")).toEqual(expect.arrayContaining(["flex", "flex-col"]));
     expect(card.lastElementChild!.className.split(" ")).toContain("mt-auto");

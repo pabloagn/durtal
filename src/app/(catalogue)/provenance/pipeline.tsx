@@ -10,6 +10,7 @@ import {
   getPosterStyle,
   getAuthorName,
   daysSince,
+  orderCardLabel,
   daysUntil,
   type OrderItem,
 } from "./order-model";
@@ -85,6 +86,7 @@ export function PipelineOrderCard({
       onClick={() => onClick(order)}
       {...listeners}
       {...attributes}
+      aria-label={orderCardLabel(order)}
       className={`flex w-full flex-col rounded-sm border border-glass-border bg-bg-primary/60 p-2.5 text-left transition-all duration-150 hover:border-fg-muted/15 hover:bg-bg-primary active:scale-[0.99] ${
         isDragging && !isDragOverlay ? "opacity-30" : ""
       } ${isDragOverlay ? "shadow-[0_8px_24px_rgba(0,0,0,0.5)] ring-1 ring-accent-primary/40" : ""}`}
