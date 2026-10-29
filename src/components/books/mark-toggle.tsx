@@ -108,6 +108,8 @@ export function MarkToggle({
 
   function closeSoon() {
     clearTimers();
+    const active = document.activeElement;
+    if (card.current?.contains(active) || (active === button.current && button.current?.matches(":focus-visible"))) return;
     // While the date is being edited, only Escape or an outside click closes
     if (!editing) closeTimer.current = window.setTimeout(close, CLOSE_DELAY);
   }
@@ -198,6 +200,7 @@ export function MarkToggle({
               if (event.key === "Escape" && handleSurfaceEscape(event.nativeEvent)) event.stopPropagation();
             }}
             onPointerEnter={clearTimers}
+            onFocus={clearTimers}
             onPointerLeave={closeSoon}
             onBlur={(e) => {
               const next = e.relatedTarget as Node | null;
