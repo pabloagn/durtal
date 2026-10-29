@@ -351,6 +351,17 @@ describe.skipIf(!url)("reading stats with PostgreSQL", () => {
   });
 
   describe("ratings", () => {
+    it("retains nulls and the complete chronological order of long re-read histories", async () => {
+      const workId = await book("Long mixed rating history");
+      await q(`insert into readings(work_id,status,format,unit,started_precision,finished_on,finished_precision,rating,source_key)
+        select $1,'finished','print','pages','unknown',make_date($2,1,1)+(n-1),'day',
+          case when n % 3=0 then null else 0.5+(n % 10)*0.5 end,'sln998-long:'||n
+        from generate_series(1,278) n`, [workId, YEAR]);
+      const expected = Array.from({ length: 278 }, (_, i) => (i + 1) % 3 === 0 ? null : 0.5 + ((i + 1) % 10) * 0.5);
+      const history = (await ratings(YEAR)).reread.find((r) => r.workId === workId);
+      expect(history?.reads).toEqual(expected);
+    });
+
     it("uses the read's rating, the book's only for its only finished read, and never a book with no finished read", async () => {
       const recommender = await value(`insert into recommenders(name) values ('M.') returning id`);
       const pick = (workId: string) => q(`insert into work_recommenders(work_id, recommender_id) values ($1, $2)`, [workId, recommender]);
