@@ -11,11 +11,6 @@ const cirka = localFont({
       weight: "300",
       style: "normal",
     },
-    {
-      path: "../../public/fonts/PPCirka/PPCirka-Bold.otf",
-      weight: "700",
-      style: "normal",
-    },
   ],
   variable: "--font-serif",
   display: "swap",

@@ -34,6 +34,7 @@ export interface SuggestionRow {
   cover: string | null;
   editionId: string | null;
   isPoison: boolean;
+  queued: boolean;
   line: string;
   reasons: string[];
   /** "likely 4 to 4.5", only while the gate is on */
@@ -79,6 +80,7 @@ export function suggestionRow(s: Scored, ctx: SuggestContext): SuggestionRow {
     cover: bookCover(book),
     editionId: edition?.id ?? null,
     isPoison: book.isPoison,
+    queued: book.queuePlace !== null,
     line: [length, s.reasons.includes(where) ? null : where, time].filter(Boolean).join(" · "),
     reasons: s.reasons,
     prediction: p ? predictionText(p) : null,

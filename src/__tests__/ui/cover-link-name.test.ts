@@ -66,3 +66,20 @@ it("keeps the cover's marks in its link's name, with a cover and without", () =>
   expect(coverLink().hasAttribute("aria-label")).toBe(false);
   expect(linkName(coverLink())).toBe(`Against Nature ${MARKS.rare.label}`);
 });
+
+
+it("falls back to the cover letter after at most two failed requests", () => {
+  vi.useFakeTimers();
+  try {
+    card({ title: "Missing cover", coverUrl: "/api/s3/read?key=missing.webp" });
+    expect(host.querySelectorAll("img")).toHaveLength(1);
+    act(() => { host.querySelector("img")!.dispatchEvent(new Event("error")); vi.advanceTimersByTime(500); });
+    expect(host.querySelectorAll("img")).toHaveLength(1);
+    expect(host.querySelector("img")!.getAttribute("src")).toContain("_r=1");
+    act(() => { host.querySelector("img")!.dispatchEvent(new Event("error")); vi.advanceTimersByTime(1000); });
+    expect(host.querySelector("img")).toBeNull();
+    expect(host.querySelector(".cover-letter")?.textContent).toBe("M");
+    act(() => vi.advanceTimersByTime(10000));
+    expect(host.querySelector("img")).toBeNull();
+  } finally { vi.useRealTimers(); }
+});

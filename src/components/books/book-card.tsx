@@ -86,7 +86,7 @@ function CoverImage({
   priority?: boolean;
 }) {
   const [retries, setRetries] = useState(0);
-  const maxRetries = 3;
+  const maxRetries = 2;
 
   if (retries >= maxRetries) {
     return (
