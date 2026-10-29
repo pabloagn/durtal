@@ -19,7 +19,7 @@ import { EDIT_KEYS, editHint } from "@/lib/shortcuts/shortcuts";
 import { exportActionItems } from "@/components/shared/export-menu";
 import { DetailControls, DetailEditButton, DetailTitleRow } from "@/components/shared/detail-layout";
 import { ProtectedImageWrapper } from "@/components/shared/protected-image";
-import { DeleteConfirmDialog } from "@/app/(catalogue)/library/[slug]/delete-confirm-dialog";
+import { PersonDeleteDialog } from "@/components/authors/person-delete-dialog";
 import { nationalityFilterHref } from "@/lib/utils/nationality-param";
 import { mediaImageStyle, type MediaCrop } from "@/lib/utils/media-style";
 import { deleteAuthorFromPage } from "@/lib/actions/catalogue-client";
@@ -231,19 +231,12 @@ export function AuthorDetailHeader({
         targetAuthorName={name}
       />
 
-      <DeleteConfirmDialog
-        open={deleteOpen}
+      {deleteOpen && <PersonDeleteDialog
+        authorId={authorId}
+        name={name}
         onClose={() => setDeleteOpen(false)}
         onConfirm={handleDelete}
-        title="Delete person"
-        description="This cannot be undone."
-        itemName={name}
-        cascade={
-          workCount > 0
-            ? "Their books, films, perfumes and paintings stay in your library; only their credits go."
-            : undefined
-        }
-      />
+      />}
 
       {posterUrl && (
         <ImageLightbox

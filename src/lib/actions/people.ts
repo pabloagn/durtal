@@ -12,6 +12,8 @@ import {
   personDomains,
   activityEvents,
 } from "@/lib/db/schema";
+import { blockingPersonCredits, personCreditRefusal, PERSON_CREDIT_REFUSAL } from "@/lib/catalogue/person-deletion";
+import { resultRows } from "@/lib/publishers/resolution";
 import { personDomainCondition } from "@/lib/catalogue/person-boundary";
 import { WORK_KINDS } from "@/lib/catalogue/kinds";
 import {
@@ -225,6 +227,17 @@ export async function updatePerson(id: string, input: UpdatePersonInput) {
   return { id };
 }
 
+/** Read immediately before presenting Delete person, rather than from a stale card count. */
+export async function getPersonDeletionRefusal(id: string): Promise<string | null> {
+  z.uuid().parse(id);
+  const person = await db.query.authors.findFirst({ where: eq(authors.id, id), columns: { id: true } });
+  if (!person) return "This person no longer exists.";
+  const rows = resultRows<{ kind: string; count: number }>(await db.execute(sql`
+    select kind, count(*)::integer as count from (${blockingPersonCredits(id)}) credits group by kind order by kind
+  `));
+  return personCreditRefusal(rows);
+}
+
 /** Shared deletion requires explicit removal of credits first. */
 export async function deletePerson(id: string) {
   z.uuid().parse(id);
@@ -238,8 +251,14 @@ export async function deletePerson(id: string) {
     ),
     d.execute(
       assertSql(
-        sql`not exists (select 1 from work_credits where person_id = ${id}::uuid) and not exists (select 1 from perfume_variant_perfumers where person_id = ${id}::uuid) and not exists (select 1 from work_authors where author_id = ${id}::uuid) and not exists (select 1 from edition_contributors where author_id = ${id}::uuid)`,
-        "Remove this person's credits before deleting the identity",
+        sql`not exists (${blockingPersonCredits(id)})`,
+        PERSON_CREDIT_REFUSAL,
+      ),
+    ),
+    d.execute(
+      assertSql(
+        sql`not exists (select 1 from work_authors where author_id = ${id}::uuid) and not exists (select 1 from edition_contributors where author_id = ${id}::uuid)`,
+        "Remove their book and edition credits first.",
       ),
     ),
     ...["comments", "activity_events", "gallery_layouts"].map((table) =>

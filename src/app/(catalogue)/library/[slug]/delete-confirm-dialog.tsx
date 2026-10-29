@@ -14,6 +14,7 @@ interface DeleteConfirmDialogProps {
   cascade?: string;
   /** Why the delete can't go ahead: shown in place of the warning, and Delete stays off */
   refusal?: string | null;
+  hideConfirmOnRefusal?: boolean;
 }
 
 export function DeleteConfirmDialog({
@@ -25,6 +26,7 @@ export function DeleteConfirmDialog({
   itemName,
   cascade,
   refusal,
+  hideConfirmOnRefusal = false,
 }: DeleteConfirmDialogProps) {
   const [isPending, setIsPending] = useState(false);
 
@@ -58,7 +60,7 @@ export function DeleteConfirmDialog({
           >
             Cancel
           </Button>
-          <Button
+          {!(refusal && hideConfirmOnRefusal) && <Button
             variant="danger"
             size="sm"
             // Off but focusable while refused, so the focus never drops
@@ -67,7 +69,7 @@ export function DeleteConfirmDialog({
             busy={isPending}
           >
             Delete
-          </Button>
+          </Button>}
         </div>
       </div>
     </Dialog>

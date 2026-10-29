@@ -49,6 +49,7 @@ vi.mock("@/lib/activity/record", () => ({ recordActivity: vi.fn() }));
 vi.mock("@/lib/s3/covers", () => ({ processAndUploadCover: vi.fn() }));
 import {
   createPerson,
+  getPersonDeletionRefusal,
   updatePerson,
   deletePerson,
   getPeople,
@@ -79,6 +80,7 @@ import {
   getPersonEditFingerprint,
   updateAuthor,
 } from "@/lib/actions/authors";
+import { generateWorkSlug } from "@/lib/utils/slugify";
 import { STALE_PERSON } from "@/lib/catalogue/person-fingerprint";
 import { updateWork, getLibraryStats } from "@/lib/actions/works";
 import { updateEdition } from "@/lib/actions/editions";
@@ -222,7 +224,7 @@ describe.skipIf(!url)("shared people and domain-scoped credits", () => {
     await deleteAuthor(lone.id);
     expect(await getPerson(lone.id)).toBeFalsy();
     // With credits, the shared path refuses and nothing changes
-    await expect(deleteAuthor(director.id)).rejects.toThrow("Remove this person's credits before deleting the identity");
+    await expect(deleteAuthor(director.id)).rejects.toThrow("Remove their film, painting and perfume credits first.");
     expect((await getPerson(director.id))?.id).toBe(director.id);
   });
   it("the People timeline counts works in every collection, as the table does", async () => {
@@ -568,9 +570,9 @@ describe.skipIf(!url)("shared people and domain-scoped credits", () => {
       { personId: p.id, roleId: "book.author" },
     ]);
     await c`insert into comments(entity_type,entity_id,content_html) values ('author',${p.id},'<p>Preserve</p>')`;
-    await expect(deletePerson(p.id)).rejects.toThrow("Remove this person's credits before deleting the identity");
+    await expect(deletePerson(p.id)).rejects.toThrow("Remove their film, painting and perfume credits first.");
     // A book person with a film credit gets the credits sentence too (SLN-1168)
-    expect(await actionResult(() => deleteAuthor(p.id))).toEqual({ ok: false, error: "Remove this person's credits before deleting the identity" });
+    expect(await actionResult(() => deleteAuthor(p.id))).toEqual({ ok: false, error: "Remove their film, painting and perfume credits first." });
     expect(await getPerson(p.id)).toBeDefined();
     expect(
       await c`select * from comments where entity_id=${p.id}`,
@@ -716,6 +718,40 @@ describe.skipIf(!url)("shared people and domain-scoped credits", () => {
     await expect(mergeAuthors(existing.id, existing.id)).rejects.toThrow("Choose two different records");
     expect(await getPerson(existing.id)).toMatchObject({ name: "Existing identity", bio: "Preserve biography" });
     expect(await c`select id from authors`).toEqual([{ id: existing.id }]);
+  });
+
+  it("previews counted non-book blockers without counting each role as another work", async () => {
+    const p = await person("Counted credits", ["book", "film", "painting", "perfume"]);
+    const [second] = await c`insert into works(title,slug,kind,original_language) values ('Another film','another-film','film',null) returning id`;
+    await replaceWorkCredits(work.book, [{ personId: p.id, roleId: "book.author" }]);
+    await replaceWorkCredits(work.film, [{ personId: p.id, roleId: "film.director" }, { personId: p.id, roleId: "film.cast" }]);
+    await replaceWorkCredits(second.id, [{ personId: p.id, roleId: "film.director" }]);
+    await replaceWorkCredits(work.painting, [{ personId: p.id, roleId: "painting.painter" }]);
+    await replaceWorkCredits(work.perfume, [{ personId: p.id, roleId: "perfume.perfumer" }]);
+    expect(await getPersonDeletionRefusal(p.id)).toBe("Credited on 2 films, 1 painting and 1 perfume. Remove those credits first.");
+    await expect(deleteAuthor(p.id)).rejects.toThrow("Remove their film, painting and perfume credits first.");
+    expect(await getPerson(p.id)).toBeDefined();
+    expect(await getWorkCredits(work.book)).toHaveLength(1);
+  });
+  it("refuses a credit added after the deletion preview without losing the person", async () => {
+    const p = await person("Concurrent credit", ["book", "film"]);
+    expect(await getPersonDeletionRefusal(p.id)).toBeNull();
+    await replaceWorkCredits(work.film, [{ personId: p.id, roleId: "film.director" }]);
+    await expect(deleteAuthor(p.id)).rejects.toThrow("Remove their film, painting and perfume credits first.");
+    expect(await getPerson(p.id)).toBeDefined();
+    expect(await getWorkCredits(work.film)).toHaveLength(1);
+  });
+  it("allows book-only deletion and refreshes the newly authorless book address", async () => {
+    const p = await person("Deleted author", ["book"]);
+    await replaceWorkCredits(work.book, [{ personId: p.id, roleId: "book.author" }]);
+    await c`update works set slug='a-book-by-deleted-author' where id=${work.book}`;
+    expect(await getPersonDeletionRefusal(p.id)).toBeNull();
+    await deleteAuthor(p.id);
+    expect(await getPerson(p.id)).toBeUndefined();
+    const [book] = await c`select title,slug from works where id=${work.book}`;
+    expect(book.title).toBe("A book");
+    expect(book.slug).toBe(generateWorkSlug("A book", "unknown", work.book));
+    expect(await getWorkCredits(work.book)).toHaveLength(0);
   });
 
 });

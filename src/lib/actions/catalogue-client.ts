@@ -1103,3 +1103,7 @@ export async function decideAllImportNotes(
 ) {
   return value(actions.decideAllImportNotes(...args));
 }
+
+export async function getPersonDeletionRefusal(id: string) {
+  return value(actions.getPersonDeletionRefusal(id));
+}
