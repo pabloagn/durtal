@@ -439,6 +439,8 @@ describe.skipIf(!url)("shared people and domain-scoped credits", () => {
       const settled = await results;
       expect(settled.filter((r) => r.status === "fulfilled")).toHaveLength(1);
       expect(settled.filter((r) => r.status === "rejected")).toHaveLength(1);
+      const rejected = settled.find((result): result is PromiseRejectedResult => result.status === "rejected")!;
+      expect(rejected.reason).toMatchObject({ message: "Credits changed while saving; reload before trying again" });
       const saved =
         level === "edition"
           ? await getEditionCredits(editionId)
