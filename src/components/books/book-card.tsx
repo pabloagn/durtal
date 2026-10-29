@@ -112,11 +112,10 @@ function CoverImage({
           The eager image itself still starts at high priority. In WebKit the
           preload plus hydration could otherwise fetch a missing cover thrice. */}
       <picture className="contents">
+      <source srcSet={srcSet} sizes={sizes} />
       <FadeImage
         key={retries}
         src={withMediaWidth(retrySrc, 400)}
-        srcSet={srcSet}
-        sizes={sizes}
         alt={alt}
         loading={priority ? "eager" : "lazy"}
         fetchPriority={priority ? "high" : undefined}
