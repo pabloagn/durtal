@@ -27,7 +27,7 @@ import path from "node:path";
  * Calibre for good: Durtal still never runs, needs or writes to Calibre. Its
  * name is allowed where that source is read and documented: the ingestion
  * library and commands, their tests, the ingestion pipeline document and the
- * package script that runs the snapshot. Import existing (SLN-657) reads the
+ * package script that runs the snapshot, and its exact development-guide command row. Import existing (SLN-657) reads the
  * same source through its own command, and so does the command that makes
  * the library's ratings and reads a reading import (SLN-658), which the
  * reading import itself knows only as "the e-book library". The differences
@@ -62,6 +62,11 @@ const CALIBRE_SOURCE = [
 ];
 /** The package script that takes a snapshot; package.json may name Calibre nowhere else */
 const CALIBRE_SCRIPT = /^\s*"ebooks:calibre-snapshot": "tsx --tsconfig tsconfig\.json scripts\/ebooks\/calibre-snapshot\.ts",$/;
+/** Only the existing read-only command may appear in the development command table. */
+const CALIBRE_DOC_SCRIPT = /^\| `pnpm ebooks:calibre-snapshot` \| `tsx --tsconfig tsconfig\.json scripts\/ebooks\/calibre-snapshot\.ts` \|$/;
+const allowedCommandReference = (file: string, line: string) =>
+  (file === "package.json" && CALIBRE_SCRIPT.test(line)) ||
+  (file === "docs/12_DEVELOPMENT.md" && CALIBRE_DOC_SCRIPT.test(line));
 /** Files that read what came before SLN-490 */
 const HISTORY_READERS = new Set([
   "src/lib/interchange/version-1.ts",
@@ -90,7 +95,7 @@ function mentions(file: string): string[] {
   return readFileSync(path.join(ROOT, file), "utf8")
     .split("\n")
     .flatMap((line, i) => {
-      if (file === "package.json" && CALIBRE_SCRIPT.test(line)) return [];
+      if (allowedCommandReference(file, line)) return [];
       const rest = opfNames ? line.replace(/calibre:[\w:-]+/gi, "") : line;
       return /calibre/i.test(rest) ? [`${file}:${i + 1}: ${line.trim().slice(0, 120)}`] : [];
     });
@@ -107,6 +112,11 @@ describe("no Calibre", () => {
     expect(CALIBRE_SCRIPT.test(`    "ebooks:calibre-snapshot": "tsx --tsconfig tsconfig.json scripts/ebooks/calibre-snapshot.ts",`)).toBe(true);
     expect(CALIBRE_SCRIPT.test(`    "calibre": "calibredb list",`)).toBe(false);
     expect(CALIBRE_SOURCE.some((allowed) => "src/app/(catalogue)/settings/page.tsx".startsWith(allowed))).toBe(false);
+    const row = "| `pnpm ebooks:calibre-snapshot` | `tsx --tsconfig tsconfig.json scripts/ebooks/calibre-snapshot.ts` |";
+    expect(allowedCommandReference("docs/12_DEVELOPMENT.md", row)).toBe(true);
+    expect(allowedCommandReference("src/app/page.tsx", row)).toBe(false);
+    expect(allowedCommandReference("docs/12_DEVELOPMENT.md", "Durtal requires Calibre")).toBe(false);
+    expect(allowedCommandReference("docs/12_DEVELOPMENT.md", row.replace("tsx --tsconfig tsconfig.json", "calibredb"))).toBe(false);
   });
 
   it("allows an OPF metadata name only where the metadata reader and its tests live", () => {

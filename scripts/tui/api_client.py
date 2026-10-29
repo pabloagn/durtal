@@ -13,7 +13,7 @@ from dotenv import load_dotenv
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 load_dotenv(_PROJECT_ROOT / ".env.local")
 
-_BASE_URL = os.environ.get("DURTAL_API_URL", "http://localhost:3003")
+_BASE_URL = os.environ.get("DURTAL_API_URL", "http://localhost:3100")
 
 
 class DurtalClient:

@@ -129,52 +129,7 @@ The seed data pipeline (Excel parsing, data transformation, deduplication) and t
 
 ## Key Dependencies
 
-### Runtime
-
-| Package | Version | Purpose |
-|---|---|---|
-| `next` | 15.x | Application framework |
-| `react` / `react-dom` | 19.x | UI library |
-| `typescript` | 5.x | Type safety |
-| `tailwindcss` | 4.x | Utility-first CSS |
-| `drizzle-orm` | latest | Database ORM |
-| `@neondatabase/serverless` | latest | Neon PostgreSQL HTTP driver |
-| `@aws-sdk/client-s3` | latest | S3 operations |
-| `@aws-sdk/s3-request-presigner` | latest | Pre-signed URL generation |
-| `sharp` | latest | Image processing (resize, WebP) |
-| `zod` | latest | Schema validation |
-| `cmdk` | latest | Command palette (`Cmd+K`) |
-| `lucide-react` | latest | Icons (1.5px stroke, 16px) |
-| `sonner` | latest | Toast notifications |
-| `pdfjs-dist` | 6.4.x | PDF rendering in the e-book reader (behind foliate-js) |
-| `construct-style-sheets-polyfill` | 3.x | Constructable style sheets for foliate-js's fixed-layout renderer |
-
-### Development
-
-| Package | Version | Purpose |
-|---|---|---|
-| `drizzle-kit` | latest | Schema migrations CLI |
-| `eslint` | latest | Linting |
-| `@types/*` | latest | TypeScript definitions |
-
-### Python (Ingestion & TUI)
-
-| Package | Purpose |
-|---|---|
-| `pandas` | Data manipulation for ETL |
-| `openpyxl` | Excel file reading |
-| `pyarrow` | Parquet file reading |
-| `psycopg2-binary` | PostgreSQL connection to Neon |
-| `pydantic` | Data validation models |
-| `click` | CLI interface |
-| `httpx` | HTTP client (API enrichment + TUI) |
-| `pillow` | Image processing for covers |
-| `boto3` | S3 upload for covers |
-| `python-dotenv` | Environment variable loading |
-| `rich` | Console output formatting |
-| `textual` | Terminal UI framework |
-
----
+See [package.json](../package.json) and [pnpm-lock.yaml](../pnpm-lock.yaml) for the current Node dependencies, and [pyproject.toml](../pyproject.toml) and [uv.lock](../uv.lock) for Python. The [development guide](12_DEVELOPMENT.md#dependencies) records the PDF/native-binding requirements. foliate-js is vendored under `src/vendor/foliate-js/`; its revision and patches live beside it in `VENDORED.md`.
 
 ## Architectural Decisions
 
@@ -214,7 +169,7 @@ The reader (`/reader/[ebookId]`, SLN-492) is built on foliate-js, vendored in `s
 
 PDFs use Durtal's own `pdfjs-dist` (the fork's copy of pdf.js is not vendored): `scripts/vendor-pdfjs.mjs`, which `pnpm dev` and `pnpm build` run first, copies its worker (with one patch, VENDORED.md patch 4), character maps, standard fonts and decoders to `public/vendor/pdfjs/`, so nothing loads from another origin. The worker is started before pdf.js asks for it (by the page's inline script once the book's first bytes are in, else by the engine) and handed to pdf.js as its `workerPort`.
 
-The book's bytes never pass through a whole-file download: the engine reads HTTP ranges of the file from the CDN or the app's route (docs/07, Reading e-books by range). A book is untrusted HTML: its sections are blob frames that inherit the reader page's Content-Security-Policy (`src/lib/reader/csp.ts`, set by `src/proxy.ts` with a per-request nonce), so a script inside a book never runs. Every other page gets the catalogue's policy the same way (`src/lib/page-csp.ts`, SLN-1240): only nonced scripts run, so stored HTML that escaped sanitizing still can't. Every answer also carries `X-Content-Type-Options: nosniff` and `Referrer-Policy: strict-origin-when-cross-origin` (another site learns Durtal's origin, which a URL-restricted Mapbox token needs, never a page's address) (`next.config.ts`). Input (`src/lib/reader/input.ts`) is one layer attached to the app's document and to every section document, and the place is saved off the input path (`src/lib/reader/position-queue.ts`).
+The book's bytes never pass through a whole-file download: the engine reads HTTP ranges of the file from the CDN or the app's route (docs/07, Legacy compatibility and delivery). A book is untrusted HTML: its sections are blob frames that inherit the reader page's Content-Security-Policy (`src/lib/reader/csp.ts`, set by `src/proxy.ts` with a per-request nonce), so a script inside a book never runs. Every other page gets the catalogue's policy the same way (`src/lib/page-csp.ts`, SLN-1240): only nonced scripts run, so stored HTML that escaped sanitizing still can't. Every answer also carries `X-Content-Type-Options: nosniff` and `Referrer-Policy: strict-origin-when-cross-origin` (another site learns Durtal's origin, which a URL-restricted Mapbox token needs, never a page's address) (`next.config.ts`). Input (`src/lib/reader/input.ts`) is one layer attached to the app's document and to every section document, and the place is saved off the input path (`src/lib/reader/position-queue.ts`).
 
 ### Reader bridge and places across devices (SLN-493)
 

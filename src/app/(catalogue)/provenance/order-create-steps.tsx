@@ -406,7 +406,7 @@ export function WorkSearchStep({
             }}
           >
             <Plus className="h-3.5 w-3.5" strokeWidth={1.5} />
-            Add New Work
+            Add a new book
           </Button>
         </div>
       )}
@@ -477,7 +477,7 @@ export function DetailsStep({
   return (
     <div className="space-y-4">
       <DatePicker
-        label="Order / Acquisition Date"
+        label="Order date"
         value={form.orderDate}
         onChange={(v) => onChange("orderDate", v)}
         required
@@ -487,12 +487,12 @@ export function DetailsStep({
         <>
           <OrderShopField method={method} value={venue} onChange={onVenueChange} />
           <Input
-            label="Order Confirmation #"
+            label="Confirmation number"
             value={form.orderConfirmation}
             onChange={(e) => onChange("orderConfirmation", e.target.value)}
           />
           <Input
-            label="Order URL"
+            label="Order link"
             type="url"
             value={form.orderUrl}
             onChange={(e) => onChange("orderUrl", e.target.value)}

@@ -12,6 +12,7 @@ The TUI communicates with the Next.js application via its REST API endpoints.
 scripts/tui/
 +-- app.py                 Main application entry point
 +-- api_client.py          Async HTTP client for the Durtal API
++-- reading_panel.py       Reading dashboard text and statistics
 +-- screens/
 |   +-- __init__.py
 |   +-- dashboard.py       Library statistics overview
@@ -40,7 +41,7 @@ Or via Taskfile:
 task tui
 ```
 
-The TUI connects to the API at `DURTAL_API_URL` (loaded from `.env.local`, defaults to `http://localhost:3003`).
+The TUI connects to the API at `DURTAL_API_URL` (loaded from `.env.local`, defaults to `http://localhost:3100`). This matches `task dev`. To use the Mac production release, set `DURTAL_API_URL=http://127.0.0.1:3110`.
 
 ---
 

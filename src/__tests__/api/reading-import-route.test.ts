@@ -33,11 +33,11 @@ describe("the reading import route", () => {
     expect(res.status).toBe(403);
     expect(mocks.create).not.toHaveBeenCalled();
   });
-  it("refuses a file that is not CSV or TSV", async () => {
+  it("refuses an unsupported file or MIME type", async () => {
     for (const file of [csv("export.xlsx", "x", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"), csv("export.csv", "x", "image/png")]) {
       const res = await POST(request(file));
       expect(res.status).toBe(400);
-      expect((await res.json()).error).toBe("Choose a CSV or TSV file: a Goodreads, StoryGraph or Durtal reading export");
+      expect((await res.json()).error).toBe("Choose a CSV or TSV reading history, or an empty JSON or Parquet export");
     }
     expect(mocks.create).not.toHaveBeenCalled();
   });

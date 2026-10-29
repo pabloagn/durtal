@@ -215,12 +215,12 @@ export function OrderEditDialog({
         {showShipping && (
           <>
             <Input
-              label="Order Confirmation #"
+              label="Confirmation number"
               value={orderConfirmation}
               onChange={(e) => setOrderConfirmation(e.target.value)}
             />
             <Input
-              label="Order URL"
+              label="Order link"
               type="url"
               value={orderUrl}
               onChange={(e) => setOrderUrl(e.target.value)}

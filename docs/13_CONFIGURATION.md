@@ -30,6 +30,7 @@ E-books use the existing private bucket and layer-first prefixes (SLN-569; `docs
 | `EBOOKS_BUCKET` | No | `durtal` | Existing private bucket; no new bucket is provisioned |
 | `EBOOKS_PREFIX` | No | empty | Legacy key prefix, ending in a slash (`ebooks/`). New bronze/silver/gold eBook keys ignore it |
 | `EBOOKS_REGION` | No | `AWS_REGION` | The e-book bucket's region |
+| `EBOOKS_AWS_ACCOUNT_ID` | No | — | The reviewed AWS account the e-book scripts check (12 digits); required outside previews |
 | `EBOOK_DELIVERY` | No | `app` | `cloudfront`: the browser reads files through signed CloudFront URLs. `app`: the app streams them itself by byte range (development, previews; `scripts/qa/preview-local.py` always sets `app`) |
 | `EBOOK_CDN_URL` | With `cloudfront` | — | The distribution's address, `https://<id>.cloudfront.net` |
 | `EBOOK_CDN_KEY_PAIR_ID` | With `cloudfront` | — | The id of the key group's public key |
@@ -67,7 +68,7 @@ E-books use the existing private bucket and layer-first prefixes (SLN-569; `docs
 | `NODE_ENV` | No | `development` | Node environment (`development`, `production` or `test`) |
 | `DURTAL_API_TOKEN` | No | — | Bearer token for the REST API write routes (orders, copies, works). Not set: every API write is refused. Make one with `openssl rand -hex 32`. See [05_API_REFERENCE.md](05_API_REFERENCE.md) |
 | `DURTAL_ALLOWED_HOSTS` | No | — | The names the app answers to besides `localhost` (and names under `.localhost`), IP addresses, names under `.local` (the Mac's own network name), Tailscale names under `.ts.net` and one-word names (such as the Tailscale short name `studio`), which are always allowed. Comma-separated host names without a port or scheme, such as `durtal.example.com`; each is allowed on any port. A page or API request on any other name answers `421`, so a page that points its own name at the Mac (DNS rebinding) reaches nothing. An entry that is not a host name stops the server at startup. See [05_API_REFERENCE.md](05_API_REFERENCE.md), Host check |
-| `APP_TIMEZONE` | No | `Europe/Amsterdam` | IANA time zone the server uses for "today" (default order, shipped and delivered dates; export file names) |
+| `APP_TIMEZONE` | No | `Europe/Amsterdam` | IANA time zone for every calendar day the server works out, including reading statistics, year reviews, notes by year, enrichment months, order dates and export file names |
 | `ADMIN_TOKEN` | No | — | Token for the bulk media endpoints (`/api/media/reprocess`, `/api/media/backfill-palettes`, `/api/media/apply-crops`), sent as the `x-admin-token` header. Not set: these endpoints refuse every call (SLN-423). Make one with `openssl rand -hex 32` |
 
 ### Python Scripts
@@ -76,7 +77,16 @@ E-books use the existing private bucket and layer-first prefixes (SLN-569; `docs
 |---|---|---|---|
 | `DATABASE_URL`, `AWS_*`, `S3_BUCKET` | — | — | Same as above |
 | `INGEST_EXCEL_PATH` | For ingestion | `~/dev/phantom/.../knowledge_base.xlsx` | Absolute path to `knowledge_base.xlsx` |
-| `DURTAL_API_URL` | No | `http://localhost:3003` | API base URL for the TUI client (loaded from `.env.local`) |
+| `DURTAL_API_URL` | No | `http://localhost:3100` | API base URL for the TUI client (loaded from `.env.local`) |
+
+### Preview and worker-only settings
+
+Do not set these on the production application process:
+
+| Variable | Scope | Purpose |
+|---|---|---|
+| `DURTAL_PREVIEW_S3_DIR` | Disposable preview only | Replaces S3 operations with files under a local directory; see `src/lib/s3/preview-dir.ts` |
+| `HOSTNAME=ebook-inspector` | Isolated upload-inspector container only | Required by `src/lib/ebooks/upload/worker-entry.ts` for its bounded worker environment; not the application hostname |
 
 ### Tests
 
@@ -218,4 +228,4 @@ Format:
 [What was actually done, metrics, deviations from plan]
 ```
 
-Tasks are numbered sequentially. Dependencies and blocking relationships are tracked in the frontmatter.
+Numbers can leave gaps. Before using one, take the next number in your range and check that origin/main and the open pull requests don't already have it. Dependencies and blocking relationships are tracked in the frontmatter.

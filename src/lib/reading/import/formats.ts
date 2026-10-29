@@ -13,6 +13,19 @@ export function delimitedUploadFormat(name: string, mime = ""): "csv" | "tsv" | 
     ? extension : null;
 }
 
+export const IMPORT_UPLOAD_MESSAGE = "Choose a CSV or TSV reading history, or an empty JSON or Parquet export";
+
+/** Native exports are accepted only when empty; populated histories still use CSV/TSV. */
+export function importUploadFormat(name: string, mime = ""): "csv" | "tsv" | "json" | "parquet" | null {
+  const delimited = delimitedUploadFormat(name, mime);
+  if (delimited) return delimited;
+  const extension = /\.(json|parquet)$/i.exec(name)?.[1].toLowerCase();
+  const type = mime.toLowerCase().split(";", 1)[0].trim();
+  if (extension === "json" && ["", "application/json", "text/json", "text/plain", "application/octet-stream"].includes(type)) return "json";
+  if (extension === "parquet" && ["", "application/vnd.apache.parquet", "application/parquet", "application/octet-stream"].includes(type)) return "parquet";
+  return null;
+}
+
 /** The full Goodreads export header, in Goodreads' order: the fixtures and a later step's export use it */
 export const GOODREADS_EXPORT_HEADER = [
   "Book Id",

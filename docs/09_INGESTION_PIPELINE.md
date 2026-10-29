@@ -808,17 +808,4 @@ with SLN-498.
 
 ## Python Dependencies
 
-| Package | Purpose |
-|---|---|
-| `pandas` | Data manipulation and transformation |
-| `openpyxl` | Excel file reading |
-| `pyarrow` | Parquet file reading |
-| `psycopg2-binary` | PostgreSQL connection to Neon |
-| `pydantic` | Data validation models |
-| `click` | CLI interface |
-| `httpx` | HTTP client for API enrichment |
-| `pillow` | Image processing for covers |
-| `boto3` | S3 upload for covers |
-| `python-dotenv` | .env file loading |
-| `rich` | Console output formatting |
-| `isbnlib` | ISBN validation and formatting |
+See [pyproject.toml](../pyproject.toml) for the current Python runtime/development dependencies and [uv.lock](../uv.lock) for their resolved versions. The dependency files, rather than a copied table, are the source of truth.
