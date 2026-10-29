@@ -351,6 +351,11 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
           ) : undefined
         }
       >
+        {works.length === 0 && contributions.length === 0 && credits.length === 0 && (
+          <p className="mb-8 text-sm text-fg-secondary">
+            Not credited on anything yet. Add a credit from a book, film, perfume or painting’s Edit dialog.
+          </p>
+        )}
         {hasReading ? (
           <>
             <EbookSuggestionLine authorId={author.id} count={ebookSuggestions} className="mb-8" />

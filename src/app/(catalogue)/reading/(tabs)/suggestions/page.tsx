@@ -95,6 +95,17 @@ export default async function SuggestionsPage({ searchParams }: { searchParams: 
   const rereads = worthRereading(ctx).slice(0, 6);
   const pageHref = (p: number) => `/reading/suggestions${suggestionQuery({ ...params, page: p, pick: undefined })}`;
 
+  if (!pool.length && !hidden.length && !rereads.length) return (
+    <>
+      <PageHeader title="Reading" tabs={<ReadingTabs />} />
+      <EmptyState
+        icon={Sparkles}
+        title="Nothing to suggest yet"
+        action={<Link href="/library" className={buttonClass("secondary")}>Go to your library</Link>}
+      />
+    </>
+  );
+
   return (
     <>
       <PageHeader title="Reading" actions={<PickOne top={top.map(pickRow)} initiallyOpen={!!params.pick} />} tabs={<ReadingTabs />} />

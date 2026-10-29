@@ -47,7 +47,7 @@ export default async function ReviewPublisherNames({
       <PageHeader
         title="Publisher names"
         description={
-          house
+          !inbox.total ? undefined : house
             ? `${editions} without a publishing house look like ${house.name}.`
             : `${editions} without a publishing house carry ${names}. One decision per name links all its editions, now and in later imports.`
         }
