@@ -22,3 +22,28 @@ Raw parsing preserves apostrophes. Recognized Durtal reading files keep legacy f
 ## Completion Notes
 
 Root and independent PM source review passed. Typecheck and all 149 tests across ten complete focused unit/API files passed; independent cleanup confirmed no remaining owned processes or resources and unchanged source/protected inputs. UI alignment/page-weight checks, the full test:local gate, and Phase 2 session/note restoration remain pending. SLN-1369 separately owns lossless TSV export fidelity. SLN-1090 remains In Progress. No store, claim, identifier, database schema, package or session/note writer changes.
+
+
+## Verification update — 29 October 2026
+
+Recovered in PR #637 on current main. Typecheck, lint and the production build
+passed with the pinned Node 22 runtime. All 9,146 JavaScript/database tests in
+879 files passed against disposable PostgreSQL; full Python/CI validation is
+tracked separately by the PR checks and must pass before landing.
+
+Production-mode acceptance used only a disposable catalogue: all 32 empty
+native exports and all 32 populated exports returned files; the 16 empty
+CSV/TSV imports returned no-op results. An independent PyArrow reader verified
+stable schemas and exact JSON/Parquet values for all eight entities. Forty
+additional synthetic Arrow cases covered empty, null, full, mixed and reordered
+records, including nested structures, BCE dates and exact microsecond instants.
+Thirty readings, thirty sessions and thirty notes restored through the browser
+with all exported values preserved; Undo removed exactly the restored records.
+Thirty-six Chromium, Firefox and WebKit scenarios at 390 and 1440 pixels passed;
+measured alignment, contrast, control names and overflow checks had no failures.
+Forty-two configured routes passed page-weight budgets; six routes without
+corresponding synthetic e-book/taxonomy fixtures were explicitly skipped.
+
+SLN-1183 is only partially addressed: empty Goodreads/JSON/Parquet import
+acceptance still needs work. No claim of complete all-format import support,
+merge, deployment or owner-phone acceptance is made by this verification update.
