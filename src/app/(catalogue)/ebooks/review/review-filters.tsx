@@ -2,6 +2,7 @@
 
 import { useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { SlidersHorizontal } from "lucide-react";
+import { hasOpenSurface } from "@/lib/ui/surface-state";
 import { isComposing } from "@/lib/shortcuts/shortcuts";
 
 /**
@@ -12,12 +13,13 @@ import { isComposing } from "@/lib/shortcuts/shortcuts";
  * Esc closes the choices and focus goes back to Filter, and Clear all unsets
  * them (the search and the queue's own scope stay).
  */
-export function ReviewFilters({ search, filters, active }: {
+export function ReviewFilters({ search, filters, active, onClear }: {
   search: ReactNode;
   /** The choices and Apply, each a cell of the form's grid from `sm` up */
   filters: ReactNode;
   /** How many choices are set, shown on Filter */
   active: number;
+  onClear?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const panel = useId();
@@ -25,6 +27,8 @@ export function ReviewFilters({ search, filters, active }: {
   const choices = useRef<HTMLDivElement>(null);
   const close = (event: KeyboardEvent) => {
     if (event.key !== "Escape" || !open || event.defaultPrevented || isComposing(event)) return;
+    // A dropdown owns this press; leave the surrounding filter panel open.
+    if (hasOpenSurface()) return;
     event.preventDefault();
     setOpen(false);
     toggle.current?.focus();
@@ -67,6 +71,7 @@ export function ReviewFilters({ search, filters, active }: {
           <button
             type="button"
             onClick={() => {
+              if (onClear) { onClear(); return; }
               choices.current?.querySelectorAll("select").forEach((select) => { select.value = ""; });
               choices.current?.closest("form")?.requestSubmit();
             }}

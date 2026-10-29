@@ -1,16 +1,14 @@
 import type { Metadata } from "next";
 import { PageHeader } from "@/components/layout/page-header";
-import { Button, buttonClass } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { EBOOK_FORMATS } from "@/lib/ebooks/formats";
-import { languageOptions } from "@/lib/utils/language";
+import { buttonClass } from "@/components/ui/button";
 import { getReviewQueue } from "@/lib/ebooks/review-queue/queries";
 import { parseReviewParams, reviewParamsSearch } from "@/lib/ebooks/review-queue/params";
 import { DifferencesSection } from "@/components/ebooks/differences-section";
 import { DIFFERENCE_FIELDS, type DifferenceField } from "@/lib/ebooks/differences/compare";
 import { getDifferences } from "@/lib/ebooks/differences/store";
 import { ReviewView } from "./review-view";
-import { ReviewFilters } from "./review-filters";
+import { InstantReviewFilters } from "./instant-review-filters";
+import { reviewSummary } from "@/lib/ebooks/review-queue/summary";
 
 export const metadata: Metadata = { title: "Review eBooks" };
 /** As the review sections: 20 rows a page keeps the page within its weight after a large load */
@@ -41,34 +39,9 @@ export default async function ReviewEbooksPage({ searchParams }: {
     if (shown > DIFFERENCES_PAGE) search.set("differences", String(shown));
     return `/ebooks/review?${search.toString()}#review-section-differences`;
   };
-  const pending = Object.entries(queue.counts).filter(([key]) => !["automatic", "partially_held", "not_in_durtal"].includes(key))
-    .reduce((total, [, count]) => total + count, 0);
-  const selectClass = "h-8 w-full rounded-sm border border-glass-border bg-bg-primary/80 px-2 text-xs text-fg-primary pointer-coarse:h-11";
   return <div>
-    <PageHeader title="Review eBooks" description={`${(pending + queue.counts.not_in_durtal).toLocaleString()} to review, ${queue.counts.not_in_durtal.toLocaleString()} of them not in Durtal · ${queue.counts.automatic.toLocaleString()} linked automatically · ${queue.counts.partially_held.toLocaleString()} partially held`} />
-    <form action="/ebooks/review" method="get" className="mb-8 grid items-end gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(10rem,2fr)_1fr_1fr_1fr_auto]">
-      <ReviewFilters active={[params.filters.language, params.filters.format, params.filters.hasIsbn].filter(Boolean).length}
-        search={<Input label="Title or author" name="q" defaultValue={params.filters.q} maxLength={200} type="search" />}
-        filters={<>
-          <label className="space-y-1.5"><span className="type-label block">Language</span>
-            <select name="language" defaultValue={params.filters.language ?? ""} className={selectClass}>
-              <option value="">All languages</option>{languageOptions(params.filters.language).map((language) => <option key={language.value} value={language.value}>{language.label}</option>)}
-            </select></label>
-          <label className="space-y-1.5"><span className="type-label block">Format</span>
-            <select name="format" defaultValue={params.filters.format ?? ""} className={selectClass}>
-              <option value="">All formats</option>{EBOOK_FORMATS.map((format) => <option key={format} value={format}>{format.toUpperCase()}</option>)}
-            </select></label>
-          <label className="space-y-1.5"><span className="type-label block">ISBN</span>
-            <select name="hasIsbn" defaultValue={params.filters.hasIsbn ?? ""} className={selectClass}>
-              <option value="">Any ISBN</option><option value="yes">Has ISBN</option><option value="no">No ISBN</option>
-            </select></label>
-          <Button type="submit">Apply filters</Button>
-        </>} />
-      {params.filters.work && <input type="hidden" name="work" value={params.filters.work} />}
-      {params.filters.run && <input type="hidden" name="run" value={params.filters.run} />}
-      {params.filters.author && <input type="hidden" name="author" value={params.filters.author} />}
-      {params.filters.series && <input type="hidden" name="series" value={params.filters.series} />}
-    </form>
+    <PageHeader title="Review eBooks" description={reviewSummary(queue.counts)} />
+    <InstantReviewFilters languages={queue.languages} />
     <ReviewView queue={queue} params={params} differences={<DifferencesSection page={differences} step={DIFFERENCES_PAGE}
       links={Object.fromEntries(DIFFERENCE_FIELDS.filter((f) => differences.counts[f]).map((f) => [f, differenceHref(f, DIFFERENCES_PAGE)]))}
       moreHref={differences.field && (differences.counts[differences.field] ?? 0) > differences.shown && differences.shown < DIFFERENCES_MAX
