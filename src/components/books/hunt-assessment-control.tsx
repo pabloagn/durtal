@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Gem } from "lucide-react";
 import { toast } from "@/lib/notifications/toast";
@@ -25,26 +25,33 @@ export function HuntAssessmentControl({
 }: HuntAssessment & { workId: string }) {
   const router = useRouter();
   const [saved, setSaved] = useState({ isRare, huntAssessedOn });
-  const [pending, startTransition] = useTransition();
+  const [pending, setPending] = useState(false);
+  const saving = useRef(false);
 
   useEffect(() => {
     setSaved({ isRare, huntAssessedOn });
   }, [isRare, huntAssessedOn]);
 
   function save(input: HuntAssessmentInput) {
+    if (saving.current) return;
     const parsed = huntAssessmentSchema.safeParse(input);
     if (!parsed.success) {
       toast.error("Choose a valid date");
       return;
     }
-    startTransition(async () => {
+    saving.current = true;
+    setPending(true);
+    void (async () => {
       try {
         setSaved(await updateHuntAssessment(workId, parsed.data));
         router.refresh();
       } catch (error) {
         toast.error(refusalMessage(error, `Could not update the ${MARKS.rare.label} mark. Try again.`));
+      } finally {
+        saving.current = false;
+        setPending(false);
       }
-    });
+    })();
   }
 
   return (

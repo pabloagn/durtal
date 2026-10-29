@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "@/lib/notifications/toast";
 import { useShortcut } from "@/components/shortcuts/shortcuts-provider";
@@ -57,7 +57,8 @@ export function FavouriteToggle({
 }) {
   const router = useRouter();
   const button = useRef<HTMLButtonElement>(null);
-  const [pending, startTransition] = useTransition();
+  const [pending, setPending] = useState(false);
+  const saving = useRef(false);
   const [on, setOn] = useState(favourite);
   // A refresh that brings a new value replaces the local one
   const [stored, setStored] = useState(favourite);
@@ -98,16 +99,27 @@ export function FavouriteToggle({
         {...shortcutProps(shortcut ? `a then ${FAVOURITE_SHORTCUT}` : undefined)}
         // Saving, not disabled: a disabled button drops the focus onto the page
         aria-disabled={pending || undefined}
+        aria-busy={pending}
         onClick={(event) => {
           // A star inside a clickable card never opens the card
           event.preventDefault();
           event.stopPropagation();
-          if (pending) return;
+          if (saving.current) return;
           const next = !on;
           setOn(next);
-          startTransition(async () => {
-            if (!(await save(next))) setOn(!next);
-          });
+          saving.current = true;
+          setPending(true);
+          void (async () => {
+            try {
+              if (!(await save(next))) setOn(!next);
+            } catch (error) {
+              setOn(!next);
+              toast.error(refusalMessage(error, "Could not update the favourite. Try again."));
+            } finally {
+              saving.current = false;
+              setPending(false);
+            }
+          })();
         }}
         className={`${VARIANTS[variant]} text-accent-gold aria-disabled:opacity-40${className ? ` ${className}` : ""}`}
       >
