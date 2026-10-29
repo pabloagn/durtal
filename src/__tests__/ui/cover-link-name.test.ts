@@ -83,3 +83,14 @@ it("falls back to the cover letter after at most two failed requests", () => {
     expect(host.querySelector("img")).toBeNull();
   } finally { vi.useRealTimers(); }
 });
+
+
+it("does not add another retry after an eager cover's preload and image request", () => {
+  vi.useFakeTimers();
+  try {
+    card({ title: "Missing cover", coverUrl: "/api/s3/read?key=missing.webp", coverPriority: true });
+    act(() => { host.querySelector("img")!.dispatchEvent(new Event("error")); vi.advanceTimersByTime(500); });
+    expect(host.querySelector("img")).toBeNull();
+    expect(host.querySelector(".cover-letter")?.textContent).toBe("M");
+  } finally { vi.useRealTimers(); }
+});
