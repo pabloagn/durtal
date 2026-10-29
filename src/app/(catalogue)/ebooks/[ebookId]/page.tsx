@@ -119,6 +119,12 @@ export default async function EbookPage({ params, searchParams }: Props) {
   const replaceLeads = !!damaged && alternatives.length === 0;
   const locked = descriptor || ebook.matchState === "excluded" ? undefined
     : ebook.files.find((file) => file.drm !== null && (file.status === "stored" || file.status === "verified"));
+  // Explain why Read is absent beside the cover, before the file table (SLN-1038).
+  const unavailableFiles = !descriptor && !locked && ebook.matchState !== "excluded"
+    ? ebook.files.filter((file) => file.status === "missing" || file.status === "quarantined")
+    : [];
+  const unavailable = unavailableFiles.find((file) => file.id === ebook.preferredFileId)
+    ?? unavailableFiles[0];
   const files = ebook.files.map((file) => ({
     id: file.id,
     format: file.format,
@@ -260,6 +266,14 @@ export default async function EbookPage({ params, searchParams }: Props) {
               <p className="mt-3 text-sm text-fg-primary">
                 {lockedFileMessage(locked.drm)}{" "}
                 <Link href={replaceHref(locked.id)} className="touch-hit text-command">Replace file…</Link>
+              </p>
+            )}
+            {unavailable && (
+              <p className="mt-3 text-sm text-fg-primary">
+                {unavailable.status === "missing"
+                  ? `This ${formatLabel(unavailable.format)} file is missing from storage; Durtal can't open it.`
+                  : `This ${formatLabel(unavailable.format)} file is damaged; Durtal can't open it.`}{" "}
+                <Link href={replaceHref(unavailable.id)} className="touch-hit text-command">Replace file…</Link>
               </p>
             )}
             {descriptor?.projection === "pending-reanchor" && (
