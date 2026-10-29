@@ -2,6 +2,7 @@
 
 import { useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { SlidersHorizontal } from "lucide-react";
+import { hasOpenSurface } from "@/lib/ui/surface-state";
 import { isComposing } from "@/lib/shortcuts/shortcuts";
 
 /**
@@ -26,6 +27,8 @@ export function ReviewFilters({ search, filters, active, onClear }: {
   const choices = useRef<HTMLDivElement>(null);
   const close = (event: KeyboardEvent) => {
     if (event.key !== "Escape" || !open || event.defaultPrevented || isComposing(event)) return;
+    // A dropdown owns this press; leave the surrounding filter panel open.
+    if (hasOpenSurface()) return;
     event.preventDefault();
     setOpen(false);
     toggle.current?.focus();
