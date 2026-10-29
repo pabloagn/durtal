@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Skull } from "lucide-react";
 import { toast } from "@/lib/notifications/toast";
@@ -19,22 +19,29 @@ export function PoisonToggle({
 }) {
   const router = useRouter();
   const [marked, setMarked] = useState(isPoison);
-  const [pending, startTransition] = useTransition();
+  const [pending, setPending] = useState(false);
+  const saving = useRef(false);
 
   useEffect(() => {
     setMarked(isPoison);
   }, [isPoison]);
 
   function toggle() {
+    if (saving.current) return;
     const next = !marked;
-    startTransition(async () => {
+    saving.current = true;
+    setPending(true);
+    void (async () => {
       try {
         setMarked((await setPoison(workId, next)).isPoison);
         router.refresh();
       } catch (error) {
         toast.error(refusalMessage(error, `Could not update the ${MARKS.poison.label} mark. Try again.`));
+      } finally {
+        saving.current = false;
+        setPending(false);
       }
-    });
+    })();
   }
 
   return (
