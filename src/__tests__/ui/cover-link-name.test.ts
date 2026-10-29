@@ -76,7 +76,7 @@ it("falls back to the cover letter after at most two failed requests", () => {
     expect(host.querySelectorAll("img")).toHaveLength(1);
     act(() => { host.querySelector("img")!.dispatchEvent(new Event("error")); vi.advanceTimersByTime(500); });
     expect(host.querySelectorAll("img")).toHaveLength(1);
-    expect(host.querySelector("img")!.getAttribute("src")).toContain("_r=1");
+    expect(host.querySelector("source")!.getAttribute("srcset")).toContain("_r=1");
     act(() => { host.querySelector("img")!.dispatchEvent(new Event("error")); vi.advanceTimersByTime(1000); });
     expect(host.querySelector("img")).toBeNull();
     expect(host.querySelector(".cover-letter")?.textContent).toBe("M");
@@ -105,5 +105,7 @@ it("serves priority covers eagerly without a duplicate speculative preload", () 
   expect(html).toContain('<picture class="contents">');
   expect(html).toContain('loading="eager"');
   expect(html).toContain('fetchPriority="high"');
+  expect(html).toMatch(/<source[^>]+srcSet=/);
+  expect(html).not.toMatch(/<img[^>]+src=/);
   expect(html).not.toContain('rel="preload"');
 });
