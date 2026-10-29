@@ -1,6 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import { ParquetSchema, ParquetWriter } from "@dsnp/parquetjs";
-import { Writable } from "stream";
 
 export type { ExportFormat } from "@/lib/export/formats";
 export { FORMAT_MIME, FORMAT_EXT } from "@/lib/export/formats";
@@ -16,7 +13,9 @@ const FORMULA_START = /^[=+\-@\t\r]/;
 function cellText(value: unknown, guard = true): string {
   if (value == null) return "";
   if (typeof value === "number" || typeof value === "bigint") return String(value);
-  const str = String(value);
+  // A typed row (SLN-894) reads in a spreadsheet as it always has: yes or no, nested data as JSON text
+  if (typeof value === "boolean") return value ? "yes" : "no";
+  const str = value instanceof Date ? value.toISOString() : typeof value === "object" ? JSON.stringify(value) : String(value);
   return guard && FORMULA_START.test(str) ? `'${str}` : str;
 }
 
@@ -45,8 +44,8 @@ function escapeCSV(value: unknown, guard = true): string {
 
 function escapeTSV(value: unknown): string {
   const str = cellText(value);
-  // Tabs and newlines replaced with spaces
-  return str.replace(/[\t\n\r]/g, " ");
+  // The same quoting rule as CSV, with tabs as the separator. Keep text intact.
+  return /[\t\n\r"]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
 }
 
 /**
@@ -66,7 +65,8 @@ export function toCSV(rows: Record<string, unknown>[], headers?: readonly string
 }
 
 /**
- * Convert an array of flat objects to a TSV string; `headers` as for toCSV.
+ * Convert an array of flat objects to a TSV string, with a byte order mark;
+ * `headers` as for toCSV.
  */
 export function toTSV(rows: Record<string, unknown>[], headers?: readonly string[]): string {
   if (rows.length === 0 && !headers) return "";
@@ -75,45 +75,8 @@ export function toTSV(rows: Record<string, unknown>[], headers?: readonly string
     columns.map(escapeTSV).join("\t"),
     ...rows.map((row) => columns.map((h) => escapeTSV(row[h])).join("\t")),
   ];
-  return lines.join("\n");
+  return BOM + lines.join("\n");
 }
 
-/**
- * Convert an array of flat objects to a Parquet buffer.
- * All fields are stored as UTF8 strings for simplicity and portability.
- */
-export async function toParquet(
-  rows: Record<string, unknown>[],
-): Promise<Buffer> {
-  if (rows.length === 0) return Buffer.alloc(0);
-
-  const headers = Object.keys(rows[0]);
-
-  // Build Parquet schema — all fields as optional UTF8 strings
-  const schemaFields: Record<string, any> = {};
-  for (const h of headers) {
-    schemaFields[h] = { type: "UTF8", optional: true };
-  }
-  const schema = new ParquetSchema(schemaFields);
-
-  // Write to an in-memory buffer via a custom Writable stream
-  const chunks: Buffer[] = [];
-  const writable = new Writable({
-    write(chunk: Buffer, _encoding: string, callback: () => void) {
-      chunks.push(chunk);
-      callback();
-    },
-  });
-
-  const writer = await ParquetWriter.openStream(schema, writable as any);
-  for (const row of rows) {
-    const record: Record<string, string | null> = {};
-    for (const h of headers) {
-      record[h] = row[h] == null ? null : String(row[h]);
-    }
-    await writer.appendRow(record);
-  }
-  await writer.close();
-
-  return Buffer.concat(chunks);
-}
+export { nativeJSON as toJSON } from "@/lib/export/native";
+export { nativeParquet as toParquet } from "@/lib/export/parquet";

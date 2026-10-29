@@ -22,6 +22,7 @@ import type { ImportRow } from "./types";
 
 /** What a commit recorded on a row; only the fields the note rules read */
 interface WrittenShape {
+  history?: unknown;
   readings?: { n: number; readingId: string | null }[];
   queueOutcome?: string;
   ratingOutcome?: string;
@@ -30,13 +31,13 @@ interface WrittenShape {
 
 /** The row's readings, Up next item or library rating were committed; a row with only its note written was not */
 export function readingsCommitted(written: WrittenShape | null | undefined): boolean {
-  return !!written && ((written.readings?.length ?? 0) > 0 || written.queueOutcome !== undefined || written.ratingOutcome !== undefined);
+  return !!written && (!!written.history || (written.readings?.length ?? 0) > 0 || written.queueOutcome !== undefined || written.ratingOutcome !== undefined);
 }
 
 /** The same rule in SQL, for reading_import_rows aliased `alias` */
 export function readingsUncommittedSql(alias = "r") {
   const w = sql.raw(`${alias}.written`);
-  return sql`(${w} is null or (jsonb_array_length(coalesce(${w}->'readings', '[]'::jsonb)) = 0 and ${w}->'queueOutcome' is null and ${w}->'ratingOutcome' is null))`;
+  return sql`(${w} is null or (jsonb_array_length(coalesce(${w}->'readings', '[]'::jsonb)) = 0 and ${w}->'queueOutcome' is null and ${w}->'ratingOutcome' is null and coalesce(${w}->'history','null'::jsonb)='null'::jsonb))`;
 }
 
 /** The row's note is in Durtal from this import */

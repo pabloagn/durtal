@@ -53,6 +53,7 @@ function longDay(day: string): string {
 }
 
 export function commonplaceMarkdown(notes: CommonplaceNote[], today: string): string {
+  if (!notes.length) return `# Commonplace book\n\nNo quotes or notes to export from Durtal on ${longDay(today)}.\n`;
   const quotes = notes.filter((n) => n.kind === "quote").length;
   const count = notesCountText(quotes, notes.length - quotes) || "No quotes or notes";
   const books = new Set(notes.map((n) => n.workId)).size;

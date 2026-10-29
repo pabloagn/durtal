@@ -1,5 +1,6 @@
+import { commitResultWords } from "@/lib/reading/import/action-words";
 import { describe, expect, it } from "vitest";
-import { rowsChanged, undoRemoves } from "@/lib/reading/import/action-words";
+import { canCommitImport, canUndoImport, rowsChanged, undoDescription, undoRemoves } from "@/lib/reading/import/action-words";
 
 /* The import buttons' words (SLN-956) */
 
@@ -18,5 +19,52 @@ describe("the import's button words", () => {
       "the book ratings it set while they are unchanged",
       "the 4 Goodreads ids it recorded",
     ]);
+  });
+});
+
+
+describe("Undo for interrupted ID claims", () => {
+  it("is available for a reused claim with no removable records", () => {
+    expect(canUndoImport({ readings: 0, queued: 0, notes: 0, ratings: 0, identifiers: 0, pendingClaims: 1 })).toBe(true);
+    expect(canUndoImport({ readings: 0, queued: 0, notes: 0, ratings: 0, identifiers: 0, pendingClaims: 0 })).toBe(false);
+  });
+  it("describes zero record removal and guarded new-ID removal truthfully", () => {
+    const reused = undoDescription({ readings: 0, pendingClaims: 1 });
+    expect(reused).toContain("No readings, notes or Up next items were written");
+    expect(reused).toContain("Reused Goodreads IDs are kept");
+    expect(reused).not.toContain("book ratings it set");
+    expect(undoDescription({ readings: 0, pendingClaims: 1, goodreadsIds: 1 })).toContain("Only new IDs still owned by this import and unused elsewhere are removed");
+  });
+  it("includes an outstanding rating journal alongside a pending ID claim", () => {
+    const description = undoDescription({ readings: 0, pendingClaims: 1, ratings: 1 });
+    expect(description).toContain("the book ratings it set while they are unchanged");
+    expect(description).not.toContain("No readings, notes or Up next items were written");
+  });
+});
+
+
+describe("commit results",()=>{
+  it("names actual restored and present sessions and notes without zero-reading noise",()=>{
+    const empty={written:0,present:0,refused:0,queued:0,notes:0};
+    expect(commitResultWords({...empty,sessions:2,sessionsPresent:1})).toBe("2 sessions restored · 1 session already in Durtal");
+    expect(commitResultWords({...empty,notes:1,notesPresent:2})).toBe("1 note imported · 2 notes already in Durtal");
+    expect(commitResultWords(empty)).toBe("Nothing new to import");
+  });
+});
+
+describe("ID-only commit", () => {
+  it("enables only actionable counts and includes eligible IDs", () => {
+    expect(canCommitImport({})).toBe(false);
+    const empty = { identifiers: 0, readings: 0, notes: 0, queued: 0, sessions: 0, ratings: 0 };
+    expect(canCommitImport(empty)).toBe(false);
+    for (const field of ["identifiers", "readings", "notes", "queued", "sessions", "ratings"] as const)
+      expect(canCommitImport({ ...empty, [field]: 1 })).toBe(true);
+  });
+  it("reports actual inserted IDs and treats absent or reused counts as zero", () => {
+    const empty = { written: 0, present: 0, refused: 0, queued: 0, notes: 0 };
+    expect(commitResultWords({ ...empty, identifiers: 1 })).toBe("1 Goodreads ID recorded");
+    expect(commitResultWords({ ...empty, identifiers: 2 })).toBe("2 Goodreads IDs recorded");
+    expect(commitResultWords({ ...empty, identifiers: 0 })).toBe(commitResultWords(empty));
+    expect(commitResultWords({ ...empty, sessions: 1, identifiers: 1 })).toBe("1 session restored · 1 Goodreads ID recorded");
   });
 });

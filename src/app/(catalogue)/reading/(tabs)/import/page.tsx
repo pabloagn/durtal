@@ -9,6 +9,7 @@ import { listReadingImports, type ImportListItem } from "@/lib/reading/import/pa
 import { SOURCE_LABELS } from "@/lib/reading/import/preview-text";
 import { formatReadingDate } from "@/lib/reading/dates";
 import { appTimeZone, calendarDate } from "@/lib/utils/date";
+import { canUndoImport } from "@/lib/reading/import/action-words";
 
 export const metadata = { title: "Import reading history" };
 
@@ -57,8 +58,8 @@ export default async function ReadingImportPage() {
                   </div>
                   <div className="flex shrink-0 items-center gap-3">
                     <Badge variant={STATUS[i.status]?.variant ?? "muted"}>{STATUS[i.status]?.label ?? i.status}</Badge>
-                    {(i.readings > 0 || i.queued > 0 || i.notes > 0 || i.ratings > 0) && (
-                      <UndoImport importId={i.id} readings={i.readings} queued={i.queued} notes={i.notes} goodreadsIds={i.identifiers} size="sm" />
+                    {canUndoImport(i) && (
+                      <UndoImport importId={i.id} readings={i.readings} queued={i.queued} notes={i.notes} goodreadsIds={i.identifiers} pendingClaims={i.pendingClaims} ratings={i.ratings} sessions={i.sessions} size="sm" />
                     )}
                   </div>
                 </li>

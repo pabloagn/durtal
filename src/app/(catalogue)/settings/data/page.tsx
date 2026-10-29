@@ -146,7 +146,7 @@ export default async function DataSettingsPage() {
         <ExportRow
           entity="authors"
           label="People"
-          description="Every person: names, dates, nationality, biography and the number of books."
+          description="Every person: names, roles, dates, nationality, biography and the number of books."
         />
         <ExportRow
           entity="readings"
@@ -161,7 +161,7 @@ export default async function DataSettingsPage() {
         <ExportRow
           entity="reading-notes"
           label="Quotes and notes"
-          description="Every quote and note with its book, page, chapter and thought. Markdown gives your commonplace book, one heading per book."
+          description="Every quote and note with its book, page, chapter and thought. CSV and TSV can be imported back into Durtal. Markdown is an export-only commonplace book, with one heading per book."
         />
         <ExportRow
           entity="goodreads"

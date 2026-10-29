@@ -712,7 +712,7 @@ describe.skipIf(!url)("film catalogue, versions and optional copies", () => {
       countries: "United States",
       genres: "bodyHorror",
       physical_copies: 0,
-      favourite: "no",
+      favourite: false,
     });
     expect(row.cast).toContain("A. Wilford Brimley");
     // Ids of another kind export nothing

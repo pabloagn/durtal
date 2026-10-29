@@ -6,6 +6,8 @@ import type { ImportErrorLog, ImportStatus, Written } from "./store";
 import type { ImportReading, ImportRow, ImportSource } from "./types";
 import { readingsCommitted, readingsUncommittedSql } from "./notes";
 import { workCoverSql } from "@/lib/library/filter-conditions";
+import { previewGoodreadsClaimsSql } from "@/lib/catalogue/goodreads-identity";
+import { sessionPreviewLine, type SessionPreviewValues } from "./preview-text";
 
 /*
  * What the import pages read (SLN-450). The preview reads each section's
@@ -32,14 +34,17 @@ export interface ImportListItem {
   errorRecords: number;
   rawKept: boolean;
   readings: number;
+  sessions?: number;
   /** Up next items it added (SLN-452) */
   queued: number;
   /** Notes it wrote from private notes (SLN-453) */
   notes: number;
   /** Book ratings it set (SLN-658) */
   ratings: number;
-  /** Goodreads ids it recorded on editions (SLN-956) */
+  /** Goodreads identities newly recorded by this import */
   identifiers: number;
+  /** Rows with a recorded claim but no reading/queue outcome, including reused IDs. */
+  pendingClaims: number;
 }
 
 /** The reading imports, newest first */
@@ -51,11 +56,14 @@ export async function listReadingImports(limit = 100): Promise<ImportListItem[]>
         i.skipped_records as "skippedRecords", i.error_records as "errorRecords",
         i.s3_bronze_key is not null as "rawKept",
         (select count(*) from readings r where r.import_id = i.id)::int as readings,
+        (select count(*) from reading_import_rows j join reading_sessions s on s.id::text=j.written->'history'->>'id' where j.import_id=i.id and j.written->'history'->>'entity'='sessions' and j.written->'history'->>'created'='true')::int as sessions,
         (select count(*) from reading_queue q where q.import_id = i.id)::int as queued,
         (select count(*) from reading_notes n where n.import_id = i.id)::int as notes,
         (select count(*) from reading_import_rows x where x.import_id = i.id and coalesce(x.written->'bookRating', 'null'::jsonb) <> 'null'::jsonb)::int as ratings,
         (select coalesce(sum(jsonb_array_length(x.written->'identifiers')), 0) from reading_import_rows x
-          where x.import_id = i.id and jsonb_typeof(x.written->'identifiers') = 'array')::int as identifiers
+          where x.import_id = i.id and jsonb_typeof(x.written->'identifiers') = 'array')::int as identifiers,
+        (select count(*) from reading_import_rows x where x.import_id = i.id
+          and jsonb_typeof(x.written->'goodreadsClaim') = 'object' and ${readingsUncommittedSql("x")})::int as "pendingClaims"
       from imports i
       where i.source in ${IMPORT_SOURCES}
       order by i.created_at desc, i.id
@@ -82,13 +90,15 @@ export interface ImportSummary {
   ratingsDiffer: number;
   /** Readings the commit button would write */
   toImport: number;
+  toSessions?: number;
+  toRestoreNotes?: number;
   /** E-book library ratings the commit would write to their books (SLN-658) */
   toRate: number;
   /** To-read rows the commit would add to Up next (SLN-452) */
   toQueue: number;
   /** To-read rows on shelves that are not imported */
   otherShelves: number;
-  /** Goodreads ids the commit would record on editions matched by ISBN */
+  /** New Goodreads identities the current accepted rows would record */
   identifiers: number;
 }
 
@@ -109,7 +119,7 @@ export type PreviewReading = Omit<ImportReading, "reviewHtml"> & { hasReview: bo
 export interface PreviewRow {
   rowNo: number;
   section: ImportSection;
-  data: Omit<ImportRow, "reviewHtml" | "privateNotes" | "readings"> & { readings: PreviewReading[]; hasNotes: boolean };
+  data: Omit<ImportRow, "reviewHtml" | "privateNotes" | "readings" | "history" | "rawCells"> & { history?: { entity: "sessions" | "notes"; id: string; summary?: string }; readings: PreviewReading[]; hasNotes: boolean };
   match: ImportMatch;
   decision: ImportDecision;
   useFileRating: boolean;
@@ -139,11 +149,14 @@ export async function getImportPreview(importId: string, limits: Partial<Record<
         i.skipped_records as "skippedRecords", i.error_records as "errorRecords",
         i.s3_bronze_key is not null as "rawKept", i.error_log as "errorLog",
         (select count(*) from readings r where r.import_id = i.id)::int as readings,
+        (select count(*) from reading_import_rows j join reading_sessions s on s.id::text=j.written->'history'->>'id' where j.import_id=i.id and j.written->'history'->>'entity'='sessions' and j.written->'history'->>'created'='true')::int as sessions,
         (select count(*) from reading_queue q where q.import_id = i.id)::int as queued,
         (select count(*) from reading_notes n where n.import_id = i.id)::int as notes,
         (select count(*) from reading_import_rows x where x.import_id = i.id and coalesce(x.written->'bookRating', 'null'::jsonb) <> 'null'::jsonb)::int as ratings,
         (select coalesce(sum(jsonb_array_length(x.written->'identifiers')), 0) from reading_import_rows x
-          where x.import_id = i.id and jsonb_typeof(x.written->'identifiers') = 'array')::int as identifiers
+          where x.import_id = i.id and jsonb_typeof(x.written->'identifiers') = 'array')::int as identifiers,
+        (select count(*) from reading_import_rows x where x.import_id = i.id
+          and jsonb_typeof(x.written->'goodreadsClaim') = 'object' and ${readingsUncommittedSql("x")})::int as "pendingClaims"
       from imports i where i.id = ${importId}::uuid and i.source in ${IMPORT_SOURCES}`),
   );
   if (!header) return null;
@@ -151,7 +164,7 @@ export async function getImportPreview(importId: string, limits: Partial<Record<
   const open = readingsUncommittedSql("r");
   const caps = Object.fromEntries(IMPORT_SECTIONS.map((s) => [s, Math.min(SECTION_MAX, Math.max(SECTION_PAGE, limits[s] ?? SECTION_PAGE))]));
 
-  const [counts, totalsResult, rows] = await Promise.all([
+  const [counts, totalsResult, rows, idCounts] = await Promise.all([
     db.execute(sql`
       select r.match->>'section' as section, count(*)::int as n
       from reading_import_rows r where r.import_id = ${importId}::uuid group by 1`),
@@ -165,9 +178,9 @@ export async function getImportPreview(importId: string, limits: Partial<Record<
         count(*) filter (where r.data->>'kind' = 'to_read' and r.data->>'queueKey' is null)::int as "otherShelves",
         count(*) filter (where not ${open})::int as written,
         count(*) filter (where r.work_id is null and ${open} and r.match->>'section' in ('choose', 'none'))::int as "noBook",
-        count(*) filter (where ${open} and r.work_id is not null and r.data->>'rating' is not null and w.rating is not null
+        count(*) filter (where ${open} and not coalesce((r.data->>'durtalRestore')::boolean,false) and r.work_id is not null and r.data->>'rating' is not null and w.rating is not null
           and w.rating <> (r.data->>'rating')::numeric and r.match->>'section' not in ('present', 'cannot', 'not_imported', 'to_read'))::int as "ratingsDiffer",
-        coalesce(sum(case when r.decision = 'import' and ${open} and r.work_id is not null then
+        coalesce(sum(case when r.decision = 'import' and ${open} and r.work_id is not null and r.data->>'kind'='readings' then
           (select count(*) from jsonb_array_elements(r.match->'verdicts') v
             where v->>'verdict' = 'new' or (r.match->>'section' = 'present'
               and v->>'reason' in ('Undated read', 'Another read in Durtal', 'Being read in Durtal')))
@@ -175,17 +188,24 @@ export async function getImportPreview(importId: string, limits: Partial<Record<
         count(*) filter (where r.decision = 'import' and ${open} and r.work_id is not null
           and (r.match->>'rating' = 'set' or (r.match->>'rating' = 'differs' and r.use_file_rating))
           and r.match->>'section' not in ('present', 'cannot', 'not_imported', 'to_read'))::int as "toRate",
-        count(*) filter (where r.decision = 'import' and ${open} and r.match->>'reason' = 'Same ISBN'
-          and r.data->>'sourceBookId' is not null and e.goodreads_id is null)::int as identifiers
+        count(*) filter (where r.decision='import' and ${open} and r.match->>'section'='exact' and r.data->>'kind'='sessions')::int as "toSessions",
+        count(*) filter (where r.decision='import' and ${open} and r.match->>'section'='exact' and r.data->>'kind'='notes')::int as "toRestoreNotes",
+        0::int as identifiers
       from reading_import_rows r
       left join works w on w.id = r.work_id
       left join editions e on e.id = (r.match->>'editionId')::uuid
       where r.import_id = ${importId}::uuid`),
     db.execute(sql`
       select r.row_no as "rowNo", r.section, r.match, r.decision, r.use_file_rating as "useFileRating", r.written,
-        (r.data - 'reviewHtml' - 'privateNotes') || jsonb_build_object(
+        case when r.data->'history'->>'entity' = 'sessions' then jsonb_build_object(
+          'readOn', r.data#>>'{history,values,read_on}',
+          'startPage', r.data#>'{history,values,start_page}', 'endPage', r.data#>'{history,values,end_page}',
+          'startPercent', r.data#>'{history,values,start_percent}', 'endPercent', r.data#>'{history,values,end_percent}',
+          'durationSeconds', r.data#>'{history,values,duration_seconds}') else null end as "sessionPreview",
+        (r.data - 'reviewHtml' - 'privateNotes' - 'rawCells' - 'history') || jsonb_build_object(
+          'history', case when r.data->'history' is not null then jsonb_build_object('entity',r.data->'history'->>'entity','id',r.data->'history'->>'id','summary',r.data->'history'->>'summary') else null end,
           'hasNotes', r.data->>'privateNotes' is not null,
-          'readings', coalesce((select jsonb_agg((x - 'reviewHtml') || jsonb_build_object('hasReview', x->>'reviewHtml' is not null) order by o)
+          'readings', coalesce((select jsonb_agg((x - 'reviewHtml' - 'restore') || jsonb_build_object('hasReview', x->>'reviewHtml' is not null) order by o)
             from jsonb_array_elements(r.data->'readings') with ordinality as t(x, o)), '[]'::jsonb)) as data,
         case when w.id is null then null else jsonb_build_object(
           'workId', w.id, 'title', w.title, 'slug', w.slug, 'year', w.original_year, 'rating', w.rating::float8,
@@ -202,13 +222,21 @@ export async function getImportPreview(importId: string, limits: Partial<Record<
       left join works w on w.id = r.work_id
       where r.rn <= (${JSON.stringify(caps)}::jsonb->>r.section)::int
       order by r.row_no`),
+    db.execute(previewGoodreadsClaimsSql(importId)),
   ]);
 
   const [totals] = resultRows<Omit<ImportSummary, "sections">>(totalsResult);
   const sections = Object.fromEntries(IMPORT_SECTIONS.map((s) => [s, 0])) as Record<ImportSection, number>;
   for (const c of resultRows<{ section: ImportSection; n: number }>(counts)) if (c.section in sections) sections[c.section] = c.n;
   // A row with only its note written shows as not committed: its readings can still be
-  const shown = resultRows<Omit<PreviewRow, "candidates">>(rows).map((r) => (readingsCommitted(r.written) ? r : { ...r, written: null }));
+  const shown = resultRows<Omit<PreviewRow, "candidates"> & { sessionPreview: SessionPreviewValues | null }>(rows)
+    .map(({ sessionPreview, ...r }) => ({
+      ...r,
+      data: sessionPreview && r.data.history?.entity === "sessions"
+        ? { ...r.data, history: { ...r.data.history, summary: sessionPreviewLine(sessionPreview) } }
+        : r.data,
+      written: readingsCommitted(r.written) || r.written?.goodreadsClaim ? r.written : null,
+    }));
 
   // The candidates of the "To choose" rows shown, in one query
   const candidateIds = [...new Set(shown.flatMap((r) => (r.section === "choose" ? r.match.candidates.map((c) => c.workId) : [])))];
@@ -231,5 +259,5 @@ export async function getImportPreview(importId: string, limits: Partial<Record<
       : [];
     byRow[r.section]?.push({ ...r, candidates });
   }
-  return { header, summary: { ...totals, sections }, sections: byRow };
+  return { header, summary: { ...totals, identifiers: resultRows<{ count: number }>(idCounts)[0]?.count ?? 0, sections }, sections: byRow };
 }
