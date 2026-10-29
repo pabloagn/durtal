@@ -284,11 +284,16 @@ export async function getContinueReading(
   // Exclude books with no eligible target before LIMIT so obsolete positions do not crowd out readable books,
   // and count only places being read, so books merely opened or finished do not crowd them out either.
   const rows = resultRows<LibraryEbook & { positions: ContinueAnchor[]; bookTitle: string | null; bookAuthors: string[] | null }>(
-    await database.execute(sql`with recent as (
-    select e.id, max(p.client_updated_at) as opened from ebooks e join ebook_positions p on p.ebook_id = e.id
-    where e.match_state <> 'excluded' and ${underwayPosition} and exists (select 1 from ebook_files f where f.ebook_id = e.id
-      and ${ebookFileNativeReadableCondition(fileColumns)})
-    group by e.id order by opened desc, e.id limit 12
+    await database.execute(sql`with positioned as materialized (
+    select p.ebook_id as id, max(p.client_updated_at) as opened
+    from ebook_positions p where ${underwayPosition}
+    group by p.ebook_id
+  ), recent as materialized (
+    select r.id, r.opened from positioned r join ebooks e on e.id = r.id
+    cross join lateral (select 1 from ebook_files f where f.ebook_id = r.id
+      and ${ebookFileNativeReadableCondition(fileColumns)} limit 1) readable
+    where e.match_state <> 'excluded'
+    order by r.opened desc, r.id limit 12
   ) select ${ebookSummaryColumns}, ${positions} as positions,
     -- A linked e-book goes by its book's title and authors (SLN-683)
     book.title as "bookTitle", book.authors as "bookAuthors"
