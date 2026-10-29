@@ -21,8 +21,8 @@ const ICON = "h-4 w-4";
  * The app's toasts, on every page and in the reader (SLN-567, SLN-732). Each
  * toast has its own small cross in its top-right corner: it dismisses that
  * toast only, and runs none of its actions. Several toasts stack, at most
- * three in view; pointing at the stack or focusing it spreads it out and
- * holds every timer. Completed notifications also go to the notification history.
+ * three in view; pointing at the stack spreads it out. Keyboard focus
+ * and touch expose the scrollable stack, and focus holds every timer. Completed notifications also go to the notification history.
  *
  * Toasts are made through `@/lib/notifications/toast`, which sets how long
  * each kind stays and keeps a repeat to one toast.
@@ -33,6 +33,8 @@ export function AppToaster() {
   const holder = useLayerHost(layer);
   const clear = useClearance();
   const coarse = useSyncExternalStore(subscribeCoarse, coarseSnapshot, () => false);
+  const [focused, setFocused] = useState(false);
+  const expanded = coarse || focused;
   const bottom = clear > 0 ? `max(${EDGE}, ${clear + ABOVE}px)` : `calc(${EDGE})`;
   return (
     <>
@@ -47,16 +49,22 @@ export function AppToaster() {
         ref={layer}
         popover="manual"
         data-toast-layer=""
+        onFocusCapture={(event) => {
+          if ((event.target as Element).closest("[data-sonner-toaster]")) setFocused(true);
+        }}
+        onBlurCapture={(event) => {
+          if (!(event.relatedTarget instanceof Node) || !event.currentTarget.contains(event.relatedTarget)) setFocused(false);
+        }}
         className="pointer-events-none fixed inset-0 m-0 size-full max-h-none max-w-none overflow-visible border-0 bg-transparent p-0 [&_[data-sonner-toaster]]:pointer-events-auto"
       >
         <Toaster
           ref={section}
           position="bottom-right"
           closeButton
-          visibleToasts={coarse ? Number.MAX_SAFE_INTEGER : 3}
-          expand={coarse}
-          className={coarse ? "toast-touch-stack" : undefined}
-          style={coarse ? { maxHeight: `calc(100dvh - ${bottom} - 16px)` } : undefined}
+          visibleToasts={expanded ? Number.MAX_SAFE_INTEGER : 3}
+          expand={expanded}
+          className={expanded ? "toast-touch-stack" : undefined}
+          style={expanded ? { maxHeight: `calc(100dvh - ${bottom} - 16px)` } : undefined}
           swipeDirections={coarse ? [] : undefined}
           offset={{ bottom, right: 16 }}
           mobileOffset={{ bottom, left: 16, right: 16 }}
