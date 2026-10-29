@@ -86,9 +86,7 @@ function CoverImage({
   priority?: boolean;
 }) {
   const [retries, setRetries] = useState(0);
-  // Eager covers can be requested again during hydration, so do not add a
-  // cache-busting retry. Lazy covers get one retry for a transient failure.
-  const maxRetries = priority ? 1 : 2;
+  const maxRetries = 3;
 
   if (retries >= maxRetries) {
     return (
@@ -108,13 +106,11 @@ function CoverImage({
   return (
     <>
       {retries > 0 && <CoverPlaceholder title={alt} />}
-      {/* A picture keeps React from adding a separate speculative preload.
-          The eager image itself still starts at high priority. In WebKit the
-          preload plus hydration could otherwise fetch a missing cover thrice. */}
-      <picture className="contents">
-      <source srcSet={srcSet} sizes={sizes} />
       <FadeImage
         key={retries}
+        src={withMediaWidth(retrySrc, 400)}
+        srcSet={srcSet}
+        sizes={sizes}
         alt={alt}
         loading={priority ? "eager" : "lazy"}
         fetchPriority={priority ? "high" : undefined}
@@ -122,15 +118,10 @@ function CoverImage({
         className="protected-image cover-image"
         style={mediaImageStyle(crop)}
         onError={() => {
-          if (retries + 1 >= maxRetries) {
-            setRetries(maxRetries);
-            return;
-          }
           // Retry after a short delay — the server was likely just overloaded
           setTimeout(() => setRetries((r) => r + 1), 500 * (retries + 1));
         }}
       />
-      </picture>
     </>
   );
 }

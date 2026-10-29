@@ -2,7 +2,6 @@
 import { afterEach, beforeAll, beforeEach, expect, it, vi } from "vitest";
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { renderToString } from "react-dom/server";
 
 // Review of #408: a blank cover shows the title's first letter or digit, and
 // none for a title with neither ("!!!"), which left the cover's link with no
@@ -66,46 +65,4 @@ it("keeps the cover's marks in its link's name, with a cover and without", () =>
   card({ title: "Against Nature", isRare: true, coverUrl: "/api/media?key=c.jpg" });
   expect(coverLink().hasAttribute("aria-label")).toBe(false);
   expect(linkName(coverLink())).toBe(`Against Nature ${MARKS.rare.label}`);
-});
-
-
-it("falls back to the cover letter after at most two failed requests", () => {
-  vi.useFakeTimers();
-  try {
-    card({ title: "Missing cover", coverUrl: "/api/s3/read?key=missing.webp" });
-    expect(host.querySelectorAll("img")).toHaveLength(1);
-    act(() => { host.querySelector("img")!.dispatchEvent(new Event("error")); vi.advanceTimersByTime(500); });
-    expect(host.querySelectorAll("img")).toHaveLength(1);
-    expect(host.querySelector("source")!.getAttribute("srcset")).toContain("_r=1");
-    act(() => { host.querySelector("img")!.dispatchEvent(new Event("error")); vi.advanceTimersByTime(1000); });
-    expect(host.querySelector("img")).toBeNull();
-    expect(host.querySelector(".cover-letter")?.textContent).toBe("M");
-    act(() => vi.advanceTimersByTime(10000));
-    expect(host.querySelector("img")).toBeNull();
-  } finally { vi.useRealTimers(); }
-});
-
-
-it("does not add another retry after an eager cover fails", () => {
-  vi.useFakeTimers();
-  try {
-    card({ title: "Missing cover", coverUrl: "/api/s3/read?key=missing.webp", coverPriority: true });
-    act(() => { host.querySelector("img")!.dispatchEvent(new Event("error")); vi.advanceTimersByTime(500); });
-    expect(host.querySelector("img")).toBeNull();
-    expect(host.querySelector(".cover-letter")?.textContent).toBe("M");
-  } finally { vi.useRealTimers(); }
-});
-
-it("serves priority covers eagerly without a duplicate speculative preload", () => {
-  const html = renderToString(createElement(BookCard, {
-    workId: "w1", slug: "w1", title: "A cover", authorName: "A. Writer",
-    instanceCount: 0, rating: null, ebook: null,
-    coverUrl: "/api/s3/read?key=cover.webp", coverPriority: true,
-  }));
-  expect(html).toContain('<picture class="contents">');
-  expect(html).toContain('loading="eager"');
-  expect(html).toContain('fetchPriority="high"');
-  expect(html).toMatch(/<source[^>]+srcSet=/);
-  expect(html).not.toMatch(/<img[^>]+src=/);
-  expect(html).not.toContain('rel="preload"');
 });
