@@ -4,6 +4,7 @@ import { buttonClass } from "@/components/ui/button";
 import { PageHeader } from "@/components/layout/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ReadingTabs } from "@/components/reading/reading-tabs";
+import { RatingHistory } from "@/components/reading/rating-history";
 import { StatsYears } from "@/components/reading/stats-years";
 import { GoalDialogButton } from "@/components/reading/goal-dialog-button";
 import { StartBookButton } from "@/components/reading/hub-actions";
@@ -271,9 +272,9 @@ export default async function ReadingStatsPage({ searchParams }: { searchParams:
           </StatsSection>
         ) : null}
 
-        {rated.distribution.some((d) => d.count) ? (
+        {rated.distribution.some((d) => d.count) || rated.reread.length > 0 ? (
           <StatsSection title="Ratings" id="ratings">
-            <BarChart
+            {rated.distribution.some((d) => d.count) && <BarChart
               label="Books by rating"
               bars={rated.distribution.map((d) => ({
                 label: formatRating(d.rating),
@@ -281,19 +282,18 @@ export default async function ReadingStatsPage({ searchParams }: { searchParams:
                 text: `${formatRating(d.rating)} ${d.rating === 1 ? "star" : "stars"}: ${count(d.count, "book")}`,
               }))}
               columns={["Rating", "Books"]}
-            />
+            />}
             {rated.reread.length > 0 && (
               <div>
                 <SectionHeading as="h3" title="Most re-read" />
                 {/* On touch the rows are 44px apart, so the links' press areas do not overlap */}
                 <ul className="space-y-1.5 text-sm pointer-coarse:space-y-5" data-stats-reread="">
                   {rated.reread.map((r) => (
-                    <li key={r.workId} className="flex items-baseline justify-between gap-3">
-                      {/* The title cuts off inside the link: the link's touch area is not clipped */}
-                      <Link href={book(r)} className="min-w-0 text-command touch-hit pointer-coarse:my-0 pointer-coarse:py-0">
-                        <span className="lines-1">{r.title}</span>
+                    <li key={r.workId} className="min-w-0 space-y-1">
+                      <Link href={book(r)} className="block w-fit max-w-full break-words text-command touch-hit pointer-coarse:my-0 pointer-coarse:py-0">
+                        {r.title}
                       </Link>
-                      <span className="shrink-0 text-xs text-fg-secondary tabular-nums">{r.reads.map((x) => (x === null ? "unrated" : formatRating(x))).join(" · ")}</span>
+                      <RatingHistory title={r.title} ratings={r.reads} />
                     </li>
                   ))}
                 </ul>
