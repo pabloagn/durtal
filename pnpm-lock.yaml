@@ -4,6 +4,11 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+patchedDependencies:
+  sonner@2.0.7:
+    hash: 3989bad11a7fca2a374c0bf4e5a3d558d6df4e7305412ffffe82ca42b5befce1
+    path: patches/sonner@2.0.7.patch
+
 importers:
 
   .:
@@ -133,7 +138,7 @@ importers:
         version: 0.34.5
       sonner:
         specifier: ^2.0.7
-        version: 2.0.7(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+        version: 2.0.7(patch_hash=3989bad11a7fca2a374c0bf4e5a3d558d6df4e7305412ffffe82ca42b5befce1)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       tailwindcss:
         specifier: ^4.2.2
         version: 4.2.2
@@ -9791,7 +9796,7 @@ snapshots:
 
   snappyjs@0.7.0: {}
 
-  sonner@2.0.7(react-dom@19.2.4(react@19.2.4))(react@19.2.4):
+  sonner@2.0.7(patch_hash=3989bad11a7fca2a374c0bf4e5a3d558d6df4e7305412ffffe82ca42b5befce1)(react-dom@19.2.4(react@19.2.4))(react@19.2.4):
     dependencies:
       react: 19.2.4
       react-dom: 19.2.4(react@19.2.4)

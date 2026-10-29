@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, createElement, useState, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { toast as sonner } from "sonner";
@@ -26,7 +26,7 @@ const duration = (id: string | number) =>
 function Layout() {
   const [page, setPage] = useState("Library");
   navigate = setPage;
-  const children: ReactNode = createElement("main", null, createElement("button", { id: "trigger" }, page));
+  const children: ReactNode = createElement("main", null, createElement("h1", null, page), createElement("button", { id: "trigger" }, page));
   return createElement("div", null, children, createElement(AppToaster));
 }
 
@@ -84,8 +84,76 @@ describe("the toast lifecycle", () => {
       ];
     });
     expect(ids.map(duration)).toEqual([
-      TOAST_DURATION.success, TOAST_DURATION.info, TOAST_DURATION.warning, Infinity, 10_000, undefined,
+      TOAST_DURATION.success, TOAST_DURATION.info, TOAST_DURATION.warning, Infinity, 10_000, Infinity,
     ]);
+  });
+
+  it("announces the action and its keyboard route, without reading copied URLs", async () => {
+    act(() => { toast.success("Removed the book", { action: { label: "Undo", onClick: () => {} } }); toast.success("Link copied", { description: "https://example.com/a/private/path" }); });
+    await wait(50);
+    expect(said("polite").join(" ")).toMatch(/Removed the book.*Undo.*(?:Alt|Option)\+T/);
+    expect(said("polite")).toContain("Link copied");
+    expect(said("polite").join(" ")).not.toContain("https://");
+  });
+
+  it("Escape leaves the stack and falls back to the page heading", async () => {
+    act(() => { toast.success("Saved", { action: { label: "Undo", onClick: () => {} } }); });
+    await wait(50);
+    const action = document.querySelector<HTMLButtonElement>("[data-sonner-toast] [data-button]")!;
+    act(() => action.focus());
+    act(() => action.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
+    expect(document.activeElement).toBe(document.querySelector("main h1"));
+    expect(titles()).toContain("Saved");
+  });
+
+  it("keeps an action available while keyboard focus is in the stack", async () => {
+    vi.useFakeTimers();
+    try {
+      await act(async () => { toast.success("Open the new person", { action: { label: "Open", onClick: () => {} } }); await vi.advanceTimersByTimeAsync(100); });
+      const action = document.querySelector<HTMLButtonElement>("[data-sonner-toast] [data-button]")!;
+      await act(async () => { action.focus(); await vi.advanceTimersByTimeAsync(20_000); });
+      expect(titles()).toContain("Open the new person");
+      await act(async () => { document.querySelector<HTMLButtonElement>("#trigger")!.focus(); await vi.advanceTimersByTimeAsync(10_500); });
+      expect(titles()).not.toContain("Open the new person");
+    } finally { vi.useRealTimers(); }
+  });
+
+  it("does not leave later toasts paused after a focused one is removed", async () => {
+    vi.useFakeTimers();
+    const tick = async (ms: number) => {
+      for (let elapsed = 0; elapsed < ms; elapsed += 100)
+        await act(async () => { await vi.advanceTimersByTimeAsync(Math.min(100, ms - elapsed)); });
+    };
+    try {
+      let id: string | number = 0;
+      await act(async () => { id = toast.success("Focused"); });
+      await tick(100);
+      await act(async () => { toasts()[0].focus(); });
+      await act(async () => { sonner.dismiss(id); });
+      await tick(600);
+      expect(document.querySelectorAll("[data-sonner-toast]")).toHaveLength(0);
+      await act(async () => { toast.success("Later"); });
+      await tick(100);
+      expect(titles()).toContain("Later");
+      await tick(4500);
+      expect(titles()).not.toContain("Later");
+    } finally { vi.useRealTimers(); }
+  });
+
+  it("restarts a repeated toast's full lifetime after a focus pause", async () => {
+    vi.useFakeTimers();
+    try {
+      let id: string | number = 0;
+      await act(async () => { id = toast.success("Repeated"); await vi.advanceTimersByTimeAsync(100); });
+      await act(async () => { await vi.advanceTimersByTimeAsync(1900); });
+      const item = toasts().find(t => t.querySelector("[data-title]")?.textContent === "Repeated")!;
+      await act(async () => { item.focus(); await vi.advanceTimersByTimeAsync(1000); });
+      await act(async () => { expect(toast.success("Repeated")).toBe(id); await vi.advanceTimersByTimeAsync(1); });
+      await act(async () => { document.querySelector<HTMLButtonElement>("#trigger")!.focus(); await vi.advanceTimersByTimeAsync(2500); });
+      expect(titles()).toContain("Repeated");
+      await act(async () => { await vi.advanceTimersByTimeAsync(2100); });
+      expect(titles()).not.toContain("Repeated");
+    } finally { vi.useRealTimers(); }
   });
 
   it("says three toasts that arrive together once each, in order, and the error at once", async () => {

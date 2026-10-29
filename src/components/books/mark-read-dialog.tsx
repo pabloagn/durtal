@@ -42,8 +42,9 @@ export function MarkReadDialog({ workIds, onClose }: { workIds: string[]; onClos
         router.refresh();
       } catch (err) {
         toast.error(refusalMessage(err, "Could not undo"));
+        return false;
       }
-    });
+    }, null);
   }
 
   async function markAll() {

@@ -67,8 +67,9 @@ export function FinishReadingDialog({ data, row, request, home, onClose, changed
           changed();
         } catch (err) {
           showError(err, changed);
+          return false;
         }
-      });
+      }, "Reading reopened");
       const volume = await getNextInSeries(data.workId, home && home !== "none" ? home : null).catch(() => null);
       if (volume) setNext(volume);
       else onClose();
