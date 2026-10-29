@@ -138,7 +138,7 @@ export function MarkToggle({
         close();
     }
     function moved(event: Event) {
-      if (card.current?.contains(event.target as Node)) return;
+      if (event.target instanceof Node && card.current?.contains(event.target)) return;
       const active = document.activeElement;
       if (card.current?.contains(active) || (active === button.current && button.current?.matches(":focus-visible"))) open();
       else close();
