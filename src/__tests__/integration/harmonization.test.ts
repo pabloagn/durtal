@@ -122,6 +122,25 @@ describe.skipIf(!url)("Harmonization with PostgreSQL", () => {
       ).toBe(true);
     }
   });
+  it("reuses unchanged scan data only after checking the current database fingerprint", async () => {
+    const a = await author("First name");
+    const first = await loadDataset();
+    expect((await loadDataset())).toBe(first);
+
+    // Deliberately bypass application invalidation: the database check must
+    // still see a writer outside the current server process.
+    await client!.unsafe("update authors set name=$1 where id=$2", ["Changed name", a.id]);
+    const changed = await loadDataset();
+    expect(changed).not.toBe(first);
+    expect(changed.authors.find((row) => row.id === a.id)?.name).toBe("Changed name");
+    expect((await loadDataset())).toBe(changed);
+
+    await client!.unsafe("delete from authors where id=$1", [a.id]);
+    const removed = await loadDataset();
+    expect(removed).not.toBe(changed);
+    expect(removed.authors.some((row) => row.id === a.id)).toBe(false);
+  });
+
   it("merges author roles, media, comments, history and references atomically", async () => {
     const a = await author("Balle, Solvej", {
       bio: "Source biography",

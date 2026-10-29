@@ -137,30 +137,48 @@ const domainWorksSql = sql`coalesce((select jsonb_agg(jsonb_build_object(
         union all select r.to_work_id, r.from_work_id from work_relations r where r.to_work_id <> r.from_work_id) e
       group by e.work_id) linked on linked.work_id = w.id
   where w.kind in ('film', 'perfume', 'painting')), '[]'::jsonb)`;
+// A fingerprint is checked against a fresh database snapshot on every call.
+// Unchanged scans need not transfer the same multi-megabyte catalogue again.
+let previousDataset: { fingerprint: string; data: Dataset } | null = null;
+
 export async function loadDataset(): Promise<Dataset> {
   const pairs = SCAN_TABLES.flatMap((name) => [
     sql`${name}::text`,
     scanTableSql(name, "arrays"),
   ]);
-  const rows = resultRows<{ data: Record<string, unknown[][]>; domain_works: Row[] }>(
-    await db.execute(
-      sql`select jsonb_build_object(${sql.join(pairs, sql`, `)}) as data, ${domainWorksSql} as domain_works`,
-    ),
-  );
-  return Object.fromEntries([
+  const previous = previousDataset;
+  const [row] = resultRows<{
+    fingerprint: string; data: Record<string, unknown[][]> | null; domain_works: Row[] | null;
+  }>(await db.execute(sql`
+    with dataset as materialized (
+      select jsonb_build_object(${sql.join(pairs, sql`, `)}) as data, ${domainWorksSql} as domain_works
+    ), fingerprinted as materialized (
+      select data, domain_works, encode(sha256(convert_to(data::text || domain_works::text, 'UTF8')), 'hex') as fingerprint from dataset
+    )
+    select fingerprint,
+      case when fingerprint = ${previous?.fingerprint ?? null} then null else data end as data,
+      case when fingerprint = ${previous?.fingerprint ?? null} then null else domain_works end as domain_works
+    from fingerprinted
+  `));
+  if (previous && row.fingerprint === previous.fingerprint) return previous.data;
+  if (!row.data || !row.domain_works) throw new Error("The catalogue scan is incomplete. Try again.");
+  const rows = row.data;
+  const data = Object.fromEntries([
     // Films, perfumes and paintings, for their duplicate check only
-    ["domain_works", rows[0].domain_works],
+    ["domain_works", row.domain_works],
     ...SCAN_TABLES.map((name) => {
       const { keys } = scanFields(name);
       return [
         name,
-        rows[0].data[name].map(
+        rows[name].map(
           (values) =>
             Object.fromEntries(keys.map((k, i) => [k, values[i]])) as Row,
         ),
       ];
     }),
   ]);
+  previousDataset = { fingerprint: row.fingerprint, data };
+  return data;
 }
 export interface Reference {
   table: string;
