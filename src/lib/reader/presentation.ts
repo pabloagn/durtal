@@ -74,6 +74,10 @@ export function presentationFrom(
   };
 }
 
+// srcdoc sections are HTML: epub:type is a literal attribute there, rather
+// than the namespaced attribute used by the original XHTML publication.
+const HTML_NOTE_CSS = String.raw`aside[epub\:type~="footnote"], aside[epub\:type~="endnote"], aside[epub\:type~="note"], aside[epub\:type~="rearnote"] { display: none; }`;
+
 /** The styles written into each section of the book */
 export function presentationCss(p: Presentation): string {
   const { background, text, link, selection } = p.colors;
@@ -101,6 +105,7 @@ pre { white-space: pre-wrap !important; }
 @media (prefers-reduced-motion: reduce) { html, body, body * { scroll-behavior: auto !important; animation-duration: 0s !important; transition-duration: 0s !important; } }
 ::selection { background: ${selection}; color: ${text}; }
 aside[epub|type~="footnote"], aside[epub|type~="endnote"], aside[epub|type~="note"], aside[epub|type~="rearnote"] { display: none; }
+${HTML_NOTE_CSS}
 `;
 }
 
@@ -125,6 +130,7 @@ a[data-durtal-external]::after { content: "\u2197\ufe0e"; padding-inline-start: 
 figure { break-inside: avoid; }
 pre { white-space: pre-wrap !important; }
 aside[role~="doc-footnote"], aside[role~="doc-endnote"], aside[epub|type~="footnote"], aside[epub|type~="endnote"], aside[epub|type~="note"], aside[epub|type~="rearnote"] { display: none; }
+${HTML_NOTE_CSS}
 :focus-visible { outline: 2px solid currentColor !important; outline-offset: 2px !important; }
 /* Focus a jump or the reader moves to a paragraph is not a keyboard stop: no box (SLN-681) */
 [tabindex="-1"]:focus-visible { outline: none !important; }
