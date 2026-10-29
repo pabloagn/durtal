@@ -1,3 +1,4 @@
+import { nameInitials } from "@/lib/utils/initials";
 import { FadeImage } from "@/components/shared/fade-image";
 
 /**
@@ -96,11 +97,7 @@ export function CoverFan({ covers }: { covers: string[] }) {
  * last letter put them half a pixel left of it.
  */
 export function Monogram({ name }: { name: string }) {
-  const words = name.replace(/[^\p{L}\s]/gu, " ").trim().split(/\s+/).filter(Boolean);
-  const initials =
-    words.length > 1
-      ? `${words[0][0]}${words[words.length - 1][0]}`
-      : (words[0]?.slice(0, 1) ?? "?");
+  const initials = nameInitials(name);
   return (
     <div
       className="absolute inset-0 flex items-center justify-center"

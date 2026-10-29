@@ -36,6 +36,7 @@ import { filterBySearch, isSearchableQuery } from "@/lib/utils/search-text";
 import { DOMAIN_SECTIONS, NAV_SECTIONS } from "@/lib/navigation";
 import { DOMAIN_ORDER, WORK_DOMAINS } from "@/lib/catalogue/domains";
 import { SETTINGS_SECTIONS } from "@/components/settings/sections";
+import { nameInitials } from "@/lib/utils/initials";
 import { monogramTint } from "@/components/shared/no-photo";
 import { useReadingDialogs } from "@/components/reading/reading-dialogs-provider";
 import { useOptionalTimer } from "@/components/reading/timer-provider";
@@ -118,8 +119,7 @@ function ResultThumb({ src, name, kind }: { src: string | null; name: string; ki
   // A picture that fails shows what no picture does: the letter, or the initials on their tint
   const [failedSrc, setFailedSrc] = useState<string | null>(null);
   const shown = src === failedSrc ? null : src;
-  const words = name.replace(/[^\p{L}\s]/gu, " ").trim().split(/\s+/).filter(Boolean);
-  const initials = words.length > 1 ? `${words[0][0]}${words[words.length - 1][0]}` : (words[0]?.[0] ?? "?");
+  const initials = nameInitials(name);
   const frame = kind === "book" ? "h-9 w-6" : "size-7";
   const blankWork = !shown && kind === "book";
   return (

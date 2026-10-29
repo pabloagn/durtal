@@ -41,6 +41,15 @@ describe("an address with a broken percent code", () => {
     expect(proxy(request("/library/%ff", { method: "POST", host: "evil.example" }))?.status).toBe(421);
   });
 
+  it.each(["/api/%ff", "/_next/%ff"])("refuses foreign hosts before malformed resource %s", (address) => {
+    for (const method of ["GET", "HEAD", "POST"]) {
+      const req = request(address, { method, host: "foreign.example" });
+      if (method === "POST") req.headers.set("Next-Action", "test-action");
+      expect(proxy(req)?.status).toBe(421);
+      expect(proxy(request(address, { method }))?.status).toBe(400);
+    }
+  });
+
   it("leaves addresses that decode alone", () => {
     for (const address of ["/library/caf%C3%A9", "/library/%25ff", "/zz"])
       expect(rewrittenTo(proxy(request(address)))).toBeFalsy();
