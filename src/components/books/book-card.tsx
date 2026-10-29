@@ -86,7 +86,9 @@ function CoverImage({
   priority?: boolean;
 }) {
   const [retries, setRetries] = useState(0);
-  const maxRetries = 2;
+  // Eager covers already get a speculative preload before the image request.
+  // Count that attempt too; lazy covers can make one explicit retry.
+  const maxRetries = priority ? 1 : 2;
 
   if (retries >= maxRetries) {
     return (
