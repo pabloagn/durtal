@@ -1,3 +1,4 @@
+import { OPEN_NOTE_CSS } from "./notes/navigation";
 import type { ReaderPresentation } from "@/lib/validations/reader-preferences";
 import { readingFontStack } from "./presentation/fonts";
 import { routeFontPresentation } from "./presentation/font-route";
@@ -106,6 +107,7 @@ pre { white-space: pre-wrap !important; }
 ::selection { background: ${selection}; color: ${text}; }
 aside[epub|type~="footnote"], aside[epub|type~="endnote"], aside[epub|type~="note"], aside[epub|type~="rearnote"] { display: none; }
 ${HTML_NOTE_CSS}
+${OPEN_NOTE_CSS}
 `;
 }
 
@@ -131,6 +133,7 @@ figure { break-inside: avoid; }
 pre { white-space: pre-wrap !important; }
 aside[role~="doc-footnote"], aside[role~="doc-endnote"], aside[epub|type~="footnote"], aside[epub|type~="endnote"], aside[epub|type~="note"], aside[epub|type~="rearnote"] { display: none; }
 ${HTML_NOTE_CSS}
+${OPEN_NOTE_CSS}
 :focus-visible { outline: 2px solid currentColor !important; outline-offset: 2px !important; }
 /* Focus a jump or the reader moves to a paragraph is not a keyboard stop: no box (SLN-681) */
 [tabindex="-1"]:focus-visible { outline: none !important; }

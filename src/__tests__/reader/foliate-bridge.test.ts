@@ -1157,3 +1157,25 @@ it("creates a real keyboard selection from an exact sentence anchor and rejects 
     }),
   ).toBe(false);
 });
+
+it("reveals a hidden note before the renderer measures its navigation anchor, then hides it on a chapter jump", async () => {
+  const doc = view.frame.contentDocument!;
+  doc.body.innerHTML = '<p id="chapter">Chapter</p><aside epub:type="footnote"><p id="note">A note</p></aside><aside epub:type="endnote">Other note</aside>';
+  const note = doc.querySelector("aside")!;
+  vi.spyOn(view, "resolveNavigation").mockImplementation(target => ({
+    index: 0,
+    ...(target === "note" ? { anchor: () => doc.getElementById("note")! } : {}),
+  }));
+  vi.spyOn(view.renderer, "goTo").mockImplementation(async target => {
+    if (typeof target.anchor === "function") {
+      target.anchor(doc);
+      expect(note.hasAttribute("data-durtal-note-target")).toBe(true);
+      expect(doc.querySelectorAll("[data-durtal-note-target]")).toHaveLength(1);
+    } else {
+      expect(note.hasAttribute("data-durtal-note-target")).toBe(false);
+    }
+    view.report("anchor", 0, target.index);
+  });
+  await engine.goTo({ href: "note" });
+  await engine.goTo({ href: "chapter" });
+});
