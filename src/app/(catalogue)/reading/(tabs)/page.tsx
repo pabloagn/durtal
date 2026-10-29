@@ -181,7 +181,7 @@ export default async function ReadingPage() {
                       </h3>
                       {row.author && <p className="text-xs text-fg-secondary [overflow-wrap:anywhere]">{row.author}</p>}
                       {row.reasons[0] && <p className="lines-2 text-xs text-fg-primary">{row.reasons[0]}</p>}
-                      <SuggestionActions row={row} compact />
+                      <SuggestionActions key={`${row.workId}:${row.queued}`} row={row} compact />
                     </div>
                   </li>
                 ))}

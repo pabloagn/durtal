@@ -612,3 +612,12 @@ describe("the targeted prediction context", () => {
     expect(predicted).toBe(17);
   });
 });
+
+
+it("carries explicit Up next membership to suggestion actions", () => {
+  const queued = book("Queued", { queuePlace: 1 });
+  const other = book("Not queued");
+  const ctx = context([queued, other]);
+  expect(suggestionRow(scoreBook(queued, ctx), ctx).queued).toBe(true);
+  expect(suggestionRow(scoreBook(other, ctx), ctx).queued).toBe(false);
+});

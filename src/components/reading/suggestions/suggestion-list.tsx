@@ -27,7 +27,7 @@ export function SuggestionActions({ row, compact = false }: { row: SuggestionRow
   const router = useRouter();
   const give = useSuggestionFeedback();
   const [notForMe, setNotForMe] = useState(false);
-  const [queued, setQueued] = useState(false);
+  const [queued, setQueued] = useState(row.queued);
 
   async function queue() {
     try {
@@ -71,7 +71,7 @@ export function SuggestionActions({ row, compact = false }: { row: SuggestionRow
           </button>
         }
       >
-        {compact && <DropdownMenuItem onClick={() => void queue()}>Add to Up next</DropdownMenuItem>}
+        {compact && !queued && <DropdownMenuItem onClick={() => void queue()}>Add to Up next</DropdownMenuItem>}
         <DropdownMenuItem onClick={() => void give(row.workId, row.title, "never")}>Never</DropdownMenuItem>
         <DropdownMenuItem onClick={() => setNotForMe(true)}>Not for me because…</DropdownMenuItem>
         <DropdownMenuSeparator />
@@ -120,7 +120,7 @@ export function SuggestionItem({ row }: { row: SuggestionRow }) {
           </p>
         )}
         <div className="pt-1">
-          <SuggestionActions row={row} />
+          <SuggestionActions key={`${row.workId}:${row.queued}`} row={row} />
         </div>
       </div>
     </li>
