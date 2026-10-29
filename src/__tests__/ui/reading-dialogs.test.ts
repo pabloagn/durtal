@@ -285,6 +285,32 @@ describe("Log progress", () => {
     expect(actions.logProgress).toHaveBeenCalledWith(expect.objectContaining({ addPages: 20 }));
   });
 
+  it.each([false, true])("adds the promised five percent (touch: %s)", async (touch) => {
+    coarse = touch;
+    actions.logProgress.mockResolvedValue({ reading: { fingerprint: FP }, undo: { sessionId: "s1", restoreEnd: null, repause: false }, reachedEnd: false });
+    act(() => root.render(createElement(LogProgressDialog, props({ row: { ...row, reading: { ...reading, unit: "percent", currentPage: 192, currentPercent: 40 } } as never }))));
+    const add = [...host.ownerDocument.querySelectorAll("button")].find((b) => b.textContent === "+5%")!;
+    act(() => add.click());
+    expect(text()).toContain("45%");
+    await submit();
+    expect(actions.logProgress).toHaveBeenCalledWith(expect.objectContaining({ percent: 45 }));
+    expect(actions.logProgress.mock.calls[0][0]).not.toHaveProperty("addPages");
+  });
+
+  it("switches percent quick steps to pages on touch", async () => {
+    coarse = true;
+    actions.logProgress.mockResolvedValue({ reading: { fingerprint: FP }, undo: { sessionId: "s1", restoreEnd: null, repause: false }, reachedEnd: false });
+    act(() => root.render(createElement(LogProgressDialog, props({ row: { ...row, reading: { ...reading, unit: "percent", currentPage: 192, currentPercent: 40 } } as never }))));
+    const page = [...host.ownerDocument.querySelectorAll('[role="radio"], [role="tab"], button')].find((b) => b.textContent === "Page") as HTMLElement;
+    act(() => page.click());
+    expect([...host.ownerDocument.querySelectorAll("button")].some((b) => b.textContent === "+5%")).toBe(false);
+    const add = [...host.ownerDocument.querySelectorAll("button")].find((b) => b.textContent === "+5")!;
+    act(() => add.click());
+    expect(field("Page").value).toBe("197");
+    await submit();
+    expect(actions.logProgress).toHaveBeenCalledWith(expect.objectContaining({ page: 197 }));
+  });
+
   it("logs a sitting in another edition without changing the reading's", async () => {
     actions.logProgress.mockResolvedValue({ reading: { fingerprint: "d".repeat(32) }, undo: { sessionId: "s3", restoreEnd: null, repause: false }, reachedEnd: false });
     act(() => root.render(createElement(LogProgressDialog, props({ row: { ...row, reading: { ...reading, currentPage: 100, currentPercent: 20.83 } } as never }))));

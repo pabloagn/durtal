@@ -13,6 +13,7 @@ import { toast } from "@/lib/notifications/toast";
 import { durationWords, stopTimes, TIMER_GONE } from "@/lib/reading/timer";
 import { useOptionalTimer } from "../timer-provider";
 import { formatOfCopy, type ReadingFormat } from "@/lib/reading/constants";
+import { quickProgressUnit, quickProgressSteps, quickProgressStep } from "@/lib/reading/quick-progress";
 import { parseProgressInput, percentOf, type ProgressInput } from "@/lib/reading/positions";
 import { asksPageTotal, logPreview, moveBackText, type SessionEdition } from "@/lib/reading/log-preview";
 import { browserZone, showError, todayReadingDay, undoToast, useCoarsePointer } from "../reading-client";
@@ -138,18 +139,16 @@ export function LogProgressDialog({ data, row, request, onClose, changed, open }
         : preview.sessionMinutes < 1 || preview.sessionMinutes > 1440 ? "Enter a session time between 1 minute and 24 hours" : null
       : null;
 
-  /** +5 pages (or +5% or +15 min) from where the reading is */
+  const quickUnit = quickProgressUnit(unit, coarse ? segment : null);
+  const steps = quickProgressSteps(quickUnit);
+  const stepLabel = (step: number) => quickProgressStep(quickUnit, step, r).label;
   function quick(step: number) {
-    if (!coarse) return setText(`+${step}`);
-    if (segment === "page") setFields((f) => ({ ...f, page: String((r.currentPage ?? 0) + step) }));
-    else if (segment === "percent") setFields((f) => ({ ...f, percent: String(Math.min(100, Math.round((r.currentPercent ?? 0) + step))) }));
-    else {
-      const total = (r.currentMinutes ?? 0) + step;
-      setFields((f) => ({ ...f, hours: String(Math.floor(total / 60)), minutes: String(total % 60) }));
-    }
+    const { value, text } = quickProgressStep(quickUnit, step, r);
+    if (!coarse) return setText(text);
+    if (quickUnit === "pages") setFields((f) => ({ ...f, page: String(value) }));
+    else if (quickUnit === "percent") setFields((f) => ({ ...f, percent: String(value) }));
+    else setFields((f) => ({ ...f, hours: String(Math.floor(value / 60)), minutes: String(value % 60) }));
   }
-  const steps = unit === "minutes" || (coarse && segment === "time") ? [15, 30, 60] : unit === "percent" || (coarse && segment === "percent") ? [5, 10, 25] : [5, 10, 25];
-  const stepLabel = (n: number) => (unit === "minutes" || (coarse && segment === "time") ? `+${n} min` : unit === "percent" || (coarse && segment === "percent") ? `+${n}%` : `+${n}`);
 
   async function stop() {
     if (timerContext && timerContext.availability !== "ready") {

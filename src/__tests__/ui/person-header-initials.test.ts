@@ -21,6 +21,13 @@ describe("person header without a portrait", () => {
     expect(initials("Huysmans")).toBe("H");
   });
 
+  it.each([
+    ["प्रेमचंद", "प्रे"], ["𠮷", "𠮷"], ["Émile Zola", "ÉZ"], ["E\u0301mile Zola", "ÉZ"],
+    ["'Abd al-Rahman", "AR"], ["de Sade", "DS"],
+  ])("keeps whole initial graphemes for %s", (name, expected) => {
+    expect(initials(name)).toBe(expected);
+  });
+
   it("uses the card's Monogram for both a missing and a failed portrait", () => {
     const source = readFileSync(
       path.join(process.cwd(), "src/app/(catalogue)/people/[slug]/author-detail-header.tsx"),

@@ -66,6 +66,18 @@ describe("the palette's record groups", () => {
     expect(group("Taxonomy")?.querySelector("[cmdk-item]")?.textContent).toBe("Occultisme · Subjects");
   });
 
+  it("uses the same whole initials as the person cards", async () => {
+    mocks.search.mockResolvedValue({ ...result, people: [
+      { id: "hindi", name: "प्रेमचंद", href: "/people/hindi", photo: null, roles: "Author" },
+      { id: "supplementary", name: "𠮷", href: "/people/supplementary", photo: null, roles: "Author" },
+      { id: "accent", name: "E\u0301mile Zola", href: "/people/accent", photo: null, roles: "Author" },
+    ] });
+    await search("author");
+    const initials = [...group("People")!.querySelectorAll('[aria-hidden="true"]')]
+      .map((e) => e.textContent).filter(Boolean);
+    expect(initials).toEqual(expect.arrayContaining(["प्रे", "𠮷", "ÉZ"]));
+  });
+
   it("selects the first record when nothing comes before it, and opens its page", async () => {
     await search("rougon");
     const first = group("Series")!.querySelector<HTMLElement>("[cmdk-item]")!;

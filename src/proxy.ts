@@ -43,11 +43,12 @@ import { LIBRARY_SORT_COOKIE, parseLibrarySortPreference } from "@/lib/library/s
  */
 export function proxy(request: NextRequest) {
   const readable = readableAddress(request.nextUrl);
-  if (readable && /^\/(api|_next)\//.test(request.nextUrl.pathname))
-    return NextResponse.json({ error: "The address has a broken percent code" }, { status: 400 });
-  if (buildFile(request)) return;
+  // Valid build files remain public; a malformed path must pass the host guard first.
+  if (buildFile(request) && !readable) return;
   const misdirected = hostRefusal(request);
   if (misdirected) return misdirected;
+  if (readable && /^\/(api|_next)\//.test(request.nextUrl.pathname))
+    return NextResponse.json({ error: "The address has a broken percent code" }, { status: 400 });
   const nul = withoutNul(request);
   if (nul) return nul;
   if (readable) return NextResponse.rewrite(readable);
