@@ -1390,7 +1390,7 @@ dialog::backdrop {
 
 /* A toast's icon sits on its first line (a 1.5 line-height title), not in the
    middle of a message that wraps */
-[data-sonner-toast][data-styled="true"] [data-icon] {
+:root [data-sonner-toaster] [data-sonner-toast][data-styled="true"] [data-icon] {
   align-self: flex-start;
   display: block;
   height: auto;
