@@ -36,6 +36,10 @@ export function useSidebarPreference() {
 
   return {
     width,
+    // Both values are known on the server from cookies. CSS picks the
+    // viewport's width before hydration; matchMedia only directs changes.
+    desktopWidth: sidebarWidth(stored),
+    compactWidth,
     setWidth,
     toggle: () => setWidth(width === SIDEBAR.collapsed ? expandedWidth : SIDEBAR.collapsed),
   };

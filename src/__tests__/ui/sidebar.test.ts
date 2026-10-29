@@ -2,10 +2,11 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
+import { renderToString } from "react-dom/server";
 import { Sidebar } from "@/components/layout/sidebar";
 import { useSidebarPreference } from "@/lib/hooks/use-sidebar-preference";
 import { SIDEBAR, sidebarExpandedWidth, sidebarWidth } from "@/lib/preferences";
-import { clearPreferences } from "@/lib/hooks/use-preference";
+import { clearPreferences, PreferencesProvider } from "@/lib/hooks/use-preference";
 import { readCookie, writeCookie } from "@/lib/utils/preference-cookies";
 
 vi.mock("next/navigation", () => ({ usePathname: () => "/library" }));
@@ -19,6 +20,8 @@ function Harness({ drawer = false }: { drawer?: boolean }) {
   preference = useSidebarPreference();
   return createElement(Sidebar, {
     width: preference.width,
+    desktopWidth: preference.desktopWidth,
+    compactWidth: preference.compactWidth,
     onWidthChange: preference.setWidth,
     onToggle: preference.toggle,
     onCommandPalette: () => {},
@@ -57,6 +60,25 @@ const changeCompact = (next: boolean) => act(() => {
 });
 
 describe("sidebar choices", () => {
+  it("renders both cookie-backed widths before the viewport is known", () => {
+    const initial = {
+      [SIDEBAR.key]: "300",
+      [SIDEBAR.expandedKey]: "280",
+      [SIDEBAR.compactKey]: "false",
+    };
+    const markup = renderToString(createElement(PreferencesProvider, {
+      initial, children: createElement(Harness),
+    }));
+    expect(markup).toContain("--sidebar-w-desktop:300px");
+    expect(markup).toContain("--sidebar-w-compact:56px");
+    const expanded = renderToString(createElement(PreferencesProvider, {
+      initial: { ...initial, [SIDEBAR.compactKey]: "true" },
+      children: createElement(Harness),
+    }));
+    expect(expanded).toContain("--sidebar-w-desktop:300px");
+    expect(expanded).toContain("--sidebar-w-compact:280px");
+  });
+
   it("retains the focused toggle, navigation nodes, and scroll offset", () => {
     render();
     const button = toggle();

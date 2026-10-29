@@ -29,7 +29,12 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const [navOpen, setNavOpen] = useState(false);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const restoreFocusRef = useRef(false);
-  const { width: effectiveWidth, setWidth, toggle } = useSidebarPreference();
+  const { width: effectiveWidth, desktopWidth, compactWidth, setWidth, toggle } = useSidebarPreference();
+  const [widthMotionReady, setWidthMotionReady] = useState(false);
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => setWidthMotionReady(true));
+    return () => cancelAnimationFrame(frame);
+  }, []);
 
   // The drawer exists below md only: it closes when the screen grows past md
   useEffect(() => {
@@ -154,6 +159,9 @@ export function Shell({ children }: { children: React.ReactNode }) {
         )}
         <Sidebar
           width={effectiveWidth}
+          desktopWidth={desktopWidth}
+          compactWidth={compactWidth}
+          widthMotionReady={widthMotionReady}
           onWidthChange={setWidth}
           onToggle={toggle}
           onCommandPalette={openCommandPalette}
@@ -163,8 +171,8 @@ export function Shell({ children }: { children: React.ReactNode }) {
         />
         <main
           // Below md the page takes the full width, under the phone navigation bar
-          className="min-h-dvh pt-12 transition-[margin-left] duration-200 md:ml-(--sidebar-w) md:pt-0 print:ml-0 print:min-h-0 print:pt-0 print:transition-none"
-          style={{ "--sidebar-w": `${effectiveWidth}px` } as React.CSSProperties}
+          className={`sidebar-responsive-width min-h-dvh pt-12 ${widthMotionReady ? "transition-[margin-left] duration-200" : ""} md:ml-(--sidebar-w) md:pt-0 print:ml-0 print:min-h-0 print:pt-0 print:transition-none`}
+          style={{ "--sidebar-w-desktop": `${desktopWidth}px`, "--sidebar-w-compact": `${compactWidth}px` } as React.CSSProperties}
           inert={navOpen}
         >
           <div className="mx-auto max-w-6xl px-4 py-6 md:px-6 print:max-w-none print:p-0">{children}</div>

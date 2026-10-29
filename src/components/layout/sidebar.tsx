@@ -21,6 +21,9 @@ import { useIsMac } from "@/components/shortcuts/kbd";
  */
 export function Sidebar({
   width,
+  desktopWidth = width,
+  compactWidth = width,
+  widthMotionReady = true,
   onWidthChange,
   onToggle,
   onCommandPalette,
@@ -29,6 +32,9 @@ export function Sidebar({
   onDrawerClose,
 }: {
   width: number;
+  desktopWidth?: number;
+  compactWidth?: number;
+  widthMotionReady?: boolean;
   onWidthChange: (width: number) => void;
   onToggle: () => void;
   onCommandPalette: () => void;
@@ -107,12 +113,12 @@ export function Sidebar({
       aria-label="Main navigation"
       // The drawer shows at once when it opens (so it can take focus) and
       // hides after it slides out
-      className={`glass-bar fixed left-0 top-0 z-50 flex h-dvh w-64 max-w-[85vw] flex-col border-r border-glass-border print:hidden md:visible md:z-40 md:w-(--sidebar-w) md:max-w-none md:translate-x-0 ${
+      className={`sidebar-responsive-width glass-bar fixed left-0 top-0 z-50 flex h-dvh w-64 max-w-[85vw] flex-col border-r border-glass-border print:hidden md:visible md:z-40 md:w-(--sidebar-w) md:max-w-none md:translate-x-0 ${
         drawerOpen
           ? "visible translate-x-0 transition-[width,translate]"
           : "invisible -translate-x-full transition-[width,translate,visibility]"
-      } ${dragging ? "transition-none" : "duration-200"}`}
-      style={{ "--sidebar-w": `${width}px` } as React.CSSProperties}
+      } ${dragging || !widthMotionReady ? "transition-none" : "duration-200"}`}
+      style={{ "--sidebar-w-desktop": `${desktopWidth}px`, "--sidebar-w-compact": `${compactWidth}px` } as React.CSSProperties}
     >
       {/* The toggle stays in the same icon column in both desktop states. */}
       <div className="flex h-14 shrink-0 items-center gap-2 overflow-hidden px-5 font-serif text-2xl md:pl-1.5 md:pr-3">

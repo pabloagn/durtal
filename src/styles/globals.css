@@ -4,6 +4,18 @@
    is for records, so it takes the icon rail and the phone's sort menu */
 @custom-variant sideways (@media (pointer: coarse) and (max-height: 600px));
 
+/* Width is chosen before the first paint, using the same compact range as
+   useSidebarPreference. Both cookie-backed values are rendered by the server. */
+.sidebar-responsive-width {
+  --sidebar-w: var(--sidebar-w-desktop);
+}
+@media (min-width: 768px) and (max-width: 800px),
+       (min-width: 768px) and (pointer: coarse) and (max-height: 600px) {
+  .sidebar-responsive-width {
+    --sidebar-w: var(--sidebar-w-compact);
+  }
+}
+
 /* ==========================================================================
    Durtal — Design Tokens
    ========================================================================== */
