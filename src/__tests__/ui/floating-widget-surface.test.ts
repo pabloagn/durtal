@@ -6,7 +6,7 @@ import { Star } from "lucide-react";
 import { MarkToggle } from "@/components/books/mark-toggle";
 import { CollectionIconPicker } from "@/components/collections/collection-icon-picker";
 import { WORK_MARKS } from "@/lib/constants/marks";
-import { acquireSurface, hasOpenSurface } from "@/lib/ui/surface-state";
+import { acquireSurface, hasOpenSurface, hasPaletteBlockingSurface } from "@/lib/ui/surface-state";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 vi.mock("@/lib/actions/catalogue-client", () => ({ setCollectionIcon: vi.fn() }));
@@ -22,6 +22,7 @@ beforeEach(() => {
 afterEach(() => {
   act(() => root.unmount()); host.remove(); vi.restoreAllMocks();
   expect(hasOpenSurface()).toBe(false);
+  expect(hasPaletteBlockingSurface()).toBe(false);
 });
 const escape = () => act(() => document.activeElement!.dispatchEvent(
   new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }),
@@ -37,6 +38,7 @@ it("a mark card owns Escape and stays closed when focus returns from its date fi
   vi.spyOn(button, "matches").mockImplementation(selector => selector === ":focus-visible" || original(selector));
   act(() => button.focus());
   expect(hasOpenSurface()).toBe(true);
+  expect(hasPaletteBlockingSurface()).toBe(true);
   const change = [...document.querySelectorAll<HTMLButtonElement>("button")].find(n => n.textContent === "Change date")!;
   act(() => change.click());
   act(() => document.querySelector<HTMLInputElement>('input[type="date"]')!.focus());
@@ -44,6 +46,7 @@ it("a mark card owns Escape and stays closed when focus returns from its date fi
   expect(document.querySelector('[role="group"]')).toBeNull();
   expect(document.activeElement).toBe(button);
   expect(hasOpenSurface()).toBe(false);
+  expect(hasPaletteBlockingSurface()).toBe(false);
 });
 
 it("an icon picker waits for a newer surface before closing and restores its trigger", async () => {
@@ -52,6 +55,7 @@ it("an icon picker waits for a newer surface before closing and restores its tri
   await act(async () => { button.click(); await new Promise(r => setTimeout(r, 10)); });
   expect(document.querySelector('[aria-label="Collection icon"]')).not.toBeNull();
   expect(hasOpenSurface()).toBe(true);
+  expect(hasPaletteBlockingSurface()).toBe(true);
   const newerClosed = vi.fn();
   const newer = acquireSurface(newerClosed);
   escape(); expect(newerClosed).toHaveBeenCalledOnce();
