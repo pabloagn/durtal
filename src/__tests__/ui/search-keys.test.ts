@@ -332,7 +332,7 @@ describe("Esc closes one layer per press", () => {
     act(() => root.render(createElement(WorkSearchStep, { selectedWork: null, onSelect: () => {} })));
     typeInto(host.querySelector("input") as HTMLInputElement, "Vathek");
     await wait(350);
-    const add = [...host.querySelectorAll("button")].find((b) => b.textContent?.includes("Add New Work"))!;
+    const add = [...host.querySelectorAll("button")].find((b) => b.textContent?.includes("Add a new book"))!;
     act(() => add.click());
     const author = host.querySelector('input[placeholder="Author name"]') as HTMLInputElement;
     typeInto(author, "Beck");

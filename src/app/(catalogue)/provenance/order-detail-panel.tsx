@@ -3,6 +3,8 @@
 import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { WORK_DOMAINS } from "@/lib/catalogue/domains";
+import type { WorkKind } from "@/lib/catalogue/kinds";
 import { workHref } from "@/lib/catalogue/work-href";
 import {
   ExternalLink,
@@ -310,7 +312,7 @@ export function OrderDetailPanel({
                 )}
                 {order.trackingNumber && (
                   <div className="flex items-center justify-between">
-                    <span className="text-xs text-fg-secondary">Tracking #</span>
+                    <span className="text-xs text-fg-secondary">Tracking number</span>
                     <div className="flex items-center gap-1.5">
                       <span className="font-mono text-micro text-fg-primary">
                         {order.trackingNumber}
@@ -406,7 +408,7 @@ export function OrderDetailPanel({
                 className="inline-flex items-center gap-1.5 rounded-sm border border-glass-border bg-bg-tertiary/30 px-2.5 py-1.5 text-xs text-fg-secondary transition-colors hover:text-fg-primary touch-hit"
               >
                 <ExternalLink className="h-3 w-3" strokeWidth={1.5} />
-                Order Page
+                Order page
               </a>
             )}
             <Link
@@ -414,7 +416,7 @@ export function OrderDetailPanel({
               className="inline-flex items-center gap-1.5 rounded-sm border border-glass-border bg-bg-tertiary/30 px-2.5 py-1.5 text-xs text-fg-secondary transition-colors hover:text-fg-primary touch-hit"
             >
               <BookOpen className="h-3 w-3" strokeWidth={1.5} />
-              View Work
+              Open {WORK_DOMAINS[order.work.kind as WorkKind]?.label.toLowerCase() ?? "book"}
             </Link>
           </div>
 
@@ -445,7 +447,7 @@ export function OrderDetailPanel({
                   busy={isPending}
                 >
                   <ChevronRight className="h-3.5 w-3.5" strokeWidth={1.5} />
-                  Mark as {STATUS_LABELS[nextStatus] ?? nextStatus}
+                  Mark as {(STATUS_LABELS[nextStatus] ?? nextStatus).toLowerCase()}
                 </Button>
               )}
 

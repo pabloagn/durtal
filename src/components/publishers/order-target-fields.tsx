@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { getOrderAcquisitionOptions } from "@/lib/actions/publishers";
+import { languageName } from "@/lib/utils/language";
 import { Select } from "@/components/ui/select";
 export interface OrderTargetValue {
   acquisitionTargetId: string;
@@ -80,7 +81,7 @@ export function OrderTargetFields({
               label: t.publisher
                 ? `Any ${t.publisher.name} edition`
                 : t.edition
-                  ? `${t.edition.title} · ${t.edition.publisher ?? ""} · ${t.edition.isbn13 ?? t.edition.language}`
+                  ? `${t.edition.title} · ${t.edition.publisher ?? ""} · ${t.edition.isbn13 ?? languageName(t.edition.language) ?? "Unspecified language"}`
                   : "Any edition",
             })),
           ]}
@@ -95,7 +96,7 @@ export function OrderTargetFields({
             { value: "", label: "Not known yet" },
             ...editions.map((e) => ({
               value: e.id,
-              label: `${e.title} · ${e.publisher ?? "Unspecified publisher"} · ${e.isbn13 ?? e.language}${e.publicationYear ? ` · ${e.publicationYear}` : ""}`,
+              label: `${e.title} · ${e.publisher ?? "Unspecified publisher"} · ${e.isbn13 ?? languageName(e.language) ?? "Unspecified language"}${e.publicationYear ? ` · ${e.publicationYear}` : ""}`,
             })),
           ]}
         />

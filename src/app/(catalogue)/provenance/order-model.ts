@@ -1,3 +1,4 @@
+import { formatDay } from "@/lib/utils/date";
 import type { OrderStatus, AcquisitionMethod } from "@/lib/constants/orders";
 import { AUCTION_PIPELINE, ORDER_STATUS_LABELS } from "@/lib/constants/orders";
 import { mediaCrop, mediaImageStyle } from "@/lib/utils/media-style";
@@ -156,9 +157,18 @@ export function getAuthorName(work: OrderWork): string {
 }
 
 export function formatDate(dateStr: string | null | undefined): string {
-  if (!dateStr) return "—";
-  const d = new Date(dateStr);
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  if (!dateStr) return "Not set";
+  // An order date is a calendar day, not a moment in the browser’s timezone.
+  return formatDay(dateStr, "UTC");
+}
+
+/** A card's name stays useful without its decorative cover and abbreviated badges. */
+export function orderCardLabel(order: Pick<OrderItem, "work" | "status" | "orderDate">, now = new Date()): string {
+  const days = Math.floor((Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()) - new Date(order.orderDate).getTime()) / 86_400_000);
+  const age = days === 0 ? "ordered today" : days > 0
+    ? `ordered ${days} ${days === 1 ? "day" : "days"} ago`
+    : `order date ${formatDate(order.orderDate)}`;
+  return `${order.work.title}, ${ORDER_STATUS_LABELS[order.status].toLowerCase()}, ${age}`;
 }
 
 export function daysSince(dateStr: string): number {
