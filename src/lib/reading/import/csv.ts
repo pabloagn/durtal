@@ -5,11 +5,11 @@ import { ImportFileError } from "./formats";
  * fields, doubled quotes, commas and newlines inside quotes, CRLF or LF, a
  * UTF-8 byte order mark, a trailing empty line. A cell is never evaluated:
  * `="0140449132"` stays text. A cell that starts with `'` before `=`, `+`,
- * `-`, `@`, a tab or a carriage return loses that `'`: the formula guard
- * Durtal's exports add, so they import back unchanged.
+ * `-`, `@`, a tab or a carriage return loses exactly one `'`: the formula
+ * guard Durtal's exports add before any literal leading quotes too.
  */
 
-const GUARDED = /^'[=+\-@\t\r]/;
+const GUARDED = /^'+[=+\-@\t\r]/;
 
 export type Delimiter = "," | "\t";
 

@@ -6,9 +6,10 @@ export { FORMAT_MIME, FORMAT_EXT } from "@/lib/export/formats";
  * A text cell a spreadsheet would read as a formula: one that begins with
  * =, +, -, @, a tab or a carriage return. Exports write it with a leading '
  * (the reading importer strips it again, src/lib/reading/import/csv.ts).
- * Numbers are never changed: -2 stays -2.
+ * Literal apostrophes before that prefix are escaped too, so the importer
+ * removes exactly our extra quote. Numbers are never changed: -2 stays -2.
  */
-const FORMULA_START = /^[=+\-@\t\r]/;
+const FORMULA_START = /^'*[=+\-@\t\r]/;
 
 function cellText(value: unknown, guard = true): string {
   if (value == null) return "";

@@ -50,6 +50,19 @@ describe("toCSV and toTSV", () => {
     expect(parseCsv(csv).slice(1).map(([cell]) => cell)).toEqual(values);
   });
 
+  it("preserves authored apostrophes before formula prefixes through repeated CSV and TSV round trips", () => {
+    const values = ["'-ish", "'=A1", "=A1", "-5", "plain", "'plain", ...["+", "-", "=", "@", "\t", "\r"].flatMap(prefix =>
+      [0, 1, 2, 5].map(count => "'".repeat(count) + prefix + "text"))];
+    let csvValues = values, tsvValues = values;
+    for (let round = 0; round < 3; round++) {
+      csvValues = parseCsv(toCSV(csvValues.map(value => ({ value })))).slice(1).map(([value]) => value);
+      tsvValues = parseDelimited(toTSV(tsvValues.map(value => ({ value }))), "\t").slice(1).map(([value]) => restoreDurtalFormulaGuard(value));
+      expect(csvValues).toEqual(values);
+      expect(tsvValues).toEqual(values);
+    }
+    expect(toCSV([{ value: "'=A1" }], ["value"], { forImport: true })).toBe("value\n'=A1");
+  });
+
   it("round-trips TSV tabs, CR, LF, quotes, leading quote characters and empty cells", () => {
     const values = ["one\tcell", "two\nlines", "two\r\nlines", "two\rlines", 'say "hi"', '"starts with a quote', "", "Émilie \u{10000}", "\tindented"];
     const rows = values.map((value, id) => ({ id, value }));
