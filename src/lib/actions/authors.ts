@@ -842,7 +842,6 @@ export async function deleteAuthor(id: string) {
   }
   // Read the file keys first: the cascade removes the rows that name them.
   const stored = await authorObjects(id);
-  const linkedBooks = await db.selectDistinct({ id: workAuthors.workId }).from(workAuthors).where(eq(workAuthors.authorId, id));
   // Keep the historical book deletion behavior, but a shared non-book credit
   // restricts deletion. Polymorphic cleanup must roll back with that rejection.
   const results = await atomic((d) => [
@@ -853,11 +852,17 @@ export async function deleteAuthor(id: string) {
     d.delete(comments).where(and(eq(comments.entityType, "author"), eq(comments.entityId, id))),
     d.delete(activityEvents).where(and(eq(activityEvents.entityType, "author"), eq(activityEvents.entityId, id))),
     d.delete(galleryLayouts).where(and(eq(galleryLayouts.entityType, "author"), eq(galleryLayouts.entityId, id))),
+    // Capture links under the same person lock as deletion, including links
+    // added after the dialog opened, so every affected book gets a fresh URL.
+    d.delete(workAuthors).where(eq(workAuthors.authorId, id)).returning({ id: workAuthors.workId }),
     d.delete(authors).where(and(bookPersonCondition, eq(authors.id, id))).returning({ id: authors.id }),
   ]);
   invalidate(CACHE_TAGS.authors, CACHE_TAGS.works, CACHE_TAGS.editions, CACHE_TAGS.activity, CACHE_TAGS.media);
   const deleted = (results.at(-1) as { id: string }[]).length > 0;
-  if (deleted) for (const book of linkedBooks) await refreshWorkSlug(book.id);
+  if (deleted) {
+    const linkedBooks = results.at(-2) as { id: string }[];
+    for (const id of new Set(linkedBooks.map(book => book.id))) await refreshWorkSlug(id);
+  }
   const cleanupPending =
     deleted && (await deleteUnusedObjects(stored, `author ${id}`));
   return { id, cleanupPending };
