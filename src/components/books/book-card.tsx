@@ -17,7 +17,7 @@ import { EbookMark } from "./ebook-mark";
 import type { WorkEbookDTO } from "@/lib/ebooks/catalogue-dto";
 import { coverToneStyle, mediaImageStyle, type MediaCrop } from "@/lib/utils/media-style";
 import { FadeImage } from "@/components/shared/fade-image";
-import { withMediaWidth } from "@/lib/s3/media-url";
+import { MEDIA_WIDTHS, withMediaWidth } from "@/lib/s3/media-url";
 import { useCoverMenu } from "@/hooks/use-cover-menu";
 
 export type CoverCrop = MediaCrop;
@@ -56,6 +56,8 @@ interface BookCardProps {
   isSelecting?: boolean;
   isSelected?: boolean;
   onSelect?: (workId: string) => void;
+  /** `sizes` for the cover: the card's rendered width */
+  coverSizes?: string;
   /** Load the cover at once with high priority (cards above the fold) */
   coverPriority?: boolean;
   /** An open reading: it takes the status slot ("Reading 44%") */
@@ -74,16 +76,19 @@ function CoverImage({
   src,
   alt,
   crop,
+  sizes,
   priority = false,
 }: {
   src: string;
   alt: string;
   crop?: CoverCrop | null;
+  sizes: string;
   priority?: boolean;
 }) {
-  const [failed, setFailed] = useState(false);
+  const [retries, setRetries] = useState(0);
+  const maxRetries = 3;
 
-  if (failed) {
+  if (retries >= maxRetries) {
     return (
       <>
         <CoverPlaceholder title={alt} />
@@ -92,23 +97,31 @@ function CoverImage({
     );
   }
 
+  // Append retry count to bust the browser's failed-request cache
+  const retrySrc = retries > 0 ? `${src}&_r=${retries}` : src;
+  // The route resizes each candidate; the browser picks one for `sizes`
+  const srcSet = MEDIA_WIDTHS.map((w) => `${withMediaWidth(retrySrc, w)} ${w}w`).join(", ");
+
+  // While it retries, the letter shows under the image
   return (
     <>
-      {/* One resized source avoids WebKit fetching a failed candidate again
-          as layout settles. The picture also prevents a separate React
-          preload; visible covers still load eagerly at high priority. */}
-      <picture className="contents">
-      <source srcSet={withMediaWidth(src, 800)} />
+      {retries > 0 && <CoverPlaceholder title={alt} />}
       <FadeImage
+        key={retries}
+        src={withMediaWidth(retrySrc, 400)}
+        srcSet={srcSet}
+        sizes={sizes}
         alt={alt}
         loading={priority ? "eager" : "lazy"}
         fetchPriority={priority ? "high" : undefined}
         decoding="async"
         className="protected-image cover-image"
         style={mediaImageStyle(crop)}
-        onError={() => setFailed(true)}
+        onError={() => {
+          // Retry after a short delay — the server was likely just overloaded
+          setTimeout(() => setRetries((r) => r + 1), 500 * (retries + 1));
+        }}
       />
-      </picture>
     </>
   );
 }
@@ -205,6 +218,7 @@ const CardBody = memo(function CardBody({
   primaryEditionId,
   ebook,
   readerReturnTo,
+  coverSizes = "(min-width: 1280px) 300px, (min-width: 768px) 250px, 200px",
   coverPriority = false,
   reading,
 }: CardBodyProps) {
@@ -233,6 +247,7 @@ const CardBody = memo(function CardBody({
                 src={coverUrl}
                 alt={title}
                 crop={coverCrop}
+                sizes={coverSizes}
                 priority={coverPriority}
               />
             ) : (
