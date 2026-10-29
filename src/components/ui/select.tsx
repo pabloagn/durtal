@@ -23,6 +23,7 @@ export interface SelectOption {
 
 interface SelectProps {
   id?: string;
+  "data-pager-control"?: string;
   label?: string;
   error?: string;
   options: SelectOption[];
@@ -52,6 +53,7 @@ interface SelectProps {
 
 export function Select({
   id: idProp,
+  "data-pager-control": pagerControl,
   label,
   error,
   options,
@@ -215,6 +217,7 @@ export function Select({
           role="combobox"
           // Labels can hydrate independently; only a changed value is a draft edit.
           data-draft-value={value ?? ""}
+          data-pager-control={pagerControl}
           aria-label={ariaLabel}
           aria-describedby={ariaDescribedby}
           aria-expanded={isOpen}

@@ -1,5 +1,7 @@
 "use client";
 
+import { IDENTIFIER_INPUT_ATTRIBUTES } from "@/lib/ui/input-attributes";
+
 import { useSaveReason } from "@/components/shared/save-reason";
 
 import { NameDuplicateNotice } from "@/components/shared/name-duplicate-notice";
@@ -380,12 +382,15 @@ export function AuthorForm({
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <Input
                   label="Open Library key"
+            {...IDENTIFIER_INPUT_ATTRIBUTES}
                   value={values.openLibraryKey}
                   onChange={(e) => set("openLibraryKey", e.target.value)}
                   placeholder="/authors/OL..."
                 />
                 <Input
                   label="Goodreads ID"
+            {...IDENTIFIER_INPUT_ATTRIBUTES}
+            inputMode="numeric"
                   value={values.goodreadsId}
                   onChange={(e) => set("goodreadsId", e.target.value)}
                 />

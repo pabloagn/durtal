@@ -440,7 +440,7 @@ export function IdentifyQueue({
           }}
         >
           <div className="flex-1">
-            <Input
+            <Input type="search"
               value={query}
               onChange={(e) =>
                 setTyped((t) => ({ ...t, [current.id]: e.target.value }))

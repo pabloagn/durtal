@@ -1,5 +1,7 @@
 "use client";
 
+import { Input } from "@/components/ui/input";
+
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -237,19 +239,19 @@ export function TaxonomyItemSearch({
         if (!e.currentTarget.contains(e.relatedTarget as Node | null)) onClose();
       }}
     >
-      <input
+      <Input
         ref={input}
         data-picker
-        type="text"
+        type="search"
         value={query}
         maxLength={200}
         onChange={(e) => setQuery(e.target.value)}
         onKeyDown={(e) => e.key === "Escape" && (e.preventDefault(), onClose())}
         placeholder={`Search ${family.name.toLowerCase()}...`}
         aria-label={`Search ${family.name}`}
-        className="h-6 w-48 rounded-sm border border-glass-border bg-bg-primary/80 px-2 text-xs text-fg-primary placeholder:text-fg-muted focus:border-accent-primary focus:outline-none"
+        containerClassName="w-48 max-w-full"
       />
-      <div className="absolute left-0 top-7 z-20 w-64 rounded-sm border border-glass-border bg-bg-secondary py-1 shadow-lg">
+      <div className="absolute left-0 top-8 pointer-coarse:top-12 z-20 w-64 rounded-sm border border-glass-border bg-bg-secondary py-1 shadow-lg">
         {error && <p className="px-2 py-1 text-xs text-accent-red-text">{error}</p>}
         {!error && result === null && (
           <p className="px-2 py-1 text-xs text-fg-secondary">Searching…</p>

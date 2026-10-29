@@ -183,7 +183,7 @@ export function AddCollectionBooksDialog({
             under Editions.
           </p>
         )}
-        <Input
+        <Input type="search"
           aria-label={`Search ${MODE_LABELS[mode].toLowerCase()} to add`}
           placeholder={SEARCH_HINTS[mode]}
           value={query}

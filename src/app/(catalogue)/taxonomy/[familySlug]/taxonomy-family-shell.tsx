@@ -1,5 +1,7 @@
 "use client";
 
+import { SEARCH_INPUT_ATTRIBUTES } from "@/lib/ui/input-attributes";
+
 import { useListSearchClear } from "@/lib/hooks/use-list-search-clear";
 
 import {
@@ -462,9 +464,9 @@ export function TaxonomyFamilyShell({
               className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-fg-muted"
               strokeWidth={1.5}
             />
-            <input
+            <input {...SEARCH_INPUT_ATTRIBUTES}
               ref={searchRef}
-              type="text"
+              type="search"
               data-list-focus="search"
               data-shortcut-search=""
               aria-keyshortcuts="/"

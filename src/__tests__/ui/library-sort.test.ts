@@ -27,14 +27,14 @@ beforeEach(() => {
 });
 afterEach(() => { act(() => root.unmount()); host.remove(); });
 const render = () => act(() => root.render(createElement(LibraryFilters)));
-const click = (label: string) => act(() => [...host.querySelectorAll("button")].find((b) => b.textContent === label)!.click());
+const click = (label: string) => act(() => [...host.querySelectorAll<HTMLButtonElement>("button[aria-pressed]")].find((b) => b.textContent === label)!.click());
 const preference = () => parseLibrarySortPreference(readCookie(LIBRARY_SORT_COOKIE));
 // Books has eight sorts: a menu and a direction arrow at every width (SLN-1025)
-const pick = (value: string) => act(() => {
-  const menu = host.querySelector<HTMLSelectElement>('select[aria-label="Sort by"]')!;
-  menu.value = value;
-  menu.dispatchEvent(new Event("change", { bubbles: true }));
-});
+const pick = (value: string) => {
+  act(() => host.querySelector<HTMLButtonElement>('[role="combobox"][aria-label="Sort by"]')!.click());
+  const label = ({ recent: "Recent", title: "Title", year: "Year" } as Record<string, string>)[value];
+  act(() => [...host.querySelectorAll<HTMLElement>('[role="option"]')].find((option) => option.textContent === label)!.click());
+};
 const reverse = () => act(() => host.querySelector<HTMLButtonElement>('button[aria-label$="reverse the order"]')!.click());
 
 describe("books sort controls", () => {
@@ -75,33 +75,30 @@ describe("books sort controls", () => {
   it("on a phone, the menu picks a field and the arrow reverses it, as the chips do (SLN-639)", () => {
     navigation.query = "sort=year&order=desc";
     render();
-    const menu = host.querySelector<HTMLSelectElement>('select[aria-label="Sort by"]')!;
+    const menu = host.querySelector<HTMLButtonElement>('[role="combobox"][aria-label="Sort by"]')!;
     const arrow = host.querySelector<HTMLButtonElement>('button[aria-label$="reverse the order"]')!;
-    expect(menu.value).toBe("year");
+    expect(menu.dataset.draftValue).toBe("year");
     expect(arrow.getAttribute("aria-label")).toBe("Descending, reverse the order");
     act(() => arrow.click());
     expect(preference()).toEqual({ sort: "year", order: "asc" });
     expect(navigation.push).toHaveBeenLastCalledWith("/library?sort=year&order=asc");
-    act(() => {
-      menu.value = "recent";
-      menu.dispatchEvent(new Event("change", { bubbles: true }));
-    });
+    pick("recent");
     expect(preference()).toEqual({ sort: "recent", order: "desc" });
     expect(navigation.push).toHaveBeenLastCalledWith("/library?sort=recent&order=desc");
   });
 
   it("offers Books' eight sorts as a menu, and a short list's as chips", () => {
     render();
-    expect(host.querySelectorAll("button[aria-pressed]")).toHaveLength(0);
+    expect(host.querySelectorAll<HTMLButtonElement>("button[aria-pressed]")).toHaveLength(0);
     act(() => root.render(createElement(EntityFilters, {
       basePath: "/films", defaultSort: "title",
       sortOptions: ["title", "release", "runtime", "recent", "rating"].map((value) => ({ value, label: value })),
     })));
-    expect(host.querySelectorAll("button[aria-pressed]")).toHaveLength(5);
-    expect(host.querySelector('select[aria-label="Sort by"]')!.className).toContain("sm:hidden");
+    expect(host.querySelectorAll<HTMLButtonElement>("button[aria-pressed]")).toHaveLength(5);
+    expect(host.querySelector('[data-sort-menu]')!.className).toContain("sm:hidden");
     // A phone held sideways gets the menu too, so its first screen holds records (SLN-1149)
-    expect(host.querySelector('select[aria-label="Sort by"]')!.className).toContain("sideways:inline-block");
-    for (const chip of host.querySelectorAll("button[aria-pressed]")) expect(chip.className).toContain("sideways:hidden");
+    expect(host.querySelector('[data-sort-menu]')!.className).toContain("sideways:block");
+    for (const chip of host.querySelectorAll<HTMLButtonElement>("button[aria-pressed]")) expect(chip.className).toContain("sideways:hidden");
   });
 
   it("preserves the existing URL behaviour for other lists", () => {

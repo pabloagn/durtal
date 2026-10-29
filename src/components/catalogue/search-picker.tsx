@@ -1,5 +1,7 @@
 "use client";
 
+import { Input } from "@/components/ui/input";
+
 import { useEffect, useRef, useState } from "react";
 import { normalizeSearchText } from "@/lib/utils/search-text";
 
@@ -75,24 +77,23 @@ export function SearchPicker({
 
   return (
     <div
-      className="relative"
+      className="relative w-56 max-w-full"
       onBlur={(e) => {
         if (!e.currentTarget.contains(e.relatedTarget as Node | null)) onClose();
       }}
     >
-      <input
+      <Input
         ref={input}
         data-picker
-        type="text"
+        type="search"
         value={query}
         maxLength={200}
         onChange={(e) => setQuery(e.target.value)}
         onKeyDown={(e) => e.key === "Escape" && (e.preventDefault(), e.stopPropagation(), onClose())}
         placeholder={placeholder}
         aria-label={label}
-        className="h-7 w-56 rounded-sm border border-glass-border bg-bg-primary/80 px-2 text-xs text-fg-primary placeholder:text-fg-muted focus:border-accent-primary focus:outline-none"
       />
-      <div className="glass absolute left-0 top-8 z-30 w-72 py-1">
+      <div className="glass absolute left-0 top-8 z-30 w-72 max-w-[calc(100vw-2rem)] py-1 pointer-coarse:top-12">
         {error && <p className="px-2 py-1 text-xs text-accent-red-text">{error}</p>}
         {!error && choices === null && (
           <p className="px-2 py-1 text-xs text-fg-secondary">Searching…</p>

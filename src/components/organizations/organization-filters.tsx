@@ -1,5 +1,7 @@
 "use client";
 
+import { Input } from "@/components/ui/input";
+
 import { useEffect, useRef } from "react";
 import { useListSearchClear } from "@/lib/hooks/use-list-search-clear";
 import Link from "next/link";
@@ -79,9 +81,9 @@ export function OrganizationFilters({
           strokeWidth={1.5}
           aria-hidden
         />
-        <input
+        <Input
           ref={inputRef}
-          type="text"
+          type="search"
           aria-label="Search organizations"
           // "/" focuses this field (keyboard shortcuts)
           data-shortcut-search=""
@@ -95,7 +97,7 @@ export function OrganizationFilters({
             clearTimeout(timer.current);
             timer.current = setTimeout(() => router.push(hrefWith("q", value)), 300);
           }}
-          className="h-8 w-full rounded-sm border border-glass-border bg-bg-primary pl-9 pr-3 text-sm text-fg-primary placeholder:text-fg-muted transition-colors focus:border-accent-primary focus:outline-none pointer-coarse:h-11"
+          className="pl-9"
         />
       </div>
       <nav aria-label="Roles" className="flex flex-wrap gap-2">

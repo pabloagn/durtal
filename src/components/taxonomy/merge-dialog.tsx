@@ -1,5 +1,7 @@
 "use client";
 
+import { SEARCH_INPUT_ATTRIBUTES } from "@/lib/ui/input-attributes";
+
 import { useState, useCallback, useMemo } from "react";
 import { toast } from "@/lib/notifications/toast";
 import { Merge } from "lucide-react";
@@ -113,8 +115,8 @@ export function MergeDialog({
           <label className="type-label block">
             Target item
           </label>
-          <input
-            type="text"
+          <input {...SEARCH_INPUT_ATTRIBUTES}
+            type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search items…"

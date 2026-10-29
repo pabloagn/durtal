@@ -1,5 +1,8 @@
 "use client";
 
+import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
+
 import { useListSearchClear } from "@/lib/hooks/use-list-search-clear";
 
 import { firstPageHref } from "@/lib/utils/list-params";
@@ -144,9 +147,9 @@ export function EntityFilters({
       {/* Search */}
       <div className="relative flex-1">
         <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-fg-muted" />
-        <input
+        <Input
           ref={inputRef}
-          type="text"
+          type="search"
           // "/" focuses this field (keyboard shortcuts)
           data-shortcut-search=""
           aria-keyshortcuts="/"
@@ -165,7 +168,7 @@ export function EntityFilters({
               300,
             );
           }}
-          className="h-8 w-full rounded-sm border border-glass-border bg-bg-primary pl-9 pr-3 text-sm text-fg-primary placeholder:text-fg-muted transition-colors focus:border-accent-primary focus:outline-none pointer-coarse:h-11"
+          className="pl-9"
         />
       </div>
 
@@ -176,18 +179,15 @@ export function EntityFilters({
           (Books) keeps the menu at every width, so its toolbar fits one row
           at 1440 as every other list's does (SLN-1025) */}
       <div className="flex items-center gap-1 pointer-coarse:gap-2">
-        <select
-          aria-label="Sort by"
-          value={currentSort}
-          onChange={(e) => pickSort(e.target.value)}
-          className={`h-8 rounded-sm border border-glass-border bg-bg-primary px-2 text-xs text-fg-primary pointer-coarse:h-11 ${sortMenu ? "" : "sm:hidden sideways:inline-block"}`}
-        >
-          {sortOptions.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
+        <div data-sort-menu="" className={sortMenu ? undefined : "sm:hidden sideways:block"}>
+          <Select
+            ariaLabel="Sort by"
+            value={currentSort}
+            onChange={(e) => pickSort(e.target.value)}
+            options={sortOptions.map((opt) => ({ value: opt.value, label: opt.label }))}
+            className="min-w-36"
+          />
+        </div>
         <button
           type="button"
           onClick={() => pickSort(currentSort)}

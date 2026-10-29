@@ -1,5 +1,7 @@
 "use client";
 
+import { SEARCH_INPUT_ATTRIBUTES } from "@/lib/ui/input-attributes";
+
 import { useRef, useState, useEffect, useCallback, useLayoutEffect } from "react";
 import { SlidersHorizontal, ChevronDown, Search, Check } from "lucide-react";
 import { RangeSlider } from "@/components/ui/range-slider";
@@ -318,7 +320,8 @@ export function FilterDropdown({
           <div className="relative mb-1 px-1.5">
             <Search className="absolute left-3 top-1/2 h-3 w-3 -translate-y-1/2 text-fg-muted" strokeWidth={1.5} />
             <input
-              type="text"
+              type="search"
+              {...SEARCH_INPUT_ATTRIBUTES}
               aria-label={`Search ${group.label.toLowerCase()}`}
               placeholder={`Search ${group.label.toLowerCase()}...`}
               value={groupSearchTerms[group.key] ?? ""}
@@ -328,7 +331,7 @@ export function FilterDropdown({
                   [group.key]: e.target.value,
                 }))
               }
-              className="w-full rounded-sm border border-glass-border bg-bg-primary py-1 pl-7 pr-2 text-xs pointer-coarse:h-11 text-fg-secondary outline-none placeholder:text-fg-muted focus:border-accent-primary"
+              className="w-full rounded-sm border border-glass-border bg-bg-primary py-1 pl-7 pr-2 text-xs pointer-coarse:text-sm pointer-coarse:h-11 text-fg-secondary outline-none placeholder:text-fg-muted focus:border-accent-primary"
             />
           </div>
         )}

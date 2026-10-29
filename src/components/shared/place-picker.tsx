@@ -137,7 +137,7 @@ export function PlacePicker({ label, value, onChange, disabled }: PlacePickerPro
 
   return (
     <div className="space-y-1.5">
-      <Input
+      <Input type="search"
         label={label}
         value={query}
         onChange={(e) => setQuery(e.target.value)}

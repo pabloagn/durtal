@@ -1,5 +1,8 @@
 "use client";
 
+import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
+
 import { useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
 import { CapAligned } from "@/components/shared/cap-aligned";
@@ -222,7 +225,7 @@ export function Pagination({
       <label htmlFor={`${id}-jump`} className="text-xs text-fg-secondary">
         Go to page
       </label>
-      <input
+      <Input
         ref={jumpRef}
         id={`${id}-jump`}
         type="number"
@@ -230,7 +233,8 @@ export function Pagination({
         step="1"
         value={jump}
         onChange={(e) => setJump(e.target.value)}
-        className={`${control} w-16 bg-bg-primary font-mono`}
+        containerClassName="w-16 shrink-0"
+        className="font-mono text-center"
         data-pager-control="jump"
       />
       <button type="submit" className={control}>
@@ -355,19 +359,14 @@ export function Pagination({
           htmlFor={`${id}-size`}
         >
           Per page
-          <select
+          <Select
             id={`${id}-size`}
             data-pager-control="size"
-            value={perPage}
+            className="font-sans"
+            value={String(perPage)}
             onChange={(e) => changeSize(Number(e.target.value))}
-            className={`${control} bg-bg-primary`}
-          >
-            {sizes.map((size) => (
-              <option key={size} value={size}>
-                {size}
-              </option>
-            ))}
-          </select>
+            options={sizes.map((size) => ({ value: String(size), label: String(size) }))}
+          />
         </label>
       )}
       {action && <div className="ml-auto flex items-center font-sans">{action}</div>}

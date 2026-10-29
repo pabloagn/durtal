@@ -1,5 +1,7 @@
 "use client";
 
+import { SEARCH_INPUT_ATTRIBUTES } from "@/lib/ui/input-attributes";
+
 import { useId, useMemo, useState } from "react";
 import { Check } from "lucide-react";
 import { searchScore } from "@/lib/utils/search-text";
@@ -110,10 +112,10 @@ export function ParentPicker({
       <label htmlFor={id} className="type-label block">
         Parent
       </label>
-      <input
+      <input {...SEARCH_INPUT_ATTRIBUTES}
         id={id}
         data-picker=""
-        type="text"
+        type="search"
         value={query}
         maxLength={200}
         onChange={(e) => setQuery(e.target.value)}
