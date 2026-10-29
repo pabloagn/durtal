@@ -12,7 +12,7 @@ import {
 } from "react";
 import { clearListSearch, leaveListSearch } from "@/lib/ui/list-search";
 import { usePathname, useRouter } from "next/navigation";
-import { handleSurfaceEscape, hasOpenSurface, isPassedThrough } from "@/lib/ui/surface-state";
+import { handleSurfaceEscape, hasOpenSurface, hasPaletteBlockingSurface, isPassedThrough } from "@/lib/ui/surface-state";
 import { leavePage } from "@/components/ui/unsaved-guard";
 import { Copy, Link2, type LucideIcon } from "lucide-react";
 import { toast } from "@/lib/notifications/toast";
@@ -477,9 +477,10 @@ export function ShortcutsProvider({
       const plain = !mod && !otherMod && !event.altKey && !event.shiftKey;
       const key = event.key.toLowerCase();
 
-      // ⌘K: the command palette, everywhere
+      // Temporary pickers keep the palette behind their own close action.
       if (mod && !otherMod && !event.altKey && !event.shiftKey && key === "k") {
         event.preventDefault();
+        if (!paletteOpen && hasPaletteBlockingSurface()) return;
         onPaletteOpenChange(!paletteOpen);
         return;
       }

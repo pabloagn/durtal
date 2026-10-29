@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Check } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { WorkMark } from "@/lib/constants/marks";
 import { localToday } from "@/lib/constants/hunting";
+import { acquireSurface, handleSurfaceEscape } from "@/lib/ui/surface-state";
 
 const CARD_WIDTH = 248;
 const OPEN_DELAY = 250;
@@ -65,25 +66,29 @@ export function MarkToggle({
   const card = useRef<HTMLDivElement>(null);
   const openTimer = useRef<number | undefined>(undefined);
   const closeTimer = useRef<number | undefined>(undefined);
+  const restoringFocus = useRef(false);
   const [position, setPosition] = useState<{
     left: number;
     top: number;
   } | null>(null);
   const [editing, setEditing] = useState(false);
 
-  function clearTimers() {
+  const clearTimers = useCallback(() => {
     window.clearTimeout(openTimer.current);
     window.clearTimeout(closeTimer.current);
-  }
+  }, []);
 
-  function open() {
+  const open = useCallback(() => {
     clearTimers();
     const rect = button.current?.getBoundingClientRect();
     if (!rect) return;
     // Fixed card in a portal, so the hero's overflow never clips it
+    const height = card.current?.getBoundingClientRect().height || 180;
     const below = rect.bottom + 6;
-    const top =
-      below + 180 > window.innerHeight ? Math.max(8, rect.top - 186) : below;
+    const top = Math.max(8, Math.min(
+      below + height > window.innerHeight - 8 ? rect.top - height - 6 : below,
+      window.innerHeight - height - 8,
+    ));
     setPosition({
       left: Math.max(
         8,
@@ -91,13 +96,13 @@ export function MarkToggle({
       ),
       top,
     });
-  }
+  }, [clearTimers]);
 
-  function close() {
+  const close = useCallback(() => {
     clearTimers();
     setPosition(null);
     setEditing(false);
-  }
+  }, [clearTimers]);
 
   function openSoon() {
     clearTimers();
@@ -106,11 +111,24 @@ export function MarkToggle({
 
   function closeSoon() {
     clearTimers();
+    const active = document.activeElement;
+    if (card.current?.contains(active) || (active === button.current && button.current?.matches(":focus-visible"))) return;
     // While the date is being edited, only Escape or an outside click closes
     if (!editing) closeTimer.current = window.setTimeout(close, CLOSE_DELAY);
   }
 
-  useEffect(() => () => clearTimers(), []);
+  useEffect(() => () => clearTimers(), [clearTimers]);
+
+  useLayoutEffect(() => {
+    if (!position) return;
+    const lease = acquireSurface(() => {
+      close();
+      restoringFocus.current = true;
+      try { button.current?.focus({ preventScroll: true }); }
+      finally { restoringFocus.current = false; }
+    }, button.current ? { target: button.current, menuButton: null } : null, { blockCommandPalette: true });
+    return () => lease.release();
+  }, [position, close]);
 
   useEffect(() => {
     if (!position) return;
@@ -119,28 +137,21 @@ export function MarkToggle({
       if (!card.current?.contains(target) && !button.current?.contains(target))
         close();
     }
-    function escape(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        // One layer per Esc: the card only
-        event.preventDefault();
-        close();
-        button.current?.focus();
-      }
-    }
     function moved(event: Event) {
-      if (!card.current?.contains(event.target as Node)) close();
+      if (event.target instanceof Node && card.current?.contains(event.target)) return;
+      const active = document.activeElement;
+      if (card.current?.contains(active) || (active === button.current && button.current?.matches(":focus-visible"))) open();
+      else close();
     }
     document.addEventListener("pointerdown", outside);
-    document.addEventListener("keydown", escape);
     window.addEventListener("scroll", moved, true);
-    window.addEventListener("resize", close);
+    window.addEventListener("resize", moved);
     return () => {
       document.removeEventListener("pointerdown", outside);
-      document.removeEventListener("keydown", escape);
       window.removeEventListener("scroll", moved, true);
-      window.removeEventListener("resize", close);
+      window.removeEventListener("resize", moved);
     };
-  }, [position]);
+  }, [position, close, open]);
 
   const action = marked ? mark.unmarkAction : mark.markAction;
 
@@ -162,7 +173,7 @@ export function MarkToggle({
         onPointerEnter={openSoon}
         onPointerLeave={closeSoon}
         onFocus={(e) => {
-          if (e.currentTarget.matches(":focus-visible")) open();
+          if (!restoringFocus.current && e.currentTarget.matches(":focus-visible")) open();
         }}
         onBlur={(e) => {
           if (!card.current?.contains(e.relatedTarget as Node)) closeSoon();
@@ -191,7 +202,11 @@ export function MarkToggle({
             ref={card}
             role="group"
             aria-label={mark.label}
+            onKeyDown={(event) => {
+              if (event.key === "Escape" && handleSurfaceEscape(event.nativeEvent)) event.stopPropagation();
+            }}
             onPointerEnter={clearTimers}
+            onFocus={clearTimers}
             onPointerLeave={closeSoon}
             onBlur={(e) => {
               const next = e.relatedTarget as Node | null;

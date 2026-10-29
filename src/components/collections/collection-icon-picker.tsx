@@ -3,8 +3,10 @@
 import {
   lazy,
   Suspense,
+  useCallback,
   useEffect,
   useId,
+  useLayoutEffect,
   useRef,
   useState,
   useTransition,
@@ -15,7 +17,7 @@ import { useRouter } from "next/navigation";
 import { Shapes } from "lucide-react";
 import { toast } from "@/lib/notifications/toast";
 import { Spinner } from "@/components/ui/spinner";
-import { isComposing } from "@/lib/shortcuts/shortcuts";
+import { acquireSurface, handleSurfaceEscape } from "@/lib/ui/surface-state";
 import { coverLetter } from "@/components/books/cover-letter";
 import { setCollectionIcon } from "@/lib/actions/catalogue-client";
 import { refusalMessage } from "@/lib/actions/refusal";
@@ -73,10 +75,17 @@ export function CollectionIconPicker({
     });
   }
 
-  function close(refocus = false) {
+  const close = useCallback((refocus = false) => {
     setPosition(null);
-    if (refocus) trigger.current?.focus();
-  }
+    if (refocus) trigger.current?.focus({ preventScroll: true });
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!position) return;
+    const lease = acquireSurface(() => close(true), trigger.current
+      ? { target: trigger.current, menuButton: null } : null, { blockCommandPalette: true });
+    return () => lease.release();
+  }, [position, close]);
 
   useEffect(() => {
     if (!position) return;
@@ -88,12 +97,6 @@ export function CollectionIconPicker({
       )
         setPosition(null);
     }
-    function escape(event: KeyboardEvent) {
-      if (event.key !== "Escape" || isComposing(event)) return;
-      // The panel closes; the dialog around it stays (one layer per Esc)
-      event.preventDefault();
-      close(true);
-    }
     function scrolled(event: Event) {
       // The panel scrolls its own grid; only page scrolls close it.
       if (!panel.current?.contains(event.target as Node)) setPosition(null);
@@ -102,12 +105,10 @@ export function CollectionIconPicker({
       setPosition(null);
     }
     document.addEventListener("pointerdown", outside);
-    document.addEventListener("keydown", escape);
     window.addEventListener("scroll", scrolled, true);
     window.addEventListener("resize", resized);
     return () => {
       document.removeEventListener("pointerdown", outside);
-      document.removeEventListener("keydown", escape);
       window.removeEventListener("scroll", scrolled, true);
       window.removeEventListener("resize", resized);
     };
@@ -171,6 +172,9 @@ export function CollectionIconPicker({
             ref={panel}
             role="dialog"
             aria-label="Collection icon"
+            onKeyDown={(event) => {
+              if (event.key === "Escape" && handleSurfaceEscape(event.nativeEvent)) event.stopPropagation();
+            }}
             className="glass fixed z-[100] max-w-[calc(100vw-16px)]"
             style={{ ...position, width: PANEL_WIDTH }}
           >

@@ -18,6 +18,7 @@ import {
 import { isComposing } from "@/lib/shortcuts/shortcuts";
 import { CapAligned } from "@/components/shared/cap-aligned";
 import { placeMenu } from "@/lib/utils/menu-placement";
+import { acquireSurface, handleSurfaceEscape } from "@/lib/ui/surface-state";
 
 /* ── Context ────────────────────────────────────────────────────────────── */
 
@@ -189,20 +190,18 @@ export function DropdownMenu({
     return () => document.removeEventListener("mousedown", handleClick);
   }, [isOpen, setOpen]);
 
-  // Close on Escape
-  useEffect(() => {
+  const closeFromKeyboard = useCallback(() => {
+    setOpen(false);
+    triggerRef.current?.focus({ preventScroll: true });
+  }, [setOpen]);
+
+  // Own Escape even when a pointer left focus in the surrounding dialog.
+  useLayoutEffect(() => {
     if (!isOpen) return;
-    function handleKey(e: globalThis.KeyboardEvent) {
-      if (e.key === "Escape" && !isComposing(e)) {
-        // The menu closes; the dialog around it stays (one layer per Esc)
-        e.preventDefault();
-        setOpen(false);
-        triggerRef.current?.focus();
-      }
-    }
-    document.addEventListener("keydown", handleKey);
-    return () => document.removeEventListener("keydown", handleKey);
-  }, [isOpen, setOpen]);
+    const lease = acquireSurface(closeFromKeyboard, triggerRef.current
+      ? { target: triggerRef.current, menuButton: null } : null, { blockCommandPalette: true });
+    return () => lease.release();
+  }, [isOpen, closeFromKeyboard]);
 
   // Arrow-key navigation inside menu
   useEffect(() => {
@@ -212,17 +211,26 @@ export function DropdownMenu({
     function getItems(): HTMLElement[] {
       return Array.from(
         menu.querySelectorAll<HTMLElement>(
-          '[role^="menuitem"]:not([aria-disabled="true"])',
+          '[role^="menuitem"]',
         ),
       );
     }
 
+    let search = "";
+    let lastTyped = 0;
     function handleKey(e: globalThis.KeyboardEvent) {
+      if (isComposing(e) || e.ctrlKey || e.metaKey || e.altKey) return;
+      if (e.key === "Tab") {
+        e.preventDefault();
+        closeFromKeyboard();
+        return;
+      }
       const items = getItems();
       if (items.length === 0) return;
 
       const active = document.activeElement as HTMLElement;
       const idx = items.indexOf(active);
+      if (["ArrowDown", "ArrowUp", "Home", "End"].includes(e.key)) search = "";
 
       if (e.key === "ArrowDown") {
         e.preventDefault();
@@ -238,21 +246,32 @@ export function DropdownMenu({
       } else if (e.key === "End") {
         e.preventDefault();
         items[items.length - 1].focus();
+      } else if (e.key.length === 1 && e.key !== " ") {
+        e.preventDefault();
+        const letter = e.key.toLocaleLowerCase();
+        const now = Date.now();
+        search = now - lastTyped < 700 && search !== letter ? search + letter : letter;
+        lastTyped = now;
+        const ordered = [...items.slice(idx + 1), ...items.slice(0, idx + 1)];
+        const match = ordered.find(item =>
+          item.querySelector(".dropdown-label")?.textContent?.trim().toLocaleLowerCase().startsWith(search),
+        );
+        match?.focus();
       }
     }
 
     menu.addEventListener("keydown", handleKey);
     return () => menu.removeEventListener("keydown", handleKey);
-  }, [isOpen]);
+  }, [isOpen, closeFromKeyboard]);
 
   // Focus the chosen item when the menu opens (a set of choices), else the first
   useEffect(() => {
     if (!isOpen || !menuRef.current) return;
     requestAnimationFrame(() => {
       const first =
-        menuRef.current?.querySelector<HTMLElement>('[aria-checked="true"]:not([aria-disabled="true"])') ??
+        menuRef.current?.querySelector<HTMLElement>('[aria-checked="true"]') ??
         menuRef.current?.querySelector<HTMLElement>(
-          '[role^="menuitem"]:not([aria-disabled="true"])',
+          '[role^="menuitem"]',
         );
       first?.focus();
     });
@@ -260,7 +279,11 @@ export function DropdownMenu({
 
   return (
     <DropdownMenuContext.Provider value={{ close: closeAfterAction, showIcon }}>
-      <div ref={containerRef} className="relative inline-flex">
+      <div ref={containerRef} className="relative inline-flex" onBlur={() => {
+        requestAnimationFrame(() => {
+          if (!containerRef.current?.contains(document.activeElement)) setOpen(false);
+        });
+      }}>
         {/* Trigger */}
         {cloneElement(trigger, {
           ref: triggerRef,
@@ -287,11 +310,7 @@ export function DropdownMenu({
             // panel or the page around it can take it as its own Escape (the
             // reader's side panels close on any Escape inside them)
             onKeyDown={(e) => {
-              if (e.key !== "Escape" || isComposing(e.nativeEvent)) return;
-              e.preventDefault();
-              e.stopPropagation();
-              setOpen(false);
-              triggerRef.current?.focus();
+              if (e.key === "Escape" && handleSurfaceEscape(e.nativeEvent)) e.stopPropagation();
             }}
           >
             <div className="dropdown-list overflow-y-auto overscroll-contain py-1" data-icons={icons > 0 ? "" : undefined}>
@@ -332,7 +351,7 @@ export function DropdownMenuItem({
   useLayoutEffect(() => (hasIcon ? showIcon() : undefined), [hasIcon, showIcon]);
 
   const baseClass =
-    "dropdown-item py-2 text-sm text-left transition-colors outline-none pointer-coarse:min-h-11";
+    "dropdown-item py-2 text-sm text-left transition-colors outline-none focus-visible:outline focus-visible:outline-solid focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent-primary pointer-coarse:min-h-11";
   const variantClass =
     variant === "danger"
       ? "text-accent-red-text hover:bg-accent-red/10 focus:bg-accent-red/10"
@@ -345,7 +364,7 @@ export function DropdownMenuItem({
     <div
       role={checked === undefined ? "menuitem" : "menuitemradio"}
       aria-checked={checked}
-      tabIndex={disabled ? -1 : 0}
+      tabIndex={-1}
       aria-disabled={disabled}
       onClick={() => {
         if (disabled) return;
