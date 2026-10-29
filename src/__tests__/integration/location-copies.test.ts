@@ -310,9 +310,9 @@ describe.skipIf(!url)("book copies and their locations with PostgreSQL", () => {
       values (${ebook.id},${hash},'epub',1000,'application/epub+zip','qa/delete-summary.epub','stored') returning *`;
     const locator = { v: 1, fileHash: hash, href: 'chapter.xhtml', sectionIndex: 0, progression: 0.1, totalProgression: 0.1 };
     const [position] = await c`insert into ebook_positions(ebook_id,file_id,device_id,device_label,locator,progression,furthest_progression,client_updated_at)
-      values (${ebook.id},${file.id},'delete-test','Mac',${c.json(locator)},0.1,0.1,now()) returning *`;
+      values (${ebook.id},${file.id},'delete-test','Mac',${JSON.stringify(locator)}::text::jsonb,0.1,0.1,now()) returning *`;
     const [annotation] = await c`insert into ebook_annotations(ebook_id,file_id,kind,locator,progression,client_updated_at)
-      values (${ebook.id},${file.id},'bookmark',${c.json(locator)},0.1,now()) returning *`;
+      values (${ebook.id},${file.id},'bookmark',${JSON.stringify(locator)}::text::jsonb,0.1,now()) returning *`;
     const [unrelated] = await c`insert into works(title,slug) values ('Unaffected book','unaffected-book') returning *`;
     return { workId, copy, history, target, order, orderHistory, reading, session, notes, publisher, image, ebook, file, position, annotation, unrelated };
   }
