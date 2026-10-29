@@ -6,7 +6,7 @@ its conflicts against the owner's requested mappings, the page-action
 coverage by page family, and one row per dialog in the app. Later tickets
 (SLN-632, SLN-571, SLN-633, SLN-634) change the code and update this file.
 
-Source read: `main` plus #223, 13 Oct 2026. "Browser-checked" means a
+Kept current with main; each keyboard change updates this document. "Browser-checked" means a
 headless Chromium, Firefox and WebKit journey ran on a disposable preview
 (the reviews of #217 and #223, and SLN-638's journeys); everything else is
 read from the source and covered by unit tests at most.
