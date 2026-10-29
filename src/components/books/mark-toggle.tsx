@@ -121,7 +121,7 @@ export function MarkToggle({
       restoringFocus.current = true;
       try { button.current?.focus({ preventScroll: true }); }
       finally { restoringFocus.current = false; }
-    }, button.current ? { target: button.current, menuButton: null } : null);
+    }, button.current ? { target: button.current, menuButton: null } : null, { blockCommandPalette: true });
     return () => lease.release();
   }, [position, close]);
 

@@ -83,7 +83,7 @@ export function CollectionIconPicker({
   useLayoutEffect(() => {
     if (!position) return;
     const lease = acquireSurface(() => close(true), trigger.current
-      ? { target: trigger.current, menuButton: null } : null);
+      ? { target: trigger.current, menuButton: null } : null, { blockCommandPalette: true });
     return () => lease.release();
   }, [position, close]);
 

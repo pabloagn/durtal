@@ -199,7 +199,7 @@ export function DropdownMenu({
   useLayoutEffect(() => {
     if (!isOpen) return;
     const lease = acquireSurface(closeFromKeyboard, triggerRef.current
-      ? { target: triggerRef.current, menuButton: null } : null);
+      ? { target: triggerRef.current, menuButton: null } : null, { blockCommandPalette: true });
     return () => lease.release();
   }, [isOpen, closeFromKeyboard]);
 
@@ -351,7 +351,7 @@ export function DropdownMenuItem({
   useLayoutEffect(() => (hasIcon ? showIcon() : undefined), [hasIcon, showIcon]);
 
   const baseClass =
-    "dropdown-item py-2 text-sm text-left transition-colors outline-none focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent-primary pointer-coarse:min-h-11";
+    "dropdown-item py-2 text-sm text-left transition-colors outline-none focus-visible:outline focus-visible:outline-solid focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent-primary pointer-coarse:min-h-11";
   const variantClass =
     variant === "danger"
       ? "text-accent-red-text hover:bg-accent-red/10 focus:bg-accent-red/10"

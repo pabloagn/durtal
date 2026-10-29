@@ -44,6 +44,8 @@ import { DropdownMenu, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { FilterDropdown } from "@/components/shared/filter-dropdown";
 import { Select } from "@/components/ui/select";
 import { CLEAR_LIST_SEARCH } from "@/lib/ui/list-search";
+import { acquireSurface } from "@/lib/ui/surface-state";
+import { isMacPlatform } from "@/lib/shortcuts/shortcuts";
 import { WorkSearchStep } from "@/app/(catalogue)/provenance/order-create-steps";
 
 beforeAll(() => {
@@ -434,5 +436,28 @@ describe("Esc closes one layer per press", () => {
     expect(press("Escape", {}, document.body).defaultPrevented).toBe(true);
     expect(trigger.getAttribute("aria-expanded")).toBe("false");
     expect(document.activeElement).toBe(trigger);
+  });
+});
+
+
+describe("command palette with temporary pickers", () => {
+  it("waits until a blocking picker closes, even when focus is on the page", () => {
+    const onPalette = renderApp();
+    const lease = acquireSurface(() => {}, null, { blockCommandPalette: true });
+    const modifier = isMacPlatform() ? { metaKey: true } : { ctrlKey: true };
+    try {
+      press("k", modifier, document.body);
+      expect(onPalette).not.toHaveBeenCalled();
+    } finally { lease.release(); }
+    press("k", modifier, document.body);
+    expect(onPalette).toHaveBeenCalledWith(true);
+  });
+  it("keeps the existing palette shortcut available above ordinary surfaces", () => {
+    const onPalette = renderApp();
+    const lease = acquireSurface(() => {}, null);
+    try {
+      press("k", isMacPlatform() ? { metaKey: true } : { ctrlKey: true }, document.body);
+      expect(onPalette).toHaveBeenCalledWith(true);
+    } finally { lease.release(); }
   });
 });

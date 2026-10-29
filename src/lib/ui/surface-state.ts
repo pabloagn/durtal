@@ -42,8 +42,9 @@ export interface SurfaceLease {
   /** The dialog inside the surface guards its close; returns the remover. */
   guard(guard: CloseGuard): () => void;
 }
-const stack: { lease: SurfaceLease; close(): void; origin: FocusOrigin | null; guard: CloseGuard | null }[] = [];
+const stack: { lease: SurfaceLease; close(): void; origin: FocusOrigin | null; guard: CloseGuard | null; blockCommandPalette: boolean }[] = [];
 export const hasOpenSurface = () => stack.length > 0;
+export const hasPaletteBlockingSurface = () => stack.some(entry => entry.blockCommandPalette);
 
 const passing = new WeakSet<Event>();
 
@@ -110,8 +111,8 @@ export function handleSurfaceEscape(event: KeyboardEvent): boolean {
   if (!top.guard?.()) top.close();
   return true;
 }
-export function acquireSurface(close: () => void, origin = captureFocusOrigin()): SurfaceLease {
-  const entry: (typeof stack)[number] = { lease: null as unknown as SurfaceLease, close, origin, guard: null };
+export function acquireSurface(close: () => void, origin = captureFocusOrigin(), options: { blockCommandPalette?: boolean } = {}): SurfaceLease {
+  const entry: (typeof stack)[number] = { lease: null as unknown as SurfaceLease, close, origin, guard: null, blockCommandPalette: options.blockCommandPalette ?? false };
   const lease: SurfaceLease = {
     isTop: () => stack.at(-1) === entry,
     release() {
