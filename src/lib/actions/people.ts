@@ -233,7 +233,7 @@ export async function getPersonDeletionRefusal(id: string): Promise<string | nul
   const person = await db.query.authors.findFirst({ where: eq(authors.id, id), columns: { id: true } });
   if (!person) return "This person no longer exists.";
   const rows = resultRows<{ kind: string; count: number }>(await db.execute(sql`
-    select kind, count(*)::integer as count from (${blockingPersonCredits(id)}) credits group by kind order by kind
+    select kind, count(*)::integer as count from (${blockingPersonCredits(id)}) credits group by kind order by kind::text
   `));
   return personCreditRefusal(rows);
 }

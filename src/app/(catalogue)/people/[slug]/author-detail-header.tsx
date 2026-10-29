@@ -3,7 +3,6 @@
 import { FavouriteToggle } from "@/components/shared/favourite-toggle";
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { Copy, Check, Merge, Pencil, ImageIcon, Trash2 } from "lucide-react";
 import { toast } from "@/lib/notifications/toast";
 import { AuthorEditDialog } from "./author-edit-dialog";
@@ -56,10 +55,8 @@ export function AuthorDetailHeader({
   lifeDates,
   posterUrl,
   posterCrop,
-  workCount,
   isFavourite,
 }: AuthorDetailHeaderProps) {
-  const router = useRouter();
   const [editOpen, setEditOpen] = useState(false);
   const [mediaOpen, setMediaOpen] = useState(false);
   // A portrait that fails shows what none does: the initials on the
