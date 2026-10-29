@@ -1,8 +1,10 @@
 import { Suspense } from "react";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Highlighter } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
+import { buttonClass } from "@/components/ui/button";
 import { NoResults, PageOutOfRange } from "@/components/shared/no-results";
 import { Pagination } from "@/components/shared/pagination";
 import { HighlightGroup } from "@/components/ebooks/highlight-group";
@@ -26,6 +28,12 @@ export const metadata = { title: "Highlights" };
 const BASE = "/ebooks/highlights";
 const count = (n: number, one: string, many = `${one}s`) => `${n.toLocaleString("en-US")} ${n === 1 ? one : many}`;
 
+function EmptyHighlights() {
+  return <EmptyState icon={Highlighter} title="No highlights yet" action={
+    <Link href="/ebooks" className={buttonClass("secondary")}>Open eBooks</Link>
+  } />;
+}
+
 async function HighlightResults({ search }: { search: ListSearchParams }) {
   const params = parseHighlightParams(search);
   const query = toSearchParams(search);
@@ -33,16 +41,13 @@ async function HighlightResults({ search }: { search: ListSearchParams }) {
   if (summary.marks === 0)
     return hasListQuery(query) ? (
       <NoResults
-        noun="marks"
+        noun="highlights"
         search={params.q || null}
         hasFilters={Boolean(params.colors.length || params.kinds.length || params.ebookId)}
         clearHref={clearedListHref(BASE, query)}
       />
     ) : (
-      <EmptyState
-        icon={Highlighter}
-        title="No highlights yet"
-      />
+      <EmptyHighlights />
     );
   // Filtered to one book, pages count its marks; otherwise books. A page past
   // the end goes to the last one, as every list does (SLN-933)
@@ -99,10 +104,12 @@ export default async function HighlightsPage({ searchParams }: { searchParams: P
   return (
     <>
       <PageHeader title="Highlights" />
-      <HighlightsFilters books={books} />
-      <Suspense key={toSearchParams(search).toString()} fallback={<div className="h-96" />}>
-        <HighlightResults search={search} />
-      </Suspense>
+      {books.length ? <>
+        <HighlightsFilters books={books} />
+        <Suspense key={toSearchParams(search).toString()} fallback={<div className="h-96" />}>
+          <HighlightResults search={search} />
+        </Suspense>
+      </> : <EmptyHighlights />}
     </>
   );
 }
