@@ -64,8 +64,9 @@ export function AbandonReadingDialog({ data, row, onClose, changed }: ReadingDia
           changed();
         } catch (err) {
           showError(err, changed);
+          return false;
         }
-      });
+      }, "Reading reopened");
     } catch (err) {
       showError(err, changed);
     } finally {

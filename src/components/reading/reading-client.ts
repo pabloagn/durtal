@@ -89,7 +89,12 @@ export function showError(err: unknown, refresh: () => void) {
   if (message.startsWith(STALE)) refresh();
 }
 
-/** A 10-second toast with Undo */
-export function undoToast(message: string, undo: () => Promise<void> | void) {
-  toast.success(message, { duration: 10000, action: { label: "Undo", onClick: () => void undo() } });
+/** Undo stays reachable for ten seconds, paused while the toaster has focus. */
+export function undoToast(message: string, undo: () => Promise<void | boolean> | void | boolean, restored: string | null = "Undone") {
+  toast.success(message, { duration: 10000, action: { label: "Undo", onClick: async () => {
+    try {
+      const result = await undo();
+      if (result !== false && restored) toast.success(restored);
+    } catch (error) { toast.error(refusalMessage(error, "Could not undo")); }
+  } } });
 }

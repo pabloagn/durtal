@@ -31,7 +31,7 @@ import {
   snapshotQuery,
 } from "@/lib/harmonization/store";
 import { stableStringify } from "@/lib/harmonization/normalize";
-import type { Category, Scan } from "@/lib/harmonization/types";
+import type { Category, Dataset, Scan } from "@/lib/harmonization/types";
 
 type Result<T> = { ok: true; value: T } | { ok: false; error: string };
 async function attempt<T>(fn: () => Promise<T>): Promise<Result<T>> {
@@ -117,6 +117,8 @@ const findingQuery = z.object({
 
 type ScannedFinding = ReturnType<typeof scanDataset>[number] & { dismissed: boolean };
 interface FullScan {
+  dataset: Dataset;
+  decisionsKey: string;
   id: string;
   scannedAt: string;
   findings: ScannedFinding[];
@@ -169,13 +171,21 @@ async function fullScan(): Promise<FullScan> {
   );
   // A finding's fingerprint is read only when a decision names its key: it
   // is worked out on first read (SLN-887)
-  const findings = scanDataset(data).map((f) => {
-    const decided = ignored.get(f.key);
-    return Object.assign(f, {
-      dismissed: decided !== undefined && decided === f.fingerprint,
+  const decisionsKey = stableStringify(decisions);
+  // Rechecking an unchanged database must not rebuild tens of thousands of
+  // identical findings. Decisions are checked separately, so a dismiss or
+  // restore is reflected even when the catalogue input itself is unchanged.
+  const findings = lastScan?.dataset === data && lastScan.decisionsKey === decisionsKey
+    ? lastScan.findings
+    : scanDataset(data).map((f) => {
+      const decided = ignored.get(f.key);
+      return Object.assign(f, {
+        dismissed: decided !== undefined && decided === f.fingerprint,
+      });
     });
-  });
   return {
+    dataset: data,
+    decisionsKey,
     id: randomUUID(),
     scannedAt: new Date().toISOString(),
     findings,
