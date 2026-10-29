@@ -17,7 +17,7 @@ import { EbookMark } from "./ebook-mark";
 import type { WorkEbookDTO } from "@/lib/ebooks/catalogue-dto";
 import { coverToneStyle, mediaImageStyle, type MediaCrop } from "@/lib/utils/media-style";
 import { FadeImage } from "@/components/shared/fade-image";
-import { MEDIA_WIDTHS, withMediaWidth } from "@/lib/s3/media-url";
+import { withMediaWidth } from "@/lib/s3/media-url";
 import { useCoverMenu } from "@/hooks/use-cover-menu";
 
 export type CoverCrop = MediaCrop;
@@ -56,8 +56,6 @@ interface BookCardProps {
   isSelecting?: boolean;
   isSelected?: boolean;
   onSelect?: (workId: string) => void;
-  /** `sizes` for the cover: the card's rendered width */
-  coverSizes?: string;
   /** Load the cover at once with high priority (cards above the fold) */
   coverPriority?: boolean;
   /** An open reading: it takes the status slot ("Reading 44%") */
@@ -76,13 +74,11 @@ function CoverImage({
   src,
   alt,
   crop,
-  sizes,
   priority = false,
 }: {
   src: string;
   alt: string;
   crop?: CoverCrop | null;
-  sizes: string;
   priority?: boolean;
 }) {
   const [retries, setRetries] = useState(0);
@@ -101,18 +97,16 @@ function CoverImage({
 
   // Append retry count to bust the browser's failed-request cache
   const retrySrc = retries > 0 ? `${src}&_r=${retries}` : src;
-  // The route resizes each candidate; the browser picks one for `sizes`
-  const srcSet = MEDIA_WIDTHS.map((w) => `${withMediaWidth(retrySrc, w)} ${w}w`).join(", ");
 
   // While it retries, the letter shows under the image
   return (
     <>
       {retries > 0 && <CoverPlaceholder title={alt} />}
-      {/* A picture keeps React from adding a separate speculative preload.
-          The eager image itself still starts at high priority. In WebKit the
-          preload plus hydration could otherwise fetch a missing cover thrice. */}
+      {/* One resized source avoids WebKit fetching a failed candidate again
+          as layout settles. The picture also prevents a separate React
+          preload; visible covers still load eagerly at high priority. */}
       <picture className="contents">
-      <source srcSet={srcSet} sizes={sizes} />
+      <source srcSet={withMediaWidth(retrySrc, 800)} />
       <FadeImage
         key={retries}
         alt={alt}
@@ -227,7 +221,6 @@ const CardBody = memo(function CardBody({
   primaryEditionId,
   ebook,
   readerReturnTo,
-  coverSizes = "(min-width: 1280px) 300px, (min-width: 768px) 250px, 200px",
   coverPriority = false,
   reading,
 }: CardBodyProps) {
@@ -256,7 +249,6 @@ const CardBody = memo(function CardBody({
                 src={coverUrl}
                 alt={title}
                 crop={coverCrop}
-                sizes={coverSizes}
                 priority={coverPriority}
               />
             ) : (
