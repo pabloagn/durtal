@@ -8,7 +8,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { DeleteConfirmDialog } from "@/app/(catalogue)/library/[slug]/delete-confirm-dialog";
+import { PersonDeleteDialog } from "@/components/authors/person-delete-dialog";
 import { toast } from "@/lib/notifications/toast";
 import { deleteAuthor } from "@/lib/actions/catalogue-client";
 import { refusalMessage } from "@/lib/actions/refusal";
@@ -88,15 +88,12 @@ export function AuthorCardActionsMenu({
         </DropdownMenuItem>
       </DropdownMenu>
 
-      <DeleteConfirmDialog
-        open={deleteOpen}
+      {deleteOpen && <PersonDeleteDialog
+        authorId={authorId}
+        name={name}
         onClose={() => setDeleteOpen(false)}
         onConfirm={handleDelete}
-        title="Delete person"
-        description="This cannot be undone."
-        itemName={name}
-        cascade="This will permanently remove the person from every book, edition, film, perfume and painting they are credited on."
-      />
+      />}
     </>
   );
 }

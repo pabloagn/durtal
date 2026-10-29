@@ -1,6 +1,7 @@
 "use server";
 
 import { createOnce } from "@/lib/actions/utils/create-once";
+import { blockingPersonCredits, PERSON_CREDIT_REFUSAL } from "@/lib/catalogue/person-deletion";
 import { PERSON_CREDITS, bookPersonCondition } from "@/lib/catalogue/person-boundary";
 import { bookCondition } from "@/lib/catalogue/book-boundary";
 import { resultRows } from "@/lib/publishers/resolution";
@@ -37,7 +38,7 @@ import {
 } from "@/lib/validations";
 import { parseId } from "@/lib/validations/helpers";
 import { generateAuthorSlug } from "@/lib/utils/slugify";
-import { refreshAuthorWorkSlugs } from "@/lib/works/slug";
+import { refreshAuthorWorkSlugs, refreshWorkSlug } from "@/lib/works/slug";
 import { computeZodiacSign } from "@/lib/utils/zodiac";
 import { recordActivity } from "@/lib/activity/record";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
@@ -847,14 +848,21 @@ export async function deleteAuthor(id: string) {
     d.execute(sql`select id from authors where id = ${id}::uuid for update`),
     d.execute(sql`select harmonization_assert(exists(select 1 from person_domains where person_id = ${id}::uuid and kind = 'book'), 'Book contributor not found')`),
     // Film, painting and perfume credits keep the person: say so, as their own delete does
-    d.execute(sql`select harmonization_assert(not exists(select 1 from work_credits where person_id = ${id}::uuid) and not exists(select 1 from art_object_credits where person_id = ${id}::uuid) and not exists(select 1 from perfume_variant_perfumers where person_id = ${id}::uuid), 'Remove this person''s credits before deleting the identity')`),
+    d.execute(assertSql(sql`not exists (${blockingPersonCredits(id)})`, PERSON_CREDIT_REFUSAL)),
     d.delete(comments).where(and(eq(comments.entityType, "author"), eq(comments.entityId, id))),
     d.delete(activityEvents).where(and(eq(activityEvents.entityType, "author"), eq(activityEvents.entityId, id))),
     d.delete(galleryLayouts).where(and(eq(galleryLayouts.entityType, "author"), eq(galleryLayouts.entityId, id))),
+    // Capture links under the same person lock as deletion, including links
+    // added after the dialog opened, so every affected book gets a fresh URL.
+    d.delete(workAuthors).where(eq(workAuthors.authorId, id)).returning({ id: workAuthors.workId }),
     d.delete(authors).where(and(bookPersonCondition, eq(authors.id, id))).returning({ id: authors.id }),
   ]);
   invalidate(CACHE_TAGS.authors, CACHE_TAGS.works, CACHE_TAGS.editions, CACHE_TAGS.activity, CACHE_TAGS.media);
   const deleted = (results.at(-1) as { id: string }[]).length > 0;
+  if (deleted) {
+    const linkedBooks = results.at(-2) as { id: string }[];
+    for (const id of new Set(linkedBooks.map(book => book.id))) await refreshWorkSlug(id);
+  }
   const cleanupPending =
     deleted && (await deleteUnusedObjects(stored, `author ${id}`));
   return { id, cleanupPending };

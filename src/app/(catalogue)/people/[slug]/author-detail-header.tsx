@@ -3,7 +3,6 @@
 import { FavouriteToggle } from "@/components/shared/favourite-toggle";
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { Copy, Check, Merge, Pencil, ImageIcon, Trash2 } from "lucide-react";
 import { toast } from "@/lib/notifications/toast";
 import { AuthorEditDialog } from "./author-edit-dialog";
@@ -19,7 +18,7 @@ import { EDIT_KEYS, editHint } from "@/lib/shortcuts/shortcuts";
 import { exportActionItems } from "@/components/shared/export-menu";
 import { DetailControls, DetailEditButton, DetailTitleRow } from "@/components/shared/detail-layout";
 import { ProtectedImageWrapper } from "@/components/shared/protected-image";
-import { DeleteConfirmDialog } from "@/app/(catalogue)/library/[slug]/delete-confirm-dialog";
+import { PersonDeleteDialog } from "@/components/authors/person-delete-dialog";
 import { nationalityFilterHref } from "@/lib/utils/nationality-param";
 import { mediaImageStyle, type MediaCrop } from "@/lib/utils/media-style";
 import { deleteAuthorFromPage } from "@/lib/actions/catalogue-client";
@@ -56,10 +55,8 @@ export function AuthorDetailHeader({
   lifeDates,
   posterUrl,
   posterCrop,
-  workCount,
   isFavourite,
 }: AuthorDetailHeaderProps) {
-  const router = useRouter();
   const [editOpen, setEditOpen] = useState(false);
   const [mediaOpen, setMediaOpen] = useState(false);
   // A portrait that fails shows what none does: the initials on the
@@ -231,19 +228,12 @@ export function AuthorDetailHeader({
         targetAuthorName={name}
       />
 
-      <DeleteConfirmDialog
-        open={deleteOpen}
+      {deleteOpen && <PersonDeleteDialog
+        authorId={authorId}
+        name={name}
         onClose={() => setDeleteOpen(false)}
         onConfirm={handleDelete}
-        title="Delete person"
-        description="This cannot be undone."
-        itemName={name}
-        cascade={
-          workCount > 0
-            ? "Their books, films, perfumes and paintings stay in your library; only their credits go."
-            : undefined
-        }
-      />
+      />}
 
       {posterUrl && (
         <ImageLightbox

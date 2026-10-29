@@ -1147,3 +1147,7 @@ export async function decideAllImportNotes(
 ) {
   return actionResult(() => reading_import.decideAllImportNotes(...args));
 }
+
+export async function getPersonDeletionRefusal(id: string) {
+  return actionResult(() => people.getPersonDeletionRefusal(id));
+}
