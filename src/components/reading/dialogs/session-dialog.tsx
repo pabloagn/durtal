@@ -207,8 +207,9 @@ export function SessionDialog({ data, row, request, onClose, changed }: ReadingD
             changed();
           } catch (err) {
             showError(err, changed);
+            return false;
           }
-        });
+        }, "Session restored");
       } else {
         const result = await addSession({
           readingId: r.id,
@@ -230,8 +231,9 @@ export function SessionDialog({ data, row, request, onClose, changed }: ReadingD
             changed();
           } catch (err) {
             showError(err, changed);
+            return false;
           }
-        });
+        }, "Session restored");
       }
     } catch (err) {
       showError(err, changed);

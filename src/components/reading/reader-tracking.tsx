@@ -76,7 +76,7 @@ function ActiveReaderTracking({ data: initial }: { data: ReaderTrackingData }) {
   const statusRef = useRef<HTMLSpanElement>(null);
   const generation = useRef(0);
   const manualStart = useRef(false);
-  const undo = useRef<{ timer: ReturnType<typeof setTimeout>; toast: string | number } | null>(null);
+  const undo = useRef<{ toast: string | number } | null>(null);
   const pendingChoice = useRef<QuoteChoice | null>(null);
   const latest = useRef({ data, timer, dialogs });
   latest.current = { data, timer, dialogs };
@@ -92,7 +92,9 @@ function ActiveReaderTracking({ data: initial }: { data: ReaderTrackingData }) {
     syncNotice.current = error instanceof Error ? error.message : "Reading has not synced. Try again when connected.";
   }
   function endUndo() {
-    if (undo.current) { clearTimeout(undo.current.timer); toast.dismiss(undo.current.toast); undo.current = null; }
+    const previous = undo.current;
+    undo.current = null;
+    if (previous) toast.dismiss(previous.toast);
   }
 
   // This layout effect precedes useReaderController's installation. Every handler
@@ -141,20 +143,28 @@ function ActiveReaderTracking({ data: initial }: { data: ReaderTrackingData }) {
         setData(fresh);
         if (result.created) {
           ownController.holdWrites(true);
-          const toastId = toast.success("Now tracking this book", { duration: 10_000, action: { label: "Undo", onClick: () => {
-            if (!live.current || generation.current !== ownGeneration || !undo.current) return;
-            endUndo();
-            ownController.stopTracking();
-            void deleteReading({ readingId: result.reading.id, fingerprint: result.reading.fingerprint })
-              .then(() => getReaderTracking(initial.ebookId)).then((next) => {
-                if (live.current && generation.current === ownGeneration) setData(next);
-              }).catch(showFailure);
-          } } });
-          undo.current = { toast: toastId, timer: setTimeout(() => {
+          // The real toast lifetime owns this lease, including time paused by
+          // keyboard focus. An independent ten-second timer made Undo inert.
+          const releaseUndo = () => {
+            if (undo.current?.toast !== toastId) return;
             undo.current = null;
             ownController.holdWrites(false);
             ownController.flush();
-          }, 10_000) };
+          };
+          const toastId = toast.success("Now tracking this book", { duration: 10_000,
+            onAutoClose: releaseUndo, onDismiss: releaseUndo,
+            action: { label: "Undo", onClick: () => {
+              if (!live.current || generation.current !== ownGeneration || !undo.current) return;
+              endUndo();
+              ownController.stopTracking();
+              void deleteReading({ readingId: result.reading.id, fingerprint: result.reading.fingerprint })
+                .then(() => getReaderTracking(initial.ebookId)).then((next) => {
+                  if (live.current && generation.current === ownGeneration) setData(next);
+                  toast.success("Stopped tracking this book");
+                }).catch(showFailure);
+            } },
+          });
+          undo.current = { toast: toastId };
         }
         return { readingId: result.reading.id };
       },

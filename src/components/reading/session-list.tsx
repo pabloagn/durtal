@@ -113,8 +113,9 @@ export function SessionList({ row, current }: { row: ReadingRow; current: boolea
           changed();
         } catch (err) {
           showError(err, changed);
+          return false;
         }
-      });
+      }, "Session restored");
     } catch (err) {
       showError(err, changed);
     }

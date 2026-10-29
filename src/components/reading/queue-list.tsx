@@ -227,8 +227,9 @@ export function QueueList({ rows: initial, filtered = false }: { rows: QueueRow[
           changed();
         } catch (err) {
           showError(err, changed);
+          return false;
         }
-      });
+      }, "Back in Up next");
     } catch (err) {
       showError(err, changed);
     }

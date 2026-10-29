@@ -30,8 +30,9 @@ export function DeleteReadingDialog({ data, row, onClose, changed }: ReadingDial
               changed();
             } catch (err) {
               showError(err, changed);
+              return false;
             }
-          });
+          }, "Reading restored");
         } catch (err) {
           showError(err, changed);
         }

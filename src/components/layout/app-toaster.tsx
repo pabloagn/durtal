@@ -6,6 +6,7 @@ import { CircleAlert, CircleCheck, Info, LoaderCircle, TriangleAlert, X } from "
 import { Toaster, useSonner, type ToastT } from "sonner";
 import { syncShownToasts } from "@/lib/notifications/toast";
 import { notificationContent } from "@/lib/notifications/content";
+import { isMacPlatform } from "@/lib/shortcuts/shortcuts";
 import { CapAligned } from "@/components/shared/cap-aligned";
 import { NotificationRecorder } from "./notification-recorder";
 
@@ -31,6 +32,7 @@ export function AppToaster() {
   const layer = useRef<HTMLDivElement>(null);
   const holder = useLayerHost(layer);
   const clear = useClearance();
+  const coarse = useSyncExternalStore(subscribeCoarse, coarseSnapshot, () => false);
   const bottom = clear > 0 ? `max(${EDGE}, ${clear + ABOVE}px)` : `calc(${EDGE})`;
   return (
     <>
@@ -51,16 +53,20 @@ export function AppToaster() {
           ref={section}
           position="bottom-right"
           closeButton
-          visibleToasts={3}
+          visibleToasts={coarse ? Number.MAX_SAFE_INTEGER : 3}
+          expand={coarse}
+          className={coarse ? "toast-touch-stack" : undefined}
+          style={coarse ? { maxHeight: `calc(100dvh - ${bottom} - 16px)` } : undefined}
+          swipeDirections={coarse ? [] : undefined}
           offset={{ bottom, right: 16 }}
           mobileOffset={{ bottom, left: 16, right: 16 }}
           icons={{
             close: <CapAligned height={14}><X className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden /></CapAligned>,
-            success: <CircleCheck className={`${ICON} text-fg-secondary`} strokeWidth={1.5} aria-hidden />,
-            info: <Info className={`${ICON} text-fg-secondary`} strokeWidth={1.5} aria-hidden />,
-            warning: <TriangleAlert className={`${ICON} text-accent-gold`} strokeWidth={1.5} aria-hidden />,
-            error: <CircleAlert className={`${ICON} text-accent-red-text`} strokeWidth={1.5} aria-hidden />,
-            loading: <LoaderCircle className={`${ICON} text-fg-secondary motion-safe:animate-spin`} strokeWidth={1.5} aria-hidden />,
+            success: <CapAligned height={16}><CircleCheck className={`${ICON} text-fg-secondary`} strokeWidth={1.5} aria-hidden /></CapAligned>,
+            info: <CapAligned height={16}><Info className={`${ICON} text-fg-secondary`} strokeWidth={1.5} aria-hidden /></CapAligned>,
+            warning: <CapAligned height={16}><TriangleAlert className={`${ICON} text-accent-gold`} strokeWidth={1.5} aria-hidden /></CapAligned>,
+            error: <CapAligned height={16}><CircleAlert className={`${ICON} text-accent-red-text`} strokeWidth={1.5} aria-hidden /></CapAligned>,
+            loading: <CapAligned height={16}><LoaderCircle className={`${ICON} text-fg-secondary motion-safe:animate-spin`} strokeWidth={1.5} aria-hidden /></CapAligned>,
           }}
           toastOptions={{
             closeButtonAriaLabel: "Dismiss",
@@ -221,10 +227,21 @@ function useClearance() {
   return clear;
 }
 
+function subscribeCoarse(changed: () => void) {
+  const media = window.matchMedia?.("(pointer: coarse)");
+  media?.addEventListener("change", changed);
+  return () => media?.removeEventListener("change", changed);
+}
+const coarseSnapshot = () => window.matchMedia?.("(pointer: coarse)").matches ?? false;
+
 function spoken(toast: ToastT) {
   const title = notificationContent(toast.title).text.trim();
   const description = notificationContent(toast.description).text.trim();
-  return [title, description].filter(Boolean).join(". ");
+  const copiedUrl = /copied$/i.test(title) && /^https?:\/\/\S+$/i.test(description);
+  const action = toast.action && typeof toast.action === "object" && "label" in toast.action
+    ? notificationContent(toast.action.label).text.trim() : "";
+  const hint = action ? `${action}. Press ${isMacPlatform() ? "Option" : "Alt"}+T to reach notifications` : "";
+  return [title, copiedUrl ? "" : description, hint].filter(Boolean).join(". ");
 }
 
 /** How long a spoken line stays in its region (it is read once, on arrival) */
@@ -295,6 +312,20 @@ function ToastFocus() {
       const from = event.relatedTarget as HTMLElement | null;
       if (target?.closest("[data-sonner-toaster]") && !from?.closest("[data-sonner-toaster]")) before = from;
     };
+    const restore = () => {
+      if (before?.isConnected && before !== document.body && !before.closest("[inert], dialog:not([open])")) {
+        before.focus({ preventScroll: true });
+        return;
+      }
+      const heading = document.querySelector<HTMLElement>("dialog[open] h1, dialog[open] h2") ?? document.querySelector<HTMLElement>("main h1");
+      if (heading) { heading.tabIndex = -1; heading.focus({ preventScroll: true }); }
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || !document.activeElement?.closest("[data-sonner-toaster]")) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      restore();
+    };
     const onClick = (event: MouseEvent) => {
       // A click from Enter or Space has no pointer position (detail 0)
       if (event.detail !== 0) return;
@@ -307,13 +338,15 @@ function ToastFocus() {
       const next = list[at + 1] ?? list[at - 1];
       const target = next?.querySelector<HTMLElement>("[data-close-button]") ?? next;
       if (target) target.focus({ preventScroll: true });
-      else if (before?.isConnected) before.focus({ preventScroll: true });
+      else restore();
     };
     document.addEventListener("focusin", onFocusIn);
     document.addEventListener("click", onClick, true);
+    document.addEventListener("keydown", onKeyDown, true);
     return () => {
       document.removeEventListener("focusin", onFocusIn);
       document.removeEventListener("click", onClick, true);
+      document.removeEventListener("keydown", onKeyDown, true);
     };
   }, []);
   return null;

@@ -40,12 +40,15 @@ let onScreen: readonly Shown[] = [];
 /** Toasts made in the last moment, before the toaster has drawn them */
 const recent = new Map<string, { id: Id; at: number }>();
 const RECENT_MS = 1000;
+const repeatDuration = new Map<Id, number>();
+const ACTION_TOAST_DURATION = 10_000;
 
 /** The toaster reports what it shows (AppToaster) */
 export function syncShownToasts(list: readonly Shown[]) {
   // A toast that has left is no longer one to fold a repeat into
   const now = new Set(list.map((t) => t.id));
   for (const [key, entry] of recent) if (onScreen.some((t) => t.id === entry.id) && !now.has(entry.id)) recent.delete(key);
+  for (const id of repeatDuration.keys()) if (!now.has(id) && onScreen.some((toast) => toast.id === id)) repeatDuration.delete(id);
   onScreen = list;
 }
 
@@ -65,16 +68,25 @@ function errorMessage(message: Message): Message {
 function show(kind: Kind, message: Message, data?: ExternalToast): Id {
   if (kind === "error") message = errorMessage(message);
   const own = data?.id !== undefined || data?.action !== undefined || data?.cancel !== undefined;
-  const keeps = data?.duration !== undefined || data?.action !== undefined || data?.cancel !== undefined;
-  const options = keeps ? data : { ...data, duration: TOAST_DURATION[kind] };
+  const hasAction = data?.action !== undefined || data?.cancel !== undefined;
+  const options = { ...data, duration: data?.duration ?? (kind === "error" ? Infinity : hasAction ? ACTION_TOAST_DURATION : TOAST_DURATION[kind]) };
   if (!own) {
     const same = showing(kind, message);
     // An error or a warning again is shown again under the same id: still one
     // toast, and the notification history counts it (SLN-1460)
-    if (same !== null && (kind === "error" || kind === "warning")) sonner[kind](message, { ...options, id: same });
-    if (same !== null) return same;
+    if (same !== null) {
+      // Sonner resets its remaining time only when duration changes. One ms
+      // alternation restarts a repeated toast even after hover/focus paused it.
+      const duration = Number.isFinite(options.duration)
+        ? options.duration + (repeatDuration.get(same) === options.duration ? 1 : 0)
+        : options.duration;
+      repeatDuration.set(same, duration);
+      sonner[kind](message, { ...options, duration, id: same });
+      return same;
+    }
   }
   const id = sonner[kind](message, options);
+  repeatDuration.set(id, options.duration);
   if (!own && typeof message === "string") {
     const now = Date.now();
     for (const [key, entry] of recent) if (now - entry.at >= RECENT_MS) recent.delete(key);
@@ -103,7 +115,7 @@ export interface PendingToast {
 export function pendingToast(message: Message, data?: ExternalToast): PendingToast {
   const id = sonner.loading(message, { ...data, duration: TOAST_DURATION.success });
   const settle = (kind: Kind) => (next: Message, more?: ExternalToast) =>
-    sonner[kind](kind === "error" ? errorMessage(next) : next, { ...more, id, duration: more?.duration ?? (kind === "error" ? Infinity : TOAST_DURATION.success) });
+    sonner[kind](kind === "error" ? errorMessage(next) : next, { ...more, id, duration: more?.duration ?? (kind === "error" ? Infinity : more?.action !== undefined || more?.cancel !== undefined ? ACTION_TOAST_DURATION : TOAST_DURATION.success) });
   return {
     id,
     success: settle("success"),

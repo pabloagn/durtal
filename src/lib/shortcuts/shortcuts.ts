@@ -197,6 +197,7 @@ export const SHORTCUTS = {
   save: ["mod", "enter"],
   fixField: ["alt", "f"],
   close: ["esc"],
+  notifications: ["alt", "t"],
 } satisfies Record<string, Keys>;
 
 export const SHORTCUT_GROUPS: {
@@ -217,6 +218,7 @@ export const SHORTCUT_GROUPS: {
       { keys: SHORTCUTS.openSearch, label: "Search, from any page" },
       { keys: SHORTCUTS.search, label: "Search this list" },
       { keys: SHORTCUTS.help, label: "Keyboard shortcuts" },
+      { keys: SHORTCUTS.notifications, label: "Go to notifications" },
     ],
   },
   {

@@ -1361,20 +1361,40 @@ dialog::backdrop {
   }
   /* Its action (Undo, Open that book) is a 44px tall target too */
   :root [data-sonner-toaster] [data-sonner-toast][data-styled="true"] :is([data-button], [data-cancel]) {
-    position: relative;
-  }
-  :root [data-sonner-toaster] [data-sonner-toast][data-styled="true"] :is([data-button], [data-cancel])::after {
-    content: "";
-    position: absolute;
-    inset: -10px 0;
+    min-width: 44px;
+    min-height: 44px;
   }
 }
+
+/* On touch every notification is a full row. A bounded scrollable stack
+   keeps older actions reachable even when several messages arrive together. */
+:root [data-sonner-toaster].toast-touch-stack {
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 14px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 2px;
+}
+:root [data-sonner-toaster].toast-touch-stack [data-sonner-toast][data-expanded="true"] {
+  position: relative;
+  inset: auto;
+  width: 100%;
+  height: auto;
+  flex-shrink: 0;
+  transform: none;
+  touch-action: pan-y;
+}
+
+[data-sonner-toast][data-styled="true"] [data-content] { align-self: flex-start; }
 
 /* A toast's icon sits on its first line (a 1.5 line-height title), not in the
    middle of a message that wraps */
 [data-sonner-toast][data-styled="true"] [data-icon] {
   align-self: flex-start;
-  margin-top: calc((1.5em - 16px) / 2);
+  display: block;
+  height: auto;
+  margin-top: 0;
 }
 
 /* ==========================================================================
