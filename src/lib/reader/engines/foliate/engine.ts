@@ -5,6 +5,7 @@ import { pageMarkerPhysicallyVisible } from "./page-marker-visibility";
 import type { PdfSearchProvider } from "./search";
 import { attachWordGestures, detailsFromRange, frameRectToHost, selectionHostRect } from "./selection";
 import { createNotes } from "./notes";
+import { clearNavigatedNotes, revealNavigatedNote } from "../../notes/navigation";
 import type { SearchRequest, SearchUpdate } from "../../search/types";
 import {
   classifyReaderLink,
@@ -1853,6 +1854,7 @@ class FoliateEngine implements ReaderEngine {
     if (!view || this.#destroyed) throw new Error("The book is closed.");
     if (owner?.signal.aborted)
       throw new DOMException("Cancelled", "AbortError");
+    for (const content of view.renderer.getContents()) clearNavigatedNotes(content.doc);
     this.#pdfTarget = this.#isPdf() && "v" in target && target.fileHash === this.#source?.sha256 && target.pdf?.rects?.length
       ? structuredClone(target) : null;
     this.#pageTarget = null;
@@ -2008,8 +2010,17 @@ class FoliateEngine implements ReaderEngine {
       !this.#book?.sections[resolved.index]
     )
       throw new Error("That place could not be found in this book.");
-    // Foliate's view.goTo catches and logs renderer failures. The adapter must propagate them.
-    await view.renderer.goTo(resolved);
+    // Notes stay out of the ordinary chapter flow. An explicit jump must reveal
+    // its target before the renderer measures it; a later jump hides it again.
+    const anchor = resolved.anchor;
+    await view.renderer.goTo({
+      ...resolved,
+      anchor: anchor ? (doc: Document) => {
+        const target = anchor(doc);
+        revealNavigatedNote(doc, target);
+        return target;
+      } : resolved.anchor,
+    });
   }
 
   /** A fraction of the book; for fixed layouts (PDF, comics), of its pages */
